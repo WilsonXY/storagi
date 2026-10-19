@@ -51,7 +51,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 15 | Fix shutdown closure and failed-logout recovery | Distinct failure-path implementation task | Completed; server31/web 19/types/build, RED→GREEN | [15](stages/15-failure-path-fixes.md) |
 | 16 | Integrate, verify UI and recheck publication | Coordinator | Completed locally;61 checks/mock 11/actual1; push403 | [16](stages/16-final-fix-integration.md) |
 | 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high confirmed | PASS; L2/L3 accepted, doc finding corrected | [17](stages/17-final-fix-review.md) |
-| 19 | Privacy audit, integration and history correction preparation | Coordinator | Current fix reviewed; candidate ready, history exception pending | [19](stages/19-public-path-privacy.md) |
+| 19 | Privacy audit, integration and history correction preparation | Coordinator | Current files pushed clean; history replacement awaits owner exception | [19](stages/19-public-path-privacy.md) |
 | 20 | Portable public documentation and deployment examples | Distinct sanitization task | Completed; zero tracked matches, unit verify passed | [20](stages/20-portable-paths.md) |
 | 21 | Independent privacy correction review | Fresh fallback gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [21](stages/21-public-path-review.md) |
 | 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked, screenshots uploaded; CI queued | [18](stages/18-publication.md) |
@@ -130,3 +130,5 @@ Owner identified machine-specific filesystem paths exposed in PR#1 and requested
 Public records now display normalized portable evidence paths; private literal originals and native logs remain local. Coordinator accepted stage20, independently confirmed actual gpt-6.1-sol/high, clarified server README data-directory permissions and added a persistent public-path rule. Application source/tests/dependencies unchanged.
 
 Privacy review21 PASS, actual gpt-6-astra/high independently confirmed from own native session, current tracked files and24-commit history candidate clean. Parent/remote/child invariance passed; review worktree/branch removed. Main exact unchanged. Coordinator publishes ordinary current-file fix and prepares a final regenerated candidate for narrow owner history exception; no forceupdate performed. Historical original IDs remain evidence of original checks; no false claim cached public objects erased.
+
+Current privacy correction published normally atb36f0e0 and8e152f2, PR#1 updated with reviewed portable files, no history overwritten. Public tracked scanzero; privacy reviewer21 PASS/actualAstrahigh proved and cleanup complete. Final local rewritten candidate is regenerated after closeout with current tree/main/history assertions; owner exception still needed for forced feature replacement. Earlier public commits/cached copies are not claimed erased. PR CIqueued, watchpaused for owner decision.
