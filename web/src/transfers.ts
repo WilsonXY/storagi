@@ -74,6 +74,13 @@ export function setupTransfers(root: HTMLElement, csrfToken: string, hooks: {
         request.getUnderlyingObject().withCredentials = true;
         if (['POST', 'PATCH', 'DELETE'].includes(request.getMethod().toUpperCase())) request.setHeader('X-CSRF-Token', csrfToken);
       },
+      onAfterResponse(_request, response) {
+        if (response.getStatus() === 401 || response.getStatus() === 403) {
+          // Stop before tus treats a rejected resume HEAD as a missing upload and removes its URL.
+          hooks.expired();
+          throw new Error('Session expired. Sign in, then reselect this file.');
+        }
+      },
       onUploadUrlAvailable() { void hooks.refresh(); },
       onProgress(sent) { item.sent = sent; render(item); },
       onSuccess() {

@@ -11,10 +11,12 @@ type Partial = { name: string; size: number; offset: number; chunks: Buffer[] };
 let authenticated = true;
 let budget = 200 * GiB;
 let failure = 0;
+let resumeAuthFailure = 0;
+const uploadRequests: { method: string; path: string; offset?: string }[] = [];
 let files: Copy[] = [];
 const partials = new Map<string, Partial>();
 function reset() {
-  authenticated = true; budget = 200 * GiB; failure = 0; partials.clear();
+  authenticated = true; budget = 200 * GiB; failure = 0; resumeAuthFailure = 0; partials.clear(); uploadRequests.length = 0;
   files = [
     ['studio-walkthrough.mp4', 2.4 * GiB], ['project-assets.zip', .82 * GiB],
     ['handoff-notes.pdf', 240 * 1024], ['project-assets.zip', .78 * GiB], ['weekend-selects.zip', 1.2 * GiB],
@@ -47,9 +49,23 @@ async function handle(request: IncomingMessage, response: ServerResponse, next: 
     else if (path === '/__test/session' && method === 'POST') authenticated = JSON.parse((await body(request)).toString()).authenticated;
     else if (path === '/__test/quota' && method === 'POST') budget = JSON.parse((await body(request)).toString()).budgetBytes;
     else if (path === '/__test/failure' && method === 'POST') failure = JSON.parse((await body(request)).toString()).status;
-    return send(response, 200, { authenticated, usedBytes: used(), reservedBytes: reserved(), budgetBytes: budget, partialCount: partials.size });
+    else if (path === '/__test/resume-auth' && method === 'POST') {
+      const status = JSON.parse((await body(request)).toString()).status;
+      if (status !== 401 && status !== 403) return send(response, 400);
+      resumeAuthFailure = status;
+    }
+    return send(response, 200, { authenticated, usedBytes: used(), reservedBytes: reserved(), budgetBytes: budget, partialCount: partials.size,
+      partials: [...partials].map(([id, partial]) => ({ id, size: partial.size, offset: partial.offset })), uploadRequests });
   }
   if (!path.startsWith('/api/') && !path.startsWith('/auth/')) return next();
+  if (path.startsWith('/api/uploads')) {
+    uploadRequests.push({ method, path, offset: request.headers['upload-offset'] as string | undefined });
+    if (uploadRequests.length > 100) uploadRequests.shift();
+    if (method === 'HEAD' && resumeAuthFailure) {
+      const status = resumeAuthFailure; resumeAuthFailure = 0; authenticated = false;
+      return send(response, status, { error: 'Synthetic session expired during resume.' });
+    }
+  }
   if (path === '/auth/login') { authenticated = true; response.writeHead(302, { Location: '/' }); return response.end(); }
   if (!authenticated) return send(response, 401, { error: 'Synthetic session expired.' });
   if (method !== 'GET' && method !== 'HEAD' && request.headers['x-csrf-token'] !== csrf) return send(response, 403, { error: 'Synthetic CSRF check failed.' });

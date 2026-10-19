@@ -1,0 +1,132 @@
+import { afterEach, expect, test, vi } from 'vitest';
+import { Upload, defaultOptions, type HttpStack, type HttpResponse } from 'tus-js-client';
+import { createDashboard } from '../src/dashboard';
+
+// Run the installed browser Upload, file reader, fingerprint and WebStorage code.
+// Only the HTTP transport is synthetic; no replacement resume/error logic.
+vi.mock('tus-js-client', () => vi.importActual<typeof import('tus-js-client')>('tus-js-client/lib.esm/browser/index.js'));
+
+const originalStack = defaultOptions.httpStack;
+afterEach(() => { defaultOptions.httpStack = originalStack; localStorage.clear(); document.body.replaceChildren(); });
+
+function service() {
+  let authenticated = true;
+  let csrf = 'first-session';
+  let headFailure = 0;
+  let creations = 0;
+  const partials = new Map<string, { size: number; offset: number }>();
+  const requests: { method: string; url: string; offset?: string; csrf?: string }[] = [];
+  const reply = (status: number, headers: Record<string, string> = {}): HttpResponse => ({
+    getStatus: () => status, getHeader: name => headers[name.toLowerCase()], getBody: () => '', getUnderlyingObject: () => ({}),
+  });
+  const stack: HttpStack = {
+    getName: () => 'synthetic-tus-service',
+    createRequest(method, url) {
+      const headers: Record<string, string> = {};
+      return {
+        getMethod: () => method, getURL: () => url,
+        setHeader: (name, value) => { headers[name.toLowerCase()] = value; }, getHeader: name => headers[name.toLowerCase()],
+        setProgressHandler() {}, getUnderlyingObject: () => ({}), abort: async () => {},
+        async send(body?: Blob) {
+          requests.push({ method, url, offset: headers['upload-offset'], csrf: headers['x-csrf-token'] });
+          if (method === 'HEAD' && headFailure) {
+            const status = headFailure; headFailure = 0;
+            if (status === 401 || status === 403) authenticated = false;
+            else partials.delete(url);
+            return reply(status);
+          }
+          if (!authenticated) return reply(401);
+          if (method !== 'HEAD' && headers['x-csrf-token'] !== csrf) return reply(403);
+          if (method === 'POST') {
+            const location = `${window.location.origin}/api/uploads/partial-${++creations}`;
+            partials.set(location, { size: Number(headers['upload-length']), offset: 0 });
+            return reply(201, { location });
+          }
+          const partial = partials.get(url);
+          if (!partial) return reply(404);
+          if (method === 'HEAD') return reply(200, { 'upload-offset': String(partial.offset), 'upload-length': String(partial.size) });
+          if (method === 'PATCH') {
+            if (Number(headers['upload-offset']) !== partial.offset) return reply(409);
+            partial.offset += body!.size;
+            if (partial.offset === partial.size) partials.delete(url);
+            return reply(204, { 'upload-offset': String(partial.offset) });
+          }
+          return reply(405);
+        },
+      };
+    },
+  };
+  defaultOptions.httpStack = stack;
+  const fetcher = async (url: RequestInfo | URL) => new Response(JSON.stringify(String(url) === '/api/session'
+    ? { authenticated: true, csrfToken: csrf }
+    : { files: [], usedBytes: 0, reservedBytes: [...partials.values()].reduce((sum, part) => sum + part.size, 0), budgetBytes: 1000 }), { status: authenticated ? 200 : 401 });
+  return {
+    stack, requests, partials,
+    get creations() { return creations; },
+    failHead(status: number) { headFailure = status; },
+    signIn() { authenticated = true; csrf = 'fresh-session'; },
+    async mount() { document.body.innerHTML = '<main id="app"></main>'; await createDashboard(document.querySelector('#app')!, { fetch: fetcher }); },
+  };
+}
+
+function select(...files: File[]) {
+  const picker = document.querySelector<HTMLInputElement>('#picker')!;
+  Object.defineProperty(picker, 'files', { configurable: true, value: files });
+  picker.dispatchEvent(new Event('change'));
+}
+
+async function interrupted(api: ReturnType<typeof service>, file: File) {
+  const upload = new Upload(file, {
+    endpoint: '/api/uploads', chunkSize: 4, httpStack: api.stack,
+    headers: { 'X-CSRF-Token': 'first-session' }, retryDelays: null,
+    onChunkComplete() { void upload.abort(false); },
+    onError(error) { throw error; },
+  });
+  upload.start();
+  await vi.waitFor(() => expect([...api.partials.values()]).toEqual([{ size: file.size, offset: 4 }]));
+  expect(await upload.findPreviousUploads()).toHaveLength(1);
+  return upload;
+}
+
+test.each([401, 403])('HEAD %i keeps the stored fingerprint and fresh sign-in resumes without another reservation', async status => {
+  const api = service();
+  const file = new File(['abcdefghijkl'], 'resume.zip', { lastModified: 1234 });
+  const seed = await interrupted(api, file);
+  const saved = await seed.findPreviousUploads();
+  const storage = { ...localStorage };
+  api.failHead(status);
+  await api.mount();
+  select(file, new File(['queued'], 'must-not-start.zip'));
+  await vi.waitFor(() => expect(document.querySelector('a[href="/auth/login"]')).not.toBeNull());
+  expect(document.querySelector('#files')).toBeNull();
+  expect({ ...localStorage }).toEqual(storage);
+  expect(await seed.findPreviousUploads()).toEqual(saved);
+  expect(api.creations).toBe(1);
+  expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD']);
+  expect([...api.partials.values()]).toEqual([{ size: 12, offset: 4 }]);
+
+  api.signIn();
+  await api.mount();
+  select(new File(['abcdefghijkl'], 'resume.zip', { lastModified: 1234 }));
+  await vi.waitFor(() => expect(document.body.textContent).toContain('On your shelf'));
+  expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'HEAD', 'PATCH']);
+  expect(api.requests.at(-1)).toEqual({ method: 'PATCH', url: saved[0].uploadUrl, offset: '4', csrf: 'fresh-session' });
+  expect(api.creations).toBe(1);
+  expect(api.partials.size).toBe(0);
+  expect(await seed.findPreviousUploads()).toHaveLength(0);
+});
+
+test.each([404, 410])('HEAD %i discards an expired partial and starts a fresh upload', async status => {
+  const api = service();
+  const file = new File(['abcdefghijkl'], 'expired.zip', { lastModified: 1234 });
+  await interrupted(api, file);
+  api.failHead(status);
+  await api.mount();
+  select(file);
+  await vi.waitFor(() => expect(document.body.textContent).toContain('On your shelf'));
+  expect(document.querySelector('a[href="/auth/login"]')).toBeNull();
+  expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'POST', 'PATCH']);
+  expect(api.requests.at(-1)).toMatchObject({ offset: '0' });
+  expect(api.creations).toBe(2);
+  expect(api.partials.size).toBe(0);
+});
