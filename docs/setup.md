@@ -13,7 +13,7 @@ npm run setup
 npm run check
 ```
 
-The root check runs behavior/security tests, TypeScript checks and both builds sequentially. There is no separate lint configuration. Tests use temporary synthetic objects and a signed test OIDC provider; they never require owner files or real Google credentials. Browser mock checks are separate and are not proof of real Google login.
+The root check runs behavior/security and independent HTTP acceptance tests, TypeScript checks and both builds sequentially. There is no separate lint configuration. Tests use temporary synthetic objects and a signed test OIDC provider; they never require owner files or real Google credentials. Browser mock checks are separate and are not proof of real Google login.
 
 ## Required Google configuration
 
@@ -21,7 +21,15 @@ Create a Google OAuth web client in an owner-controlled Google project. Use only
 
 The checked-in server environment example documents required values. Store the completed environment outside Git, readable only by the service owner; never put credentials in issues, stage records, screenshots or a PR. Required values are `PUBLIC_ORIGIN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OWNER_GOOGLE_SUB` and absolute `DATA_DIR`. Default budget is 214748364800 bytes (200 GiB), with 1 GiB additional filesystem headroom and loopback port 8787. DATA_DIR must be persistent storage outside the public web directory and outside `/tmp`.
 
-Owner-binding command and final startup instructions will be reconciled with the completed service before handoff.
+For controlled owner binding, register the additional loopback callback `http://127.0.0.1:8989/callback` on the same web client. After building, run the standalone local command from `server/` with GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET supplied through the private process environment:
+
+```sh
+node dist/src/enroll.js
+```
+
+Open its printed Google URL on this machine, select the intended owner account and copy the verified subject into the private environment as OWNER_GOOGLE_SUB. The CLI checks the signed Google identity with state, nonce and PKCE, listens only on loopback, times out after ten minutes, and never changes application ownership/configuration automatically. It does not log tokens. The actual Google registration/flow still needs owner verification.
+
+To run the built app with the private environment loaded, use `npm start` from the repository root. It binds `127.0.0.1:8787` by default; all production login/file cookies require the configured HTTPS origin. `DATA_DIR` and the public dashboard build directory must be separate. Do not substitute dummy identity credentials or disable authentication to obtain a live preview.
 
 ## Prepared service configuration
 
