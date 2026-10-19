@@ -48,6 +48,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 12 | Continue cleanup after individual failures | Fresh cleanup fix task | Completed; 30 tests/types/build | [12](stages/12-cleanup-timeout-fix.md) |
 | 13 | Independent review round 3 | Fresh Claude Opus 5.5/high | PASS; low shutdown L2 reported | [13](stages/13-review-round-3.md) |
 | 14 | Owner-requested fallback rerun of review round 3 | Fresh Codex gpt-6-astra/high confirmed | PASS; known L2 + new low L3 reported | [14](stages/14-review-round-3-fallback.md) |
+| 15 | Fix shutdown closure and failed-logout recovery | Distinct failure-path implementation task | Planned | [15](stages/15-failure-path-fixes.md) |
+| 16 | Integrate, verify UI and recheck publication | Coordinator | Planned | [16](stages/16-final-fix-integration.md) |
+| 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high requested | Planned | [17](stages/17-final-fix-review.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Local handoff complete; publication blocked by HTTP 403 | [07](stages/07-handoff.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
@@ -101,3 +104,9 @@ Final completion entry (2026-10-19): reviewed product source e22757e, final revi
 Owner follow-up (2026-10-19): “use the fallback reviewer to CR 3 round again.” Stage14 preserves the original Claude round3 and independently reruns it with Codex gpt-6-astra/high at the owner’s request, rather than claiming Claude is unavailable. This explicit request authorizes the additional review beyond the original three-round workflow. Stage13 literal task/snapshot references corrected (accidental spaces only); verdict unchanged.
 
 Fallback review completion: stage14 PASS with actual OpenAI gpt-6-astra/high confirmed from own Codex turn_context metadata. All previous fixes accepted; low L2 shutdown and new L3 failed-signout transfer freeze remain reported/unfixed. Parent HEAD/status/remote heads and child clean baseline matched; child worktree/branch removed. No product changes or new test/deployment claims.
+
+## Owner-authorized final low-bug fixes
+
+Owner said “go” after the proposed fixes, regression tests, independent review and publication/setup sequence. Continue local work now; no renewed deployment/exposure approval or credential handling is implied. Existing owner request selects fallback Codex gpt-6-astra/high for fresh review. GitHub recheck still shows authenticated luna-agent1 with pull=true/push=false; no account change or fork assumed.
+
+Plan: stage15 distinct implementation agent owns the two small failure-path fixes and RED→GREEN regressions; stage16 coordinator integrates, runs combined checks and actual UI failure-path proof, rechecks publication; stage17 fresh isolated fallback review after committing source/evidence. Preserve original14 verdict and known findings. Serialize tests/build/browser work on this host. Record actual native model/effort proof and all failures.
