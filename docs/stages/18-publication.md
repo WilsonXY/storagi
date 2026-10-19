@@ -1,6 +1,6 @@
 # 18: Publish reviewed implementation and verify CI
 
-- Status: in progress — write access confirmed, preparing feature publication.
+- Status: publication completed; CI queued and watch handoff pending.
 - Started: 2026-10-19T16:20:54.415276+00:00.
 - Coordinator: /root, T3 `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`, actual injected runtime Codex gpt-6.1-sol/high.
 - Native coordinator session from original implementation:01a15442-04e0-7132-b427-d958e244d053; no new delegated implementation/review task for this coordinator-only publication stage.
@@ -23,8 +23,20 @@ Planned next commands: documentation commit, git push -u origin HEAD, gh pr crea
 
 ## Findings and limitations
 
-Original403 access blocker resolved by actual permission read; push not yet attempted this stage. Nothing merged/deployed/exposed. Real Google registration/owner binding, HTTPS/network/intended devices and representative ZIP/MP4 remain unverified; prior generated2GiB proof is stage11.
+Original403 access blocker resolved; actual feature push and PR creation succeeded this stage. Nothing merged/deployed/exposed. Real Google registration/owner binding, HTTPS/network/intended devices and representative ZIP/MP4 remain unverified; prior generated2GiB proof is stage11.
 
 ## Handoff
 
 Pending actual push/PR/attachment/link/CI results. Coordinator maintains central index and stops owned watch at final handoff; do not leave test/dev servers or extra worktrees.
+
+## Actual publication results
+
+- Planning/documentation commitd14ccff5d7f62e4d584efa861f0d7a44c0b6cd28; `git diff --check` exit0. Product unchanged from reviewedbbc3600.
+- `git push -u origin HEAD` exit0: new feat/storagi branch created and tracks origin/feat/storagi. Main/history untouched.
+- `gh pr create -R WilsonXY/storagi --base main --head feat/storagi --title 'feat: add owner-only temporary file shelf' --body-file $HOME/.cache/storagi/pr-publication-body.md` with three --attach flags exit0: https://github.com/WilsonXY/storagi/pull/1 (open, not draft, mergeable).
+- Attached current stage16 actual-service1440/390 screenshots with signed-synthetic-identity captions, plus mock failed500logout→upload recovery screenshot. Each under150kB. `gh pr view --json body` independently verified three GitHub user-attachments URLs, not local image references. Private identities/data/credentials not used or uploaded. Local generated payloads/logs remain ignored.
+- Immediately T3 link_pull_request succeeded, alreadyLinked=false. This PR belongs to current thread.
+- Actual PR read atd14ccff: push/pull_request Check jobs queued, not yet passed. Example runs39284743329/39284782748; metadata snapshot `$HOME/.cache/storagi/pr-publication-state.json`. Native T3 watch follows latest pushed documentation; no polling watcher or CI success assumption.
+- Earlier wrong workflow filename inspection is retained above. No publication failures after owner grant. No code or host changes, no default push/merge/deployment.
+
+Next: push this publication record/index, T3 watch current PR checks. Complete record after actual run outcome, stop watch for final handoff. Google/exposure setup still requires owner-controlled configuration and later approval; not part of PR publication.

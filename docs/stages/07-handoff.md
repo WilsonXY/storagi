@@ -1,6 +1,6 @@
 # 07: Coordinator final handoff and publication
 
-- Status: blocked on repository publication access; local implementation/check/review and handoff complete.
+- Status: local implementation/check/review complete; original publication blocker resolved in18, PR open and CI pending.
 - Date: 2026-10-19, Asia/Kuala_Lumpur.
 - Coordinator thread: mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a; native session 01a15442-04e0-7132-b427-d958e244d053.
 - Actual provider/model/effort: Codex gpt-6.1-sol/high, confirmed from own session turn_context metadata. Reviewer settings/evidence are separately confirmed in stages 06/10/13/14.
@@ -34,3 +34,7 @@ Local application is concrete, committed, verified and independently reviewed; p
 Owner said go after the proposed L2/L3 fixes. Stage15 implemented both with observed RED→GREEN; stage16 independently repeated combined61 (server31/web 19/HTTP 11), types/builds and mock 11/actual service 1 browser proofs. Product now includes two small failure-path changes beyond e22757e; earlier unfixed/historical review statements above describe the original handoff. Fresh fallback review17 pending, same publication/Google/deployment boundaries. No new live service or credential configuration.
 
 Final follow-up result: stage17 PASS, actual gpt-6-astra/high proved from own log, both L2/L3 resolved/accepted; no blocking code/security finding. Low stale-documentation finding corrected. All five reviewer contexts passed invariance and were cleaned. Fresh actual feature push at bbc3600 again exit128/HTTP403 denied to luna-agent1, no PR/remote CI; owner write access needed. Original unfixed statements above are historical; current application includes verified/reviewed fixes. No credentials, Google configuration, deployment, exposure or existing host settings changed.
+
+## Publication access resolved
+
+Owner's access update verified by actual API push=true and successful feature push. PR https://github.com/WilsonXY/storagi/pull/1 is open/linked with three GitHub-hosted synthetic screenshots. Earlier403/noPR statements above are historical failure evidence. Current CI and publication closeout are stage18; no deployment/Google setup performed.

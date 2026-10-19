@@ -51,8 +51,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 15 | Fix shutdown closure and failed-logout recovery | Distinct failure-path implementation task | Completed; server31/web 19/types/build, RED→GREEN | [15](stages/15-failure-path-fixes.md) |
 | 16 | Integrate, verify UI and recheck publication | Coordinator | Completed locally;61 checks/mock 11/actual1; push403 | [16](stages/16-final-fix-integration.md) |
 | 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high confirmed | PASS; L2/L3 accepted, doc finding corrected | [17](stages/17-final-fix-review.md) |
-| 18 | Publish reviewed branch, PR proof and CI | Coordinator | In progress; write access confirmed | [18](stages/18-publication.md) |
-| 07 | Final handoff, publication and setup status | Coordinator | Local handoff complete; publication blocked by HTTP 403 | [07](stages/07-handoff.md) |
+| 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked, screenshots uploaded; CI queued | [18](stages/18-publication.md) |
+| 07 | Final handoff, publication and setup status | Coordinator | Prior handoff/access failures retained; publication resumed in18 | [07](stages/07-handoff.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -117,3 +117,5 @@ Current final follow-up: product bbc3600 fixes both low bugs,61 checks/types/bui
 ## Publication resumed after owner access update
 
 On2026-10-20 Asia/Kuala_Lumpur the owner replied “done” to the repository write-access request. Actual gh API confirms luna-agent1 push=true/triage=true; authentication succeeds. Default main remains0d168b1, local60d1acb clean and no existing feature PR/ref. Stage18 coordinator publishes the reviewed branch, creates/links PR with synthetic UI screenshots, records live CI and watches through T3. Original403 attempts are retained as history. No source changes, new code review or local test rerun required for publication metadata alone; reviewed productbbc3600/current61-check evidence unchanged. Google/deployment boundaries remain.
+
+Stage18 actual publication: authorized feature push succeeded atd14ccff, PR https://github.com/WilsonXY/storagi/pull/1 open againstmain, T3 link succeeded and three synthetic UI screenshots uploaded/hosted URLs verified. CI queued, not yet claimed green. No source change or deployment.
