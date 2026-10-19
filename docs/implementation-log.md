@@ -1,0 +1,88 @@
+# Storagi implementation log
+
+## Owner's instruction
+
+On 2026-10-19, after confirming the design, the owner requested: “i need every stages done by different agents during the implementation to be documented down. continue the implementation in a new thread.”
+
+Implementation is authorized in that new thread. This log and `AGENTS.md` make the documentation requirement persistent for the coordinator and all delegated agents.
+
+## Recording rules
+
+- The coordinator writes a staged plan and assigns a distinct agent/task to each meaningful delegated implementation stage. Keep stages bounded and avoid splitting trivial work just to increase the agent count.
+- Add a row to the stage index before starting a stage. Use a separate `docs/stages/NN-short-name.md` record for each delegated stage and each independent review round.
+- Each writable stage agent creates/updates its own record; the coordinator maintains this index and records integration work. For read-only review, the coordinator creates the record from the reviewer's returned report and independently checked evidence.
+- Log outcomes at completion or handoff, including failures, blocked work, cancellations, retries, and findings that require another round. Never overwrite a previous review round with a later result.
+- Every stage record must state what was checked, what passed/failed, and what remains unverified. Include evidence paths or links where useful.
+- Requested model/effort settings are not proof of actual settings. Label unknown or unverified metadata honestly; confirm from the agent's own session/runtime evidence where available. Preserve the owner's stronger reviewer-proof requirements.
+- Do not put secrets or raw private data in these records. Short explanations and relevant command results are sufficient; full internal reasoning and copied tool transcripts are not needed.
+
+## Preparation already completed
+
+- **Design/source thread:** `3ae79eee-42e1-4ceb-a47b-4cd2d7bb5a7c` — [Assess Self-Hosted Cross-Device Storage](t3-thread://v1/3ae79eee-42e1-4ceb-a47b-4cd2d7bb5a7c).
+- **Coordinator:** `/root` in that source thread. The runtime identifies it as Codex `gpt-6.1-sol`, high reasoning effort.
+- **Research agent:** `/root/host_feasibility`, delegated read-only exploration and research. Its exact independent provider/model/effort was not recorded in the handoff; no claim is made about those settings.
+- **Work completed:** scope interview, confirmed requirements, primary-source research, read-only host/network feasibility checks, `README.md`, and `docs/design-and-feasibility.md`.
+- **Preparation verification:** local documentation links and whitespace checked; no application tests existed or were run.
+- **Host changes:** none. No dependencies installed, services configured, OAuth clients created, or Funnel endpoints activated.
+- **Workspace finding:** Storagi has no dedicated Git repository yet. Git currently resolves to an uncommitted parent repository containing unrelated projects. The implementation thread must establish repository isolation before coding.
+- **This handoff:** repository instructions and this implementation log were added before launching the new implementation thread. Application implementation has not started in the source thread.
+
+## Implementation thread
+
+Implementation coordinator: `/root`, [Implement Storagi with Documented Agent Stages](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a), started 2026-10-19. T3 catalog and runtime identify Codex `gpt-6.1-sol`; runtime confirms high effort. Native Codex session: `01a15442-04e0-7132-b427-d958e244d053`.
+
+## Stage index
+
+| Stage | Scope | Agent/task/thread | Status | Record | Handoff/result |
+| --- | --- | --- | --- | --- | --- |
+| 01 | Repository isolation, stage plan, API agreement | coordinator /root | in progress | [01](stages/01-foundation.md) | Local baseline before child work |
+| 02 | Owner authentication, resumable service, storage rules and security tests | distinct service agent, task pending | planned | [02](stages/02-file-service.md) | Service API and test evidence |
+| 03 | Responsive custom dashboard and tus browser client | distinct dashboard agent, task pending | planned | [03](stages/03-dashboard.md) | UI and build evidence; independent from service via API agreement |
+| 04 | Integration, deployable configuration and local verification | coordinator /root | planned | [04](stages/04-integration.md) | Integrated committed baseline |
+| 05 | Independent acceptance/security checks | distinct acceptance agent, task pending | planned | [05](stages/05-acceptance.md) | Behavior evidence and limitations |
+| 06 | Independent read-only review round 1 | Claude Opus 5.5 high requested, not yet run | planned | [06](stages/06-review-round-1.md) | Findings, runtime proof, invariance checks |
+| 07 | Final verification, PR/CI feasibility and owner handoff | coordinator /root | planned | [07](stages/07-handoff.md) | Actual implementation/setup/deployment status |
+
+Dependency order: 01 → independent 02 + 03 → 04 → 05 → 06 → 07. Additional review/fix rounds get new records. No public remote is assumed or created.
+
+## Stage record template
+
+Copy the following into the assigned stage file and fill it with actual evidence:
+
+```markdown
+# NN: Stage title
+
+- Status: planned / in progress / completed / blocked / failed / cancelled
+- Started / last updated / completed: timestamps with timezone
+- Coordinator thread:
+- Agent/task/thread identifiers:
+- Provider/model/effort: actual values and evidence, or explicitly unverified
+- Workspace/branch and starting commit:
+- Scope and acceptance criteria:
+
+## Decisions
+
+Concise decisions and their reasons; link scope changes to the owner's instruction.
+
+## Changes
+
+Files/components and resulting behavior; ending commits or commit range.
+
+## Verification
+
+Commands actually run, results, and artifact/log paths. Separate planned checks
+and real-world checks that could not be exercised. Do not include credentials.
+
+## Findings and limitations
+
+Failures, review findings, responses, unresolved concerns, and blockers.
+
+## Handoff
+
+What the next stage receives, remaining work, and dependencies. For a review,
+include the coordinator's repository invariance checks and worktree cleanup.
+```
+
+## Completion record
+
+Before handing the implementation back, the coordinator must reconcile the stage index, record final verification and independent review, link any PR and current CI outcome, and distinguish working application behavior from Google-account setup or deployment/network checks still requiring the owner.
