@@ -28,3 +28,7 @@ After owner setup and deployment approval, validate real owner/other-account aut
 ## Handoff
 
 Local application is concrete, committed, verified and independently reviewed; publication/external setup status must be stated separately in final report. Final git status was clean before final documentation reconciliation; after committing this record it is checked again. A portable bundle is created at artifacts/storagi-implementation.bundle after the final documentation commit; its SHA256 is stored alongside it. It contains committed source/history only, not ignored evidence, dependencies or private configuration. No PR or watch is linked. Known development/enrollment ports 5174/8787/8989 have no listeners; all owned tests/browsers/services stopped. Remaining owner actions are repository write access, private Google setup, and later explicit deployment/exposure approval. No PR, CI, Google or deployment success is implied.
+
+## Owner-authorized low-fix follow-up
+
+Owner said go after the proposed L2/L3 fixes. Stage15 implemented both with observed RED→GREEN; stage16 independently repeated combined61 (server31/web19/HTTP11), types/builds and mock11/actualservice1 browser proofs. Product now includes two small failure-path changes beyond e22757e; earlier unfixed/historical review statements above describe the original handoff. Fresh fallback review17 pending, same publication/Google/deployment boundaries. No new live service or credential configuration.

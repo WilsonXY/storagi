@@ -91,7 +91,6 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
       finally { button.disabled = false; }
     });
     root.querySelector('#logout')!.addEventListener('click', async () => {
-      stopTransfers();
       try { await request('/auth/logout', 'POST'); showLogin(); }
       catch (error) { notice((error as Error).message, true); }
     });

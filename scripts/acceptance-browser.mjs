@@ -200,6 +200,56 @@ try {
       assert.deepEqual(await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([key]) => key.startsWith('tus::')))), {});
       evidence.flows.push({ status, originalId: partial.id, resumedOffset: partial.offset, extraCreations: 0, fingerprintPreserved: true, requests });
     });
+    for (const failure of ['500', 'network']) await t.test(`failed logout ${failure} keeps upload selection usable without reload`, async () => {
+      await fetch(`${base}/__test/reset`, { method: 'POST' });
+      await page.goto(base);
+      await page.setViewportSize({ width: failure === '500' ? 390 : 1440, height: 1000 });
+      await page.route('**/auth/logout', route => failure === 'network'
+        ? route.abort('failed')
+        : route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Synthetic logout unavailable.' }) }));
+      try {
+        await page.getByRole('button', { name: /Sign out/ }).click();
+        await page.locator('#notice.error').waitFor({ state: 'visible' });
+        assert.equal(await page.locator('#picker').count(), 1);
+        const name = `after-logout-${failure}.bin`, payload = Buffer.alloc(1024 * 1024, 0x67);
+        await page.locator('#picker').setInputFiles({ name, mimeType: 'application/octet-stream', buffer: payload });
+        const row = page.locator('[data-file-id]').filter({ hasText: name });
+        await row.waitFor();
+        const id = await row.getAttribute('data-file-id');
+        const response = await fetch(`${base}/api/files/${id}/download`);
+        assert.equal(response.status, 200);
+        assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), createHash('sha256').update(payload).digest('hex'));
+        const screenshot = `MOCKED-logout-${failure}-recovered.png`;
+        await page.screenshot({ path: `${artifacts}/${screenshot}`, fullPage: true });
+        evidence.screenshots.push(screenshot);
+        evidence.flows.push({ logoutFailure: failure, uploadAfterFailure: name, hashMatches: true, reloaded: false });
+      } finally { await page.unroute('**/auth/logout'); }
+    });
+    await t.test('successful logout locks dashboard and stops active and queued uploads', async () => {
+      await fetch(`${base}/__test/reset`, { method: 'POST' });
+      await page.goto(base);
+      const chunk = page.waitForResponse(response => response.request().method() === 'PATCH' && response.status() === 204);
+      await page.locator('#picker').setInputFiles([
+        { name: 'logout-active.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(24 * 1024 ** 2, 0x68) },
+        { name: 'logout-queued.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(1024, 0x69) },
+      ]);
+      await chunk;
+      await page.getByRole('button', { name: /Sign out/ }).click();
+      await page.getByRole('link', { name: /Continue with Google/ }).waitFor();
+      assert.equal(await page.locator('#picker').count(), 0);
+      // Wait past the mock's 600ms chunk delay to observe stopped queue behavior.
+      await page.waitForTimeout(1500);
+      const state = await (await fetch(`${base}/__test/state`)).json();
+      assert.equal(state.authenticated, false);
+      assert.equal(state.uploadRequests.filter(request => request.method === 'POST').length, 1);
+      assert.equal(state.partialCount, 1);
+      assert.ok(state.partials[0].offset < state.partials[0].size);
+      assert.ok(state.reservedBytes > 0, 'sign-out preserves resumable partial reservation');
+      const screenshot = 'MOCKED-logout-stopped.png';
+      await page.screenshot({ path: `${artifacts}/${screenshot}`, fullPage: true });
+      evidence.screenshots.push(screenshot);
+      evidence.flows.push({ successfulLogout: true, queuedUploadStarted: false, partialPreserved: true });
+    });
     assert.deepEqual(pageErrors, [], 'No uncaught browser errors');
   });
 } finally {

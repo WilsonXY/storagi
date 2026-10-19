@@ -149,6 +149,6 @@ export async function createApp(config:Config,options:AppOptions={}) {
  }
  const server=http.createServer((req,res)=>{void handle(req,res).catch(error=>{if(res.headersSent){res.destroy();return;}json(res,error instanceof HttpError?error.status:500,{error:error instanceof HttpError?error.message:'Request failed'});});});
  server.requestTimeout=15*60000;
- async function close(){clearInterval(timer);if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await cleaning;storage.close();}
+ async function close(){clearInterval(timer);if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));try{await cleaning;}finally{storage.close();}}
  return {server,storage,auth,close,cleanup};
 }

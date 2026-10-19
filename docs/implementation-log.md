@@ -48,9 +48,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 12 | Continue cleanup after individual failures | Fresh cleanup fix task | Completed; 30 tests/types/build | [12](stages/12-cleanup-timeout-fix.md) |
 | 13 | Independent review round 3 | Fresh Claude Opus 5.5/high | PASS; low shutdown L2 reported | [13](stages/13-review-round-3.md) |
 | 14 | Owner-requested fallback rerun of review round 3 | Fresh Codex gpt-6-astra/high confirmed | PASS; known L2 + new low L3 reported | [14](stages/14-review-round-3-fallback.md) |
-| 15 | Fix shutdown closure and failed-logout recovery | Distinct failure-path implementation task | Planned | [15](stages/15-failure-path-fixes.md) |
-| 16 | Integrate, verify UI and recheck publication | Coordinator | Planned | [16](stages/16-final-fix-integration.md) |
-| 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high requested | Planned | [17](stages/17-final-fix-review.md) |
+| 15 | Fix shutdown closure and failed-logout recovery | Distinct failure-path implementation task | Completed; server31/web19/types/build, RED→GREEN | [15](stages/15-failure-path-fixes.md) |
+| 16 | Integrate, verify UI and recheck publication | Coordinator | Verified; combined61/mock11/actual1 passed; publication pending | [16](stages/16-final-fix-integration.md) |
+| 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high requested | Preparing committed review baseline | [17](stages/17-final-fix-review.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Local handoff complete; publication blocked by HTTP 403 | [07](stages/07-handoff.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.

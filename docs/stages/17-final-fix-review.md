@@ -1,6 +1,6 @@
 # 17: Final-fix fallback independent review
 
-- Status: planned.
+- Status: in progress — preparing committed source for fresh isolated review.
 - Started/updated: 2026-10-19T15:45:14.027783+00:00.
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`.
 - Owner: fresh review task pending.
@@ -24,3 +24,7 @@ Known L2/L3 currently unfixed. PR publication previously403 and current API push
 ## Handoff
 
 Pending task completion and central-index reconciliation; do not claim deployment, real Google or PR/CI proof.
+
+## Review preparation
+
+Owner’s fallback selection persists for this authorized follow-up; use fresh Codex gpt-6-astra/high, not another turn in prior reviewer. Live catalog queried again and confirms target/option. Stage15 implements L2 via try/finally storage close with original cleanup rejection preserved; L3 removes premature pre-request transfer stop and retains showLogin stop on204/401/403. RED→GREEN regressions plus coordinator61 checks/types/build, mock11/0 and actual1/0 passed. Stage16 has command/artifact boundaries; no Google/WAN claim. Snapshot baseline after commit before dispatch; do not edit parent while reviewer runs. Actual model/effort/invariance and cleanup still pending.

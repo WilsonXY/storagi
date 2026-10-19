@@ -9,11 +9,14 @@ vi.mock('tus-js-client', () => vi.importActual<typeof import('tus-js-client')>('
 const originalStack = defaultOptions.httpStack;
 afterEach(() => { defaultOptions.httpStack = originalStack; localStorage.clear(); document.body.replaceChildren(); });
 
-function service() {
+function service(logout: number | 'network' = 204) {
   let authenticated = true;
   let csrf = 'first-session';
   let headFailure = 0;
   let creations = 0;
+  let holdPatch = false;
+  let releasePatch = () => {};
+  const aborts: { method: string; url: string }[] = [];
   const partials = new Map<string, { size: number; offset: number }>();
   const requests: { method: string; url: string; offset?: string; csrf?: string }[] = [];
   const reply = (status: number, headers: Record<string, string> = {}): HttpResponse => ({
@@ -23,12 +26,19 @@ function service() {
     getName: () => 'synthetic-tus-service',
     createRequest(method, url) {
       const headers: Record<string, string> = {};
+      let aborted = false;
       return {
         getMethod: () => method, getURL: () => url,
         setHeader: (name, value) => { headers[name.toLowerCase()] = value; }, getHeader: name => headers[name.toLowerCase()],
-        setProgressHandler() {}, getUnderlyingObject: () => ({}), abort: async () => {},
+        setProgressHandler() {}, getUnderlyingObject: () => ({}),
+        async abort() { aborted = true; aborts.push({ method, url }); releasePatch(); },
         async send(body?: Blob) {
           requests.push({ method, url, offset: headers['upload-offset'], csrf: headers['x-csrf-token'] });
+          if (method === 'PATCH' && holdPatch) {
+            holdPatch = false;
+            await new Promise<void>(resolve => { releasePatch = resolve; });
+            if (aborted) throw new Error('Request aborted');
+          }
           if (method === 'HEAD' && headFailure) {
             const status = headFailure; headFailure = 0;
             if (status === 401 || status === 403) authenticated = false;
@@ -57,13 +67,22 @@ function service() {
     },
   };
   defaultOptions.httpStack = stack;
-  const fetcher = async (url: RequestInfo | URL) => new Response(JSON.stringify(String(url) === '/api/session'
-    ? { authenticated: true, csrfToken: csrf }
-    : { files: [], usedBytes: 0, reservedBytes: [...partials.values()].reduce((sum, part) => sum + part.size, 0), budgetBytes: 1000 }), { status: authenticated ? 200 : 401 });
+  const fetcher = async (url: RequestInfo | URL) => {
+    if (String(url) === '/auth/logout') {
+      if (logout === 'network') throw new TypeError('Failed to fetch');
+      if ([204, 401, 403].includes(logout)) authenticated = false;
+      return new Response(logout === 204 ? null : JSON.stringify({ error: 'Logout failed' }), { status: logout });
+    }
+    return new Response(JSON.stringify(String(url) === '/api/session'
+      ? { authenticated: true, csrfToken: csrf }
+      : { files: [], usedBytes: 0, reservedBytes: [...partials.values()].reduce((sum, part) => sum + part.size, 0), budgetBytes: 1000 }), { status: authenticated ? 200 : 401 });
+  };
   return {
-    stack, requests, partials,
+    stack, requests, partials, aborts,
     get creations() { return creations; },
     failHead(status: number) { headFailure = status; },
+    holdNextPatch() { holdPatch = true; },
+    releasePatch() { releasePatch(); },
     signIn() { authenticated = true; csrf = 'fresh-session'; },
     async mount() { document.body.innerHTML = '<main id="app"></main>'; await createDashboard(document.querySelector('#app')!, { fetch: fetcher }); },
   };
@@ -129,4 +148,69 @@ test.each([404, 410])('HEAD %i discards an expired partial and starts a fresh up
   expect(api.requests.at(-1)).toMatchObject({ offset: '0' });
   expect(api.creations).toBe(2);
   expect(api.partials.size).toBe(0);
+});
+
+test.each(['network', 500] as const)('failed logout (%s) keeps file selection and resumable queue usable', async failure => {
+  const api = service(failure);
+  const file = new File(['abcdefghijkl'], 'resume.zip', { lastModified: 1234 });
+  const seed = await interrupted(api, file);
+  const saved = await seed.findPreviousUploads();
+  await api.mount();
+  const picker = document.querySelector<HTMLInputElement>('#picker')!;
+  document.querySelector<HTMLButtonElement>('#logout')!.click();
+  await vi.waitFor(() => expect(document.querySelector('#notice')?.textContent).toContain(failure === 'network' ? 'Failed to fetch' : 'Logout failed'));
+  expect(document.querySelector('#picker')).toBe(picker);
+  expect(document.querySelector('a[href="/auth/login"]')).toBeNull();
+  expect(await seed.findPreviousUploads()).toEqual(saved);
+  expect([...api.partials.values()]).toEqual([{ size: 12, offset: 4 }]);
+  const choose = vi.spyOn(picker, 'click');
+  document.querySelector<HTMLButtonElement>('#choose')!.click();
+  expect(choose).toHaveBeenCalledOnce();
+  select(file, new File(['queued'], 'next.zip'));
+  await vi.waitFor(() => expect([...document.querySelectorAll('.transfer-status')].map(row => row.textContent)).toEqual([
+    'On your shelf · 12 B / 12 B', 'On your shelf · 6 B / 6 B',
+  ]));
+  expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH', 'POST', 'PATCH']);
+  expect(api.requests[3]).toMatchObject({ url: saved[0].uploadUrl, offset: '4', csrf: 'first-session' });
+  expect(api.creations).toBe(2);
+  expect(api.partials.size).toBe(0);
+  expect(await seed.findPreviousUploads()).toHaveLength(0);
+});
+
+test.each([204, 401, 403])('logout %i locks the shelf and stops active/queued transfers while preserving resume', async status => {
+  const api = service(status);
+  const file = new File(['abcdefghijkl'], 'resume.zip', { lastModified: 1234 });
+  const seed = await interrupted(api, file);
+  const saved = await seed.findPreviousUploads();
+  api.holdNextPatch();
+  try {
+    await api.mount();
+    const picker = document.querySelector<HTMLInputElement>('#picker')!;
+    select(file, new File(['queued'], 'must-not-start.zip'));
+    await vi.waitFor(() => expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH']));
+    const storage = { ...localStorage };
+    const abortedBefore = api.aborts.length;
+    document.querySelector<HTMLButtonElement>('#logout')!.click();
+    await vi.waitFor(() => expect(document.querySelector('a[href="/auth/login"]')).not.toBeNull());
+    expect(document.querySelector('#files')).toBeNull();
+    expect(api.aborts.slice(abortedBefore)).toEqual([{ method: 'PATCH', url: saved[0].uploadUrl }]);
+    // Even a retained input cannot add work after the authenticated view is removed.
+    Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['late'], 'late.zip')] });
+    picker.dispatchEvent(new Event('change'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH']);
+    expect({ ...localStorage }).toEqual(storage);
+    expect(await seed.findPreviousUploads()).toEqual(saved);
+    expect([...api.partials.values()]).toEqual([{ size: 12, offset: 4 }]);
+
+    api.signIn();
+    await api.mount();
+    select(file);
+    await vi.waitFor(() => expect(document.body.textContent).toContain('On your shelf'));
+    expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH', 'HEAD', 'PATCH']);
+    expect(api.requests.at(-1)).toMatchObject({ url: saved[0].uploadUrl, offset: '4', csrf: 'fresh-session' });
+    expect(api.creations).toBe(1);
+    expect(api.partials.size).toBe(0);
+    expect(await seed.findPreviousUploads()).toHaveLength(0);
+  } finally { api.releasePatch(); }
 });
