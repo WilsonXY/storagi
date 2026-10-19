@@ -58,7 +58,12 @@ export async function createApp(config:Config,options:AppOptions={}) {
    if(cleaning)return cleaning;
    cleaning=(async()=>{
      auth.prune();
-     for(const row of storage.rows())if(row.expiresAt<=storage.now())await locks.with(row.id,async()=>{const current=storage.get(row.id);if(current&&current.expiresAt<=storage.now())await transfers.remove(row.id);});
+     let failure:{error:unknown}|undefined;
+     for(const row of storage.rows())if(row.expiresAt<=storage.now()) {
+       try{await locks.with(row.id,async()=>{const current=storage.get(row.id);if(current&&current.expiresAt<=storage.now())await transfers.remove(row.id);});}
+       catch(error){failure??={error};}
+     }
+     if(failure)throw failure.error;
    })().finally(()=>{cleaning=undefined;});return cleaning;
  }
  const timer=setInterval(()=>{void cleanup().catch(()=>{console.error('Storage cleanup failed; reserved capacity retained');});},60000);timer.unref();

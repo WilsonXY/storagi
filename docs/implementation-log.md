@@ -49,8 +49,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 
 | 11 | Independent acceptance of review fixes and refreshed browser/large-file proof | fresh acceptance task `storagi-stage11-fix-acceptance` + execution follow-up | completed | [11](stages/11-fix-acceptance.md) | FixHTTP5/API6/mock8/actualbrowser1/2GiBstream1 allpass;allprocessesstopped |
 
-| 12 | Continue cleanup after an individual lock timeout | fresh cleanup-fix agent pending | planned | [12](stages/12-cleanup-timeout-fix.md) | Focused failure/retry regression and checks |
-| 13 | Independent read-only review round 3 | fresh Claude Opus5.5 high requested | planned | [13](stages/13-review-round-3.md) | Final independent verdict after L1 fix |
+| 12 | Continue cleanup after an individual lock timeout | fresh cleanup task `storagi-stage12-cleanup-timeout` | completed | [12](stages/12-cleanup-timeout-fix.md) | RED→GREEN; server30 tests/types/build pass; final combined55 tests/types/build pass |
+| 13 | Independent read-only review round 3 | fresh Claude Opus5.5 high requested | in progress | [13](stages/13-review-round-3.md) | Final independent verdict after L1 fix |
 
 Dependency order: 01 → independent 02 + 03; 05 may prepare black-box checks concurrently but completion depends on 04 integration; then 06 → 07. Round06 failed;08+09 independent fixes precede acceptance11, fresh review10 then12/L1 fix and final fresh13 before07 handoff. Additional review/fix rounds get new records. Owner subsequently designated `https://github.com/WilsonXY/storagi` (public existing repository). Its default branch is `main`, initial commit `0d168b1`; local baseline was merged with that history without rewriting it. Existing MIT LICENSE retained. Authenticated GitHub account currently reports READ permission; `git push --dry-run origin HEAD` confirmed HTTP 403 denied to luna-agent1; no remote branch was changed. PR/CI publication remains blocked pending write access.
 

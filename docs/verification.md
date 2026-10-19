@@ -1,6 +1,6 @@
 # Verification evidence and remaining acceptance
 
-The [stage index](implementation-log.md) records ownership, failed attempts, findings and every handoff. Stages04/05 retain the original baseline evidence; stages 08/09/11 record the review fixes and refreshed proof. Independent review round2 remains pending until stage 10 records its result.
+The [stage index](implementation-log.md) records ownership, failed attempts, findings and every handoff. Stages 04/05 retain the original baseline evidence; stages 08/09/11 record the review fixes and refreshed proof. Independent review round 2 passed (stage 10); its low cleanup-timeout finding was fixed with a focused regression in stage 12. Final fresh review 13 remains pending.
 
 ## Repeat routine checks
 
@@ -13,7 +13,7 @@ npm run setup
 npm run check
 ```
 
-The check runs service/dashboard tests, independent HTTP acceptance and review regressions, both TypeScript checks and builds sequentially. No separate lint is configured. Latest stage reports: server 29/29, web 14/14, independent API 6/6, independent review-fix HTTP 5/5; coordinator repeated the combined command successfully (exit 0); exact log/commands are in stage 04.
+The check runs service/dashboard tests, independent HTTP acceptance and review regressions, both TypeScript checks and builds sequentially. No separate lint is configured. Latest stage reports: server 30/30, web 14/14, independent API 6/6, independent review-fix HTTP 5/5; coordinator repeated the final combined command successfully (55 reported tests, exit 0); exact log/commands are in stage 04.
 
 The independent HTTP suites use isolated storage and a signed synthetic OIDC provider with the actual verifier. They cover anonymous/forged endpoint sweeps, owner restriction, cryptographic/CSRF/Host/Origin boundaries, flooding/tampering/replay/expiry, quota, half-open takeover, restart integrity, ranges/validators, Unicode and deletion/expiry with open descriptors still counted in quota. They add no production authentication bypass.
 
@@ -36,3 +36,5 @@ Final payload plus cleanup: 129.193 seconds; full TAP: 130.265 seconds. Peak com
 ## Unverified real-world behavior
 
 Real Google client registration/owner binding and sign-in, another real Google account, production HTTPS proxy/cookie behavior, Funnel/private Tailscale connectivity and WAN throughput, representative ZIP/MP4 files, physical Windows/Fedora/Android interruption/background behavior, browser download recovery, power/lid behavior and live service startup remain unverified. Nothing has been deployed or publicly exposed. Synthetic identity and phone-sized desktop screenshots do not establish those properties.
+
+The final production change after stage 11 is limited to isolating each cleanup row's failure, so a lock timeout does not skip later expired files. Stage 12 records the regression and final review 13 checks it. Upload/auth/download/storage and browser code are unchanged from refreshed browser/2GiB proof; the heavy proof was not repeated for this isolated cleanup change.
