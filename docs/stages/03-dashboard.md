@@ -1,5 +1,7 @@
 # 03: Dashboard
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed — bounded implementation handed off; final browser proof/integration/review belong to coordinator and stage 05.
 - Started: 2026-10-19 21:04 +08:00 (Asia/Kuala_Lumpur); last updated / completed: 2026-10-19 21:16 +08:00.
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`.
@@ -27,7 +29,7 @@
 
 ## Verification
 
-Actual commands used `TMPDIR=$HOME/.cache/storagi/tmp` for npm work; no large `/tmp` artifacts.
+Actual commands used `TMPDIR="$HOME/.cache/storagi/tmp"` for npm work; no large `/tmp` artifacts.
 
 - Initial inspection: `node --version` → v22.22.1; `npm --version` → 9.2.0; `git rev-parse HEAD` → assigned baseline; branch `feat/storagi`. Read AGENTS, owner profile, README, design, implementation log and API agreement.
 - `npm install --prefix web --no-audit --no-fund` → success, 113 packages. npm emitted a transitive `whatwg-encoding` deprecation warning. Lockfile records installed versions; final build reports Vite 7.3.7, tests Vitest 3.2.7.
@@ -57,4 +59,4 @@ Stable final source handoff at 2026-10-19 21:16 +08:00. No further `web/**` chan
 
 Coordinator receives a passing web package and production `web/dist/`, plus this current record. Reconcile stage 03's coordinator-owned index row; integrate real service against API agreement; record acceptance agent's final mock-browser screenshots/flows and real integration evidence separately. Independent review/commit/PR remain coordinator responsibilities.
 
-Acceptance harness command: `TMPDIR=$HOME/.cache/storagi/tmp npm run test:preview --prefix web`, strict loopback port **5174**. This agent did not start a server. Full harness controls/limitations are in `web/README.md`. Suggested final proof: 390/728/1440 widths, search/duplicates, download/delete-confirmation, upload/pause/resume/cancel, reselect after reload, session expiry, quota errors, and reservation accounting. Preserve synthetic banner in screenshots; do not claim these as real OAuth/backend proof.
+Acceptance harness command: `TMPDIR="$HOME/.cache/storagi/tmp" npm run test:preview --prefix web`, strict loopback port **5174**. This agent did not start a server. Full harness controls/limitations are in `web/README.md`. Suggested final proof: 390/728/1440 widths, search/duplicates, download/delete-confirmation, upload/pause/resume/cancel, reselect after reload, session expiry, quota errors, and reservation accounting. Preserve synthetic banner in screenshots; do not claim these as real OAuth/backend proof.

@@ -32,9 +32,13 @@ The agreed product scope is in the design record. Later explicit owner instructi
 
 ## Workspace and host boundaries
 
-- Initial inspection found that Git resolves to an unrelated parent repository at `$HOME/projects`, with no commits. Establish a dedicated Storagi repository/baseline before coding; never stage sibling projects or modify the parent repository's history/configuration.
+- Initial inspection found that Git resolves to an unrelated parent repository, with no commits. Establish a dedicated Storagi repository/baseline before coding; never stage sibling projects or modify the parent repository's history/configuration.
 - The current implementation task permits normal reversible repository work. The earlier read-only constraint applied to feasibility exploration, not to the now-authorized implementation.
 - Existing host services, Serve mappings, Cloudflare tunnels, and private files are outside the application implementation scope. Preserve them.
 - Complete and verify the application before any final deployment/exposure approval required by the owner's workflow. Do not activate Funnel, change router/firewall or suspend settings, or treat the proposed deployment design as an already deployed service.
 - Google OAuth registration and real owner authentication may require owner interaction. Build and verify all independent work first; record the exact remaining setup without inventing credentials or weakening authentication.
 - `/tmp` is a small RAM disk. Use a task-specific temporary directory under the owner's home for large builds/downloads and keep test artifacts separate from real files.
+
+## Public documentation privacy
+
+Never publish actual personal home paths, host usernames or encoded home/worktree-directory names in tracked files, PR text or proof. Use repository-relative references, quoted `$HOME` shell paths, or clearly labelled portable system examples. Keep literal native evidence and host-specific configuration outside Git; public stage records retain verified identity/results with normalized locators. Audit current tracked content before publication and flag historical exposure separately; a new commit does not erase older commits.

@@ -10,7 +10,7 @@ npm run build
 node --env-file=.env dist/src/main.js
 ```
 
-Copy `.env.example` to a private environment file and fill every required field. `PUBLIC_ORIGIN` must be an exact HTTPS origin without a trailing slash/path. Set `OWNER_GOOGLE_SUB` explicitly before startup. No default credentials or owner auto-enrollment exist. `DATA_DIR` must be an absolute dedicated private directory disjoint from the built web directory; its parent must be writable by the service user. Never point it at existing personal files. Back up or remove this directory only while the service is stopped.
+Copy `.env.example` to a private environment file and fill every required field. `PUBLIC_ORIGIN` must be an exact HTTPS origin without a trailing slash/path. Set `OWNER_GOOGLE_SUB` explicitly before startup. No default credentials or owner auto-enrollment exist. `DATA_DIR` must be an absolute dedicated private directory disjoint from the built web directory; the service user needs write access to that directory. If the app must create it, its parent must also be writable; precreating `/var/lib/storagi` with private service ownership avoids granting access to `/var/lib`. Never point it at existing personal files. Back up or remove this directory only while the service is stopped.
 
 `npm start` runs `dist/src/main.js`; environment must already be exported (systemd EnvironmentFile or Node's `--env-file`). Bind is fixed to `127.0.0.1`, port 8787 by default. Built `../web/dist` is found relative to the package, regardless of cwd. Only the dashboard shell, `/favicon.svg`, and flat `/assets/*` are public; storage files never share that directory. This package does not expose or configure an HTTPS proxy or host services.
 

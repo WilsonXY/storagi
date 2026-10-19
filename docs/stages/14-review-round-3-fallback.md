@@ -1,5 +1,7 @@
 # 14: Owner-requested fallback rerun of review round 3
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed — PASS; known L2 and new L3 low findings reported, unfixed.
 - Started: 2026-10-19T14:51:10.638969+00:00.
 - Coordinator: /root, T3 thread `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`, actual runtime Codex gpt-6.1-sol/high.
@@ -28,7 +30,7 @@ Actual coordinator checks:
 - Before/after snapshots `$HOME/.cache/storagi/review-round3-fallback-{before,after}.json`: parent `git rev-parse HEAD`, full porcelain including untracked files and `git ls-remote --heads origin` exact matches. Parent clean; remote only main `0d168b103455af4bbbee9a7da7b7fba545dadb21`.
 - Child `$HOME/.t3/worktrees/storagi/t3-d9b4ccd0`: independent final HEAD check equals initial `ba3bbae`; full porcelain empty. Reviewer reports no edits, branch changes, commits, publication or delegation. No tests/builds/installs/servers/browser sessions run by reviewer. Read-only `git diff --check origin/main...HEAD` passed.
 - Own log `$HOME/.codex/sessions/2026/10/19/rollout-2026-10-19T22-51-44-01a154a5-a6b7-72b2-87f7-bfcdd5605204.jsonl`: coordinator parsed one `turn_context` with actual `model=gpt-6-astra`, `effort=high`; session metadata confirms OpenAI, native ID and exact worktree. Requested target options were not used as proof.
-- `git worktree remove --force $HOME/.t3/worktrees/storagi/t3-d9b4ccd0` exit0; `git branch -D t3/storagi-round-three-review` exit0. `git worktree list --porcelain` confirms parent only. No reviewer source edits accepted.
+- `git worktree remove --force "$HOME/.t3/worktrees/storagi/t3-d9b4ccd0"` exit0; `git branch -D t3/storagi-round-three-review` exit0. `git worktree list --porcelain` confirms parent only. No reviewer source edits accepted.
 - Coordinator source tracing of app close, dashboard logout and stopped transfer guards confirms the two reported paths. No new execution test or production edit was made for this review-only follow-up.
 
 ## Findings and limitations

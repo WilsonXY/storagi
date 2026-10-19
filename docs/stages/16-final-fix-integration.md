@@ -1,5 +1,7 @@
 # 16: Final-fix integration and UI proof
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed local verification/integration; publication blocked by HTTP403.
 - Started/updated: 2026-10-19T15:45:14.027783+00:00.
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`.
@@ -37,9 +39,9 @@ Stage15 stable handoff received and task_status acknowledged. Coordinator indepe
 
 Actual sequential commands:
 
-- `TMPDIR=$HOME/.cache/storagi/tmp npm run check > $HOME/.cache/storagi/stage16-combined-check.log 2>&1` exit0. Service31/31, web 19/19, independentHTTP 11/11 (61 total), both typechecks and builds. No separate lint configured. Final JS index-CaM_JQ4K.js SHA2568735418b31359bbdae0c26ad78af5679e346195d48fa94714235886c2d886914, CSS unchangedindex-CJGitPfX.css.
+- `TMPDIR="$HOME/.cache/storagi/tmp" npm run check > "$HOME/.cache/storagi/stage16-combined-check.log" 2>&1` exit0. Service31/31, web 19/19, independentHTTP 11/11 (61 total), both typechecks and builds. No separate lint configured. Final JS index-CaM_JQ4K.js SHA2568735418b31359bbdae0c26ad78af5679e346195d48fa94714235886c2d886914, CSS unchangedindex-CJGitPfX.css.
 - `node --check scripts/acceptance-browser.mjs` and `git diff --check` exit0. Coordinator inspection initially requested nonexistent scripts/acceptance-service-browser.ts (sed exit2); rg located actual .test.ts; no production finding or source change from this read-path error.
-- `TMPDIR=$HOME/.cache/storagi/tmp npm run test:preview --prefix web` strict127.0.0.1:5174; owned session22234. Then `TMPDIR=$HOME/.cache/storagi/tmp STORAGI_ARTIFACT_DIR=artifacts/acceptance-stage16/mock node scripts/acceptance-browser.mjs` exit0:10 scenarios plus parent,11/0,28.494s. Chrome151.0.7922.34. Existing responsive/search/delete/pause/resume/hash/quota/HEAD401/403 cases plus failed500/networklogout followed by1MiB upload/downloadhash without reload, and successfullogout stops active+queued uploads, preserves partial/reservation. pageErrors empty. Source dashboard/client real, mock service/auth and failures synthetic, visibly labelled.
+- `TMPDIR="$HOME/.cache/storagi/tmp" npm run test:preview --prefix web` strict127.0.0.1:5174; owned session22234. Then `TMPDIR="$HOME/.cache/storagi/tmp" STORAGI_ARTIFACT_DIR=artifacts/acceptance-stage16/mock node scripts/acceptance-browser.mjs` exit0:10 scenarios plus parent,11/0,28.494s. Chrome151.0.7922.34. Existing responsive/search/delete/pause/resume/hash/quota/HEAD401/403 cases plus failed500/networklogout followed by1MiB upload/downloadhash without reload, and successfullogout stops active+queued uploads, preserves partial/reservation. pageErrors empty. Source dashboard/client real, mock service/auth and failures synthetic, visibly labelled.
 - Inspected new screenshots MOCKED-logout-500-recovered.png (390px), MOCKED-logout-network-recovered.png (1440px), MOCKED-logout-stopped.png; recovered uploads visible and login view locked after success. Original responsive390/728/1440 checks also passed. Files/log/JSON under artifacts/acceptance-stage16/mock; previous stage11 evidence untouched.
 - Stopped owned preview with Ctrl-C, exit130. ss confirms5174 free. Browser exited by script finally.
 - Actual service/browser command started sequentially after mock stopped, output artifacts/acceptance-stage16/actual-service/run.log; exit0:1/0,24.622s full TAP. Real built index-CaM_JQ4K.js, real API/tus/storage and signed synthetic owner. Existing upload/downloadhash/mobiledelete, actual401/hostileOrigin403 resume at8MiB/no extraPOST,404/410 fresh start all passed; pageErrors empty. Browser/service/temp store closed by finally. Known random port45151 checked free.

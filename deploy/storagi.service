@@ -1,4 +1,5 @@
-# Review and replace paths before installing. This file has NOT been activated.
+# Inactive system service template; review docs/setup.md before installation.
+# Prerequisites: storagi account/group, built /opt/storagi, private environment and data directories.
 [Unit]
 Description=Storagi temporary file shelf
 After=network-online.target
@@ -6,11 +7,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=example-user
-Group=example-user
-WorkingDirectory=$HOME/projects/storagi/server
-EnvironmentFile=$HOME/.config/storagi/environment
-ExecStart=/usr/bin/node $HOME/projects/storagi/server/dist/src/main.js
+User=storagi
+Group=storagi
+WorkingDirectory=/opt/storagi/server
+EnvironmentFile=/etc/storagi/environment
+ExecStart=/usr/bin/node /opt/storagi/server/dist/src/main.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=60
@@ -18,8 +19,8 @@ UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=$HOME/.local/share/storagi
+ProtectHome=true
+ReadWritePaths=/var/lib/storagi
 
 [Install]
 WantedBy=multi-user.target

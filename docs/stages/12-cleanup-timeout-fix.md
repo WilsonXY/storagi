@@ -1,5 +1,7 @@
 # 12: Cleanup timeout isolation
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed — stable implementation handoff; coordinator integration/review pending
 - Started: 2026-10-19T22:12:20+08:00; completed / last updated: 2026-10-19T22:14:03+08:00
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`
@@ -22,7 +24,7 @@ Ending authored files are exactly the three scoped paths above; no commits, bran
 
 ## Verification
 
-All following commands run from `server/`, sequentially, with `TMPDIR=$HOME/.cache/storagi/tmp`.
+All following commands run from `server/`, sequentially, with `TMPDIR="$HOME/.cache/storagi/tmp"`.
 
 - RED: `npx tsx --test test/cleanup.test.ts` — exit1, 0 pass/1 fail, expected assertion `later independent expired row must be removed`; actual later4-byte row was still present after the first timeout. This ran against unchanged production cleanup.
 - GREEN: `npx tsx --test test/cleanup.test.ts` — exit0, 1 pass/0 fail (about2.1s).

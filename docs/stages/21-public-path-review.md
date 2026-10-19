@@ -1,6 +1,6 @@
 # 21: Independent public-path correction review
 
-- Status: planned.
+- Status: preparing committed current-files and local history candidate review.
 - Started/updated: 2026-10-19T16:30:35.303452+00:00.
 - Coordinator: /root, T3 thread mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a; actual runtime Codex gpt-6.1-sol/high.
 - Agent/task/session: pending; actual delegated identity evidence not yet collected.

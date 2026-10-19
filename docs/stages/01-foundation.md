@@ -1,5 +1,7 @@
 # 01: Foundation
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed
 - Started / last updated: 2026-10-19 UTC
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`

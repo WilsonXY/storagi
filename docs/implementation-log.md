@@ -52,8 +52,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 16 | Integrate, verify UI and recheck publication | Coordinator | Completed locally;61 checks/mock 11/actual1; push403 | [16](stages/16-final-fix-integration.md) |
 | 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high confirmed | PASS; L2/L3 accepted, doc finding corrected | [17](stages/17-final-fix-review.md) |
 | 19 | Privacy audit, integration and history correction preparation | Coordinator | In progress | [19](stages/19-public-path-privacy.md) |
-| 20 | Portable public documentation and deployment examples | Distinct sanitization task | Planned | [20](stages/20-portable-paths.md) |
-| 21 | Independent privacy correction review | Fresh fallback review task | Planned | [21](stages/21-public-path-review.md) |
+| 20 | Portable public documentation and deployment examples | Distinct sanitization task | Completed; zero tracked matches, unit verify passed | [20](stages/20-portable-paths.md) |
+| 21 | Independent privacy correction review | Fresh fallback review task | Preparing committed current/history candidate review | [21](stages/21-public-path-review.md) |
 | 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked, screenshots uploaded; CI queued | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Prior handoff/access failures retained; publication resumed in18 | [07](stages/07-handoff.md) |
 
@@ -126,3 +126,5 @@ Stage18 actual publication: authorized feature push succeeded atd14ccff, PR http
 ## Public-path privacy correction
 
 Owner identified machine-specific filesystem paths exposed in PR#1 and requested that actual paths not be public. Stage19 coordinator audits tracked files, PR text and prior commits, retains private local evidence, and prepares any history correction separately. Stage20 distinct agent normalizes public docs/instructions/deployment examples to portable locations, preserving audit evidence with clearly normalized paths. Stage21 fresh read-only fallback review verifies the public diff and deployment-template consistency. Stop the PR watch during correction; do not merge/deploy. Original owner requirement forbids overwriting existing remote history: replacing already published feature commits requires a concrete prepared proposal and a narrow owner exception before any forced update. Ordinary sanitization commit may update the current PR while that decision is pending; main and user changes stay preserved.
+
+Public records now display normalized portable evidence paths; private literal originals and native logs remain local. Coordinator accepted stage20, independently confirmed actual gpt-6.1-sol/high, clarified server README data-directory permissions and added a persistent public-path rule. Application source/tests/dependencies unchanged.

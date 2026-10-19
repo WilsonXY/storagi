@@ -18,7 +18,8 @@ An expired session stops the entire queue and shows sign-in. Resume HEAD 401/403
 ## Synthetic browser acceptance harness
 
 ```sh
-TMPDIR=$HOME/.cache/storagi/tmp npm run test:preview
+mkdir -p "$HOME/.cache/storagi/tmp"
+TMPDIR="$HOME/.cache/storagi/tmp" npm run test:preview
 ```
 
 Loopback-only `http://127.0.0.1:5174`, strict port. The dashboard is real; service/authentication/files are synthetic and labelled in the page banner. Do not treat this as real Google/service/deployment proof. The separate `tests/vite.mock.config.ts` is never loaded by production build. No production authentication bypass exists. Do not leave this test server running when finished.

@@ -1,12 +1,14 @@
 # 10: Independent review round 2
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally. Claude `<review-worktree>` is a placeholder; locate the original local log by its retained session ID.
+
 - Status: completed — PASS at b692897; low cleanup finding L1 assigned to stage12 and final fresh review13.
 - Date: 2026-10-19 UTC.
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`.
 - Task: `node:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-review-round2-claude-high`.
 - Child: matching `thread:delegated-task:` identifier.
 - Reviewer: Claude/Anthropic `claude-opus-5-5`, effort high, confirmed independently from its session log, no fallback.
-- Session: `78ad2e96-7007-4f53-a2d3-ed5e607cc833`; proof `$HOME/.claude/projects/<redacted-home>--t3-worktrees-storagi-t3-9062e74d/78ad2e96-7007-4f53-a2d3-ed5e607cc833.jsonl`. Coordinator parsed25 model/high metadata occurrences each after final output; requested options alone were not proof.
+- Session: `78ad2e96-7007-4f53-a2d3-ed5e607cc833`; proof `$HOME/.claude/projects/<review-worktree>/78ad2e96-7007-4f53-a2d3-ed5e607cc833.jsonl`. Coordinator parsed25 model/high metadata occurrences each after final output; requested options alone were not proof.
 - Baseline: b69289710479dbe6e903ba3db0644c12f9343525 against origin/main0d168b1. Fresh isolated worktree, review only; coordinator writes this record.
 
 ## Verdict and prior findings
@@ -26,7 +28,7 @@ Confirmed details include descriptor-outside-lock with retired quota held once u
 
 Coordinator snapshots `$HOME/.cache/storagi/review-round2-{before,after}.json`: parent HEAD b692897, empty porcelain status including untracked files, and exact remote heads (main0d168b1 only) all MATCHED. Child starting/ending HEAD b692897 and clean porcelain status independently checked. T3 generated branch renamed to t3/storagi-review-round-2 during orchestration; reviewer log contains no modifying/branch command. No source changes accepted from reviewer.
 
-After verification, `git worktree remove --force $HOME/.t3/worktrees/storagi/t3-9062e74d` and `git branch -D t3/storagi-review-round-2` both passed.
+After verification, `git worktree remove --force "$HOME/.t3/worktrees/storagi/t3-9062e74d"` and `git branch -D t3/storagi-review-round-2` both passed.
 
 ## Handoff
 

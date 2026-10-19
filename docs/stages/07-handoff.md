@@ -1,5 +1,7 @@
 # 07: Coordinator final handoff and publication
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: local implementation/check/review complete; original publication blocker resolved in18, PR open and CI pending.
 - Date: 2026-10-19, Asia/Kuala_Lumpur.
 - Coordinator thread: mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a; native session 01a15442-04e0-7132-b427-d958e244d053.

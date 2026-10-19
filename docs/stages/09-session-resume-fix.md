@@ -1,5 +1,7 @@
 # 09: Preserve resumable uploads across session expiry
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: implementation completed; stable handoff for integration, independent browser acceptance and fresh review
 - Started / last updated / completed: 2026-10-19 21:38 / 21:42 / 21:42 +08:00
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`.
@@ -24,7 +26,7 @@ Used full-cycle, ponytail FULL, TDD and systematic debugging. The explicit bound
 
 ## Verification
 
-All npm commands ran in `web/` with `TMPDIR=$HOME/.cache/storagi/tmp`; Node v22.22.1, npm 9.2.0, installed tus-js-client 4.3.1, Vitest 3.2.7, Vite 7.3.7.
+All npm commands ran in `web/` with `TMPDIR="$HOME/.cache/storagi/tmp"`; Node v22.22.1, npm 9.2.0, installed tus-js-client 4.3.1, Vitest 3.2.7, Vite 7.3.7.
 
 - **RED before production fix:** `npm test -- --maxWorkers=1 tests/session-resume.test.ts` → 2 failed (401/403), 2 passed (404/410). Both failures showed actual browser localStorage `{}` instead of the original tus entry, at the exact fingerprint-preservation assertion. No production edit preceded this run.
 - **GREEN after hook:** same command → 4/4 passed, including fresh-session original URL/offset, unchanged creation count and fresh CSRF.

@@ -1,5 +1,7 @@
 # 18: Publish reviewed implementation and verify CI
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: publication completed; CI queued and watch handoff pending.
 - Started: 2026-10-19T16:20:54.415276+00:00.
 - Coordinator: /root, T3 `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`, actual injected runtime Codex gpt-6.1-sol/high.
@@ -33,7 +35,7 @@ Pending actual push/PR/attachment/link/CI results. Coordinator maintains central
 
 - Planning/documentation commitd14ccff5d7f62e4d584efa861f0d7a44c0b6cd28; `git diff --check` exit0. Product unchanged from reviewedbbc3600.
 - `git push -u origin HEAD` exit0: new feat/storagi branch created and tracks origin/feat/storagi. Main/history untouched.
-- `gh pr create -R WilsonXY/storagi --base main --head feat/storagi --title 'feat: add owner-only temporary file shelf' --body-file $HOME/.cache/storagi/pr-publication-body.md` with three --attach flags exit0: https://github.com/WilsonXY/storagi/pull/1 (open, not draft, mergeable).
+- `gh pr create -R WilsonXY/storagi --base main --head feat/storagi --title 'feat: add owner-only temporary file shelf' --body-file "$HOME/.cache/storagi/pr-publication-body.md"` with three --attach flags exit0: https://github.com/WilsonXY/storagi/pull/1 (open, not draft, mergeable).
 - Attached current stage16 actual-service1440/390 screenshots with signed-synthetic-identity captions, plus mock failed500logout→upload recovery screenshot. Each under150kB. `gh pr view --json body` independently verified three GitHub user-attachments URLs, not local image references. Private identities/data/credentials not used or uploaded. Local generated payloads/logs remain ignored.
 - Immediately T3 link_pull_request succeeded, alreadyLinked=false. This PR belongs to current thread.
 - Actual PR read atd14ccff: push/pull_request Check jobs queued, not yet passed. Example runs39284743329/39284782748; metadata snapshot `$HOME/.cache/storagi/pr-publication-state.json`. Native T3 watch follows latest pushed documentation; no polling watcher or CI success assumption.

@@ -1,5 +1,7 @@
 # 02: File service
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed implementation; handed to coordinator for integration/review/PR
 - Started: 2026-10-19 UTC (exact initial timestamp not captured); last updated / completed: 2026-10-19 13:22 UTC
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`
@@ -46,7 +48,7 @@ Initial GitHub tus-directory fetches were restricted; raw upstream docs and inst
 
 ## Verification
 
-Commands below actually ran with `TMPDIR=$HOME/.cache/storagi/tmp` for npm/tsx work; this path is local invocation configuration, not hardcoded into tests. Node v22.22.1 / npm 9.2.0 confirmed.
+Commands below actually ran with `TMPDIR="$HOME/.cache/storagi/tmp"` for npm/tsx work; this path is local invocation configuration, not hardcoded into tests. Node v22.22.1 / npm 9.2.0 confirmed.
 
 RED → GREEN evidence:
 

@@ -1,12 +1,14 @@
 # 13: Independent review round 3
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally. Claude `<review-worktree>` is a placeholder; locate the original local log by its retained session ID.
+
 - Status: completed — PASS, no blocking findings; known low shutdown edge L2 reported below.
 - Date: 2026-10-19 UTC.
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`.
 - Task: `node:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-review-round3-claude-high`.
 - Child thread: matching `thread:delegated-task:` identifier.
 - Reviewer: Claude/Anthropic `claude-opus-5-5`, effort high, confirmed independently from own session log; no fallback.
-- Session: `538212f6-2082-486b-9afa-dd2a8f041219`; proof `$HOME/.claude/projects/<redacted-home>--t3-worktrees-storagi-t3-fc9c4862/538212f6-2082-486b-9afa-dd2a8f041219.jsonl`. Coordinator parsed 26 actual model/high metadata occurrences each after final output. Requested target options were not proof.
+- Session: `538212f6-2082-486b-9afa-dd2a8f041219`; proof `$HOME/.claude/projects/<review-worktree>/538212f6-2082-486b-9afa-dd2a8f041219.jsonl`. Coordinator parsed 26 actual model/high metadata occurrences each after final output. Requested target options were not proof.
 - Baseline: e22757eed0304d991b76cb5e579db3d5a8f6e7e2 against origin/main0d168b1; cleanup-only diff since passing round 2 b692897. Fresh isolated read-only worktree. Reviewer prohibited writes/installs/builds/commits/branch changes/pushes/GitHub posts/delegation; coordinator owns this record.
 
 ## Verdict and dispositions
@@ -23,7 +25,7 @@ Final combined check before commit: server30/30, web 14/14, independent HTTP 11/
 
 Before/after snapshots `$HOME/.cache/storagi/review-round3-{before,after}.json`: exact parent HEAD e22757e, empty porcelain status including untracked files, and remote heads (only main0d168b1) all MATCHED. Child starting/ending HEAD e22757e and clean porcelain status independently checked. T3 renamed its generated branch to t3/storagi-review-round-three. Coordinator inspected command-log matches: only read-only `git branch --show-current`, no modifying command.
 
-Cleanup completed: `git worktree remove --force $HOME/.t3/worktrees/storagi/t3-fc9c4862` and `git branch -D t3/storagi-review-round-three` passed. Only parent worktree remains. No source writes from reviewer accepted.
+Cleanup completed: `git worktree remove --force "$HOME/.t3/worktrees/storagi/t3-fc9c4862"` and `git branch -D t3/storagi-review-round-three` passed. Only parent worktree remains. No source writes from reviewer accepted.
 
 ## Reviewer evidence across all rounds
 

@@ -79,7 +79,7 @@ These are snapshots from the read-only exploration on 2026-10-19, not ongoing gu
 - Battery-equipped hardware, on mains power at inspection.
 - The effective logind setting was **`HandleLidSwitch=suspend`**, with no observed lid-switch inhibitor. Actual lid-close behavior was not tested. Idle action was `ignore`.
 - The Storagi directory was empty before documentation.
-- A documentation-time workspace check found that Git currently resolves to `$HOME/projects`, an uncommitted parent repository containing unrelated project directories. Storagi does not yet have its own repository. No repository was initialized and nothing was staged or committed; repository setup/isolation remains implementation-planning work.
+- A documentation-time workspace check found that Git currently resolves to an uncommitted parent repository containing unrelated project directories. Storagi does not yet have its own repository. No repository was initialized and nothing was staged or committed; repository setup/isolation remains implementation-planning work.
 
 ### Existing Tailscale setup
 

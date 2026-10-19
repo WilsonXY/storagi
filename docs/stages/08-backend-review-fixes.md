@@ -1,5 +1,7 @@
 # 08: Backend review fixes
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed — stable implementation handoff; independent acceptance/review pending
 - Started: 2026-10-19 UTC; completed / last updated: 2026-10-19T13:50:46Z
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`
@@ -34,7 +36,7 @@ Assigned only `server/**` and this record. Coordinator owns integration/index/re
 
 ## Verification
 
-Actual RED/GREEN (all commands prefixed `TMPDIR=$HOME/.cache/storagi/tmp`):
+Actual RED/GREEN (all commands prefixed `TMPDIR="$HOME/.cache/storagi/tmp"`):
 
 - `server/node_modules/.bin/tsx --test --test-name-pattern='authenticated login navigation' server/test/auth.test.ts`: RED 0/1 (redirected to Google instead of `/`); after session guard GREEN 1/1.
 - `server/node_modules/.bin/tsx --test --test-name-pattern='filenames reject' server/test/transfer.test.ts`: RED 0/1 (U+202A accepted with 201). Added control rejection; GREEN 1/1 after serialized test slot released.

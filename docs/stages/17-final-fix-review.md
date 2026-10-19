@@ -1,5 +1,7 @@
 # 17: Independent fallback review of final fixes
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed â€” PASS, L2/L3 accepted; one low documentation finding fixed by coordinator.
 - Completed/updated: 2026-10-19T15:58:57.395441+00:00.
 - Coordinator: /root, T3 `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`, runtime gpt-6.1-sol/high.
@@ -28,7 +30,7 @@ Reviewer ran no tests/builds/installs/services/browser. It inspected saved REDâ†
 
 Coordinator before/after snapshots `$HOME/.cache/storagi/review-stage17-{before,after}.json`: exact parent HEAD bbc3600, clean full porcelain including untracked files, remote heads only main 0d168b1 all MATCH. Child `$HOME/.t3/worktrees/storagi/t3-95beb2df` independently checked HEAD bbc3600 and clean full porcelain, matching start.
 
-Cleanup commands exit0: `git worktree remove --force $HOME/.t3/worktrees/storagi/t3-95beb2df`, then `git branch -D t3/review-l2-l3-fixes`. Final worktree list contains parent only. No reviewer edits/commits/publication/delegation reported; independent invariance checks passed.
+Cleanup commands exit0: `git worktree remove --force "$HOME/.t3/worktrees/storagi/t3-95beb2df"`, then `git branch -D t3/review-l2-l3-fixes`. Final worktree list contains parent only. No reviewer edits/commits/publication/delegation reported; independent invariance checks passed.
 
 ## Handoff
 

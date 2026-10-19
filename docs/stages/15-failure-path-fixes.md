@@ -1,5 +1,7 @@
 # 15: Failure-path bug fixes
 
+> Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
+
 - Status: completed — implementation verified, stable source accepted by coordinator; independent review tracked separately in17.
 - Started: 2026-10-19T15:45:14.027783+00:00.
 - Last updated / stable handoff: 2026-10-19T15:51:11.087556+00:00.
@@ -17,7 +19,7 @@ Owner authorized fixes with “go” after stage14 review; implementation and re
 
 ## Changes and verification
 
-Required owner/profile, README, design, implementation log and stage14 read. Loaded full-cycle, ponytail FULL and test-driven-development. Explicit task limits leave commit/review/UI/publication to coordinator and prohibit delegation. Sequential heavy slot held by this task until stable handoff. Planned: L2 regression RED→GREEN, L3 regression RED→GREEN, focused/full server and web tests/typecheck/build with `TMPDIR=$HOME/.cache/storagi/tmp`; no root combined check.
+Required owner/profile, README, design, implementation log and stage14 read. Loaded full-cycle, ponytail FULL and test-driven-development. Explicit task limits leave commit/review/UI/publication to coordinator and prohibit delegation. Sequential heavy slot held by this task until stable handoff. Planned: L2 regression RED→GREEN, L3 regression RED→GREEN, focused/full server and web tests/typecheck/build with `TMPDIR="$HOME/.cache/storagi/tmp"`; no root combined check.
 
 Inspection failure: attempted `cat web/src/dashboard.test.ts web/src/transfers.test.ts web/src/transfers.ts` exited2 because tests are in `web/tests/`. Correct files subsequently read; no test/build had run and no source changed. No separate log was saved for this inspection error; raw command/result is retained in the native session log above. Other inspection reads succeeded. Actual execution logs are under `$HOME/.cache/storagi/stage15/`.
 
@@ -28,7 +30,7 @@ Inspection failure: attempted `cat web/src/dashboard.test.ts web/src/transfers.t
 - `web/tests/session-resume.test.ts`: extend the existing synthetic transport fixture in this test file, using installed browser tus Upload/file reader/WebStorage and real dashboard/setupTransfers logic. Network and 500 logout errors leave selection usable, resume at offset 4 and pump a second file. 204/401/403 logout tests hold an active PATCH, observe its transport abort, verify no queued or retained-picker work starts, preserve fingerprint/partial and resume with fresh CSRF and no new reservation. The test transport is the only synthetic transfer boundary; production transfer lifecycle is not mocked.
 - `web/src/dashboard.ts`: delete the pre-request stop; successful logout and 401/403 already route through showLogin, which stops transfers. No other production changes.
 
-Observed command results (all execution logs under `$HOME/.cache/storagi/stage15/`; each test uses `TMPDIR=$HOME/.cache/storagi/tmp`):
+Observed command results (all execution logs under `$HOME/.cache/storagi/stage15/`; each test uses `TMPDIR="$HOME/.cache/storagi/tmp"`):
 
 1. `npm --prefix server test -- --test-name-pattern='close waits'` → exit1, 30 passed/1 failed, `l2-red.log`. Harness mistake: appended Node filter was ignored after script file glob, so full server suite ran rather than focused test. Only failure is the new SQLite-open assertion (true !== false), reproducing L2. No teardown failures.
 2. From server: `./node_modules/.bin/tsx --test --test-name-pattern='close waits' test/cleanup.test.ts` → exit1, 1 failed as expected, `l2-focused-red.log`. Error preserved and HTTP close checks passed before SQLite-open assertion failed. Production still unchanged.
@@ -38,7 +40,7 @@ Observed command results (all execution logs under `$HOME/.cache/storagi/stage15
 6. `npm --prefix web test -- tests/session-resume.test.ts` after adding 204/401/403 active-stop/resume checks → exit0, 9 passed, `l3-session-regressions.log`.
 7. `git diff --check` → exit0. Shared coordinator-owned docs/browser script edits appeared during work; neither edited nor reverted by this task.
 
-Full package commands run sequentially from the repo root, each prefixed with `TMPDIR=$HOME/.cache/storagi/tmp` and redirected to the named log under the artifact directory:
+Full package commands run sequentially from the repo root, each prefixed with `TMPDIR="$HOME/.cache/storagi/tmp"` and redirected to the named log under the artifact directory:
 
 8. `npm --prefix server test` → exit0, 31 passed/0 failed, `server-test.log` (23.93s).
 9. `npm --prefix server run typecheck` → exit0, `server-typecheck.log`.
