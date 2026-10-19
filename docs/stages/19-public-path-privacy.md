@@ -1,6 +1,6 @@
 # 19: Public-path privacy audit and integration
 
-- Status: in progress.
+- Status: current-file correction verified/reviewed; public history replacement awaiting owner exception.
 - Started/updated: 2026-10-19T16:30:35.303210+00:00.
 - Coordinator: /root, T3 thread mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a; actual runtime Codex gpt-6.1-sol/high.
 - Agent/task/session: coordinator, no child task.
@@ -34,3 +34,13 @@ Existing public feature commits contain old values; normal edits do not erase hi
 Stage20 task_status completed, actual native proof independently parsed: one gpt-6.1-sol/high context in unchanged private native session. Public proof locator normalized to $HOME; recorded session IDs and historical model/hash evidence preserved. Coordinator independently repeated tracked audit:82 files,zero matches, exit0. Changed paths limited to docs/instructions/portable inactive unit; application/tests/dependencies unchanged. `systemd-analyze verify deploy/storagi.service` independently exit0; unrelated pre-existing host-unit warnings retained privately. No unit installed/started or user/directory created. Coordinator clarified server README: precreated writable DATA_DIR needs no parent write permission; app-created directory needs it. Added persistent public-path rule in AGENTS.
 
 Current-file sanitization is ready for commit/history preparation and fresh review. Prior61 tests and browser proofs remain valid for unchanged app; no redundant app build/UI run. Native logs/original docs preserved privately; no actual account/home literals in public record. Fresh review21 must independently check current file scope, template semantics, normalization evidence caveat and candidate tree/history assertions before any PR update.
+
+## Local history candidate and independent review
+
+Sanitized source commitb36f0e0 created after zero-match scan and whitespace checks. Maintained git-filter-repo v2.47.0 used in private bare clone, feature-only revision scope excludingmain, private replacement rules for literal/encoded personal paths/account and messages. Main remains0d168b103455af4bbbee9a7da7b7fba545dadb21. Private tool log/report/backups retained; no remote history mutation.
+
+Preliminary candidate57eacc93c6a08086be83b98aad1d6970d00939f0:24 feature commits/204unique blobs,zero path/header matches; current tree identical to b36f0e0 (c68525b8545966d5aea71378adde66cac62b6e97), git fsck pass, candidate remotes removed. Fresh review21 independently confirmed all of this and current docs/template consistency: actual gpt-6-astra/high proved, PASS/no findings. Parent HEAD/status/remote and child clean baseline matched; child removed. Coordinator can publish ordinary correction; no source fix required after review.
+
+After metadata closeout, regenerate candidate against latest sanitized feature HEAD with same maintained transform, rerun current-tree identity/main/history/header/fsck audit, verify remote feature exact expected hash and preserve original private backup. Final report/reference stays private until approval. Proposed narrow operation is exact-lease replacement of feat/storagi only; no main/mirror/ref wildcard push and no merge/deployment. Earlier explicit owner instruction “do not overwrite existing remote history” requires exception even though current privacy task makes cleanup useful. GitHub cached/PR references and clones may still retain earlier content; do not promise complete erasure. Owner approval pending, not inferred from elapsed time.
+
+Closeout scan initially flagged wording in a new PR note because slash-separated ordinary words resembled a generic home path. Reworded before publication; no actual private literal was added. Final scan repeated after correction. This was a documentation-pattern false positive, not a newly published exposure.
