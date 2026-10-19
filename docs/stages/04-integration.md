@@ -1,6 +1,6 @@
 # 04: Integration
 
-- Status: planned
+- Status: in progress
 - Started / last updated: 2026-10-19 UTC
 - Coordinator thread: `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`
 - Agent/task/thread: coordinator /root; native session 01a15442-04e0-7132-b427-d958e244d053
@@ -10,19 +10,19 @@
 
 ## Decisions
 
-Pending stage execution.
+Root scripts keep two package scopes separate; sequential tests/builds suit the small host. CI uses read-only permissions and upstream v6 actions pinned to verified tag commits. No deployment enabled.
 
 ## Changes
 
-Pending.
+Root package.json, CI workflow, deploy/storagi.service and docs/setup.md added; final integration waits for children.
 
 ## Verification
 
-Planned checks are not evidence of completion.
+T3 preview_status returned unavailable. First preview_open about:blank rejected as invalid URL; corrected localhost preview_open returned explicit AppArmor sandbox-unavailable error. Host changes declined as outside implementation scope; fallback browser inspection pending. GitHub API confirms origin push=false for active account. git push --dry-run origin HEAD returned 403 denied to luna-agent1; no branch changed and no fork created. systemd-analyze verify deploy/storagi.service exited 0, with unrelated pre-existing host-unit warnings; unit not installed.
 
 ## Findings and limitations
 
-No OAuth credentials, real account verification, network exposure or remote repository assumed.
+Coordinator found hardcoded test temporary paths would break CI; asked stage02 to use os.tmpdir/TMPDIR. Found blanket Fetch-Metadata check preceding OIDC callback would reject actual Google top-level cross-site navigation; asked stage02 for regression and targeted protection, stage05 for independent acceptance. No OAuth credentials or real account verification. Origin public repository owner-designated; active account read-only. No exposure. Browser host prerequisite unresolved.
 
 ## Handoff
 

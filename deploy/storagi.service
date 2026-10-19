@@ -1,0 +1,25 @@
+# Review and replace paths before installing. This file has NOT been activated.
+[Unit]
+Description=Storagi temporary file shelf
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=example-user
+Group=example-user
+WorkingDirectory=$HOME/projects/storagi/server
+EnvironmentFile=$HOME/.config/storagi/environment
+ExecStart=/usr/bin/node $HOME/projects/storagi/server/dist/src/main.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=$HOME/.local/share/storagi
+
+[Install]
+WantedBy=multi-user.target

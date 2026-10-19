@@ -35,15 +35,15 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 
 | Stage | Scope | Agent/task/thread | Status | Record | Handoff/result |
 | --- | --- | --- | --- | --- | --- |
-| 01 | Repository isolation, stage plan, API agreement | coordinator /root | in progress | [01](stages/01-foundation.md) | Local baseline before child work |
-| 02 | Owner authentication, resumable service, storage rules and security tests | distinct service agent, task pending | planned | [02](stages/02-file-service.md) | Service API and test evidence |
-| 03 | Responsive custom dashboard and tus browser client | distinct dashboard agent, task pending | planned | [03](stages/03-dashboard.md) | UI and build evidence; independent from service via API agreement |
+| 01 | Repository isolation, stage plan, API agreement | coordinator /root | completed | [01](stages/01-foundation.md) | Local baseline before child work |
+| 02 | Owner authentication, resumable service, storage rules and security tests | [Codex service task](t3-thread://v1/thread:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-stage02-service-v1) | in progress | [02](stages/02-file-service.md) | Service API and test evidence |
+| 03 | Responsive custom dashboard and tus browser client | [Codex dashboard task](t3-thread://v1/thread:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-stage03-web-v1) | in progress | [03](stages/03-dashboard.md) | UI and build evidence; independent from service via API agreement |
 | 04 | Integration, deployable configuration and local verification | coordinator /root | planned | [04](stages/04-integration.md) | Integrated committed baseline |
-| 05 | Independent acceptance/security checks | distinct acceptance agent, task pending | planned | [05](stages/05-acceptance.md) | Behavior evidence and limitations |
+| 05 | Independent acceptance/security checks | [Codex acceptance task](t3-thread://v1/thread:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-stage05-acceptance-v1) | in progress | [05](stages/05-acceptance.md) | Behavior evidence and limitations |
 | 06 | Independent read-only review round 1 | Claude Opus 5.5 high requested, not yet run | planned | [06](stages/06-review-round-1.md) | Findings, runtime proof, invariance checks |
 | 07 | Final verification, PR/CI feasibility and owner handoff | coordinator /root | planned | [07](stages/07-handoff.md) | Actual implementation/setup/deployment status |
 
-Dependency order: 01 → independent 02 + 03 → 04 → 05 → 06 → 07. Additional review/fix rounds get new records. No public remote is assumed or created.
+Dependency order: 01 → independent 02 + 03; 05 may prepare black-box checks concurrently but completion depends on 04 integration; then 06 → 07. Additional review/fix rounds get new records. Owner subsequently designated `https://github.com/WilsonXY/storagi` (public existing repository). Its default branch is `main`, initial commit `0d168b1`; local baseline was merged with that history without rewriting it. Existing MIT LICENSE retained. Authenticated GitHub account currently reports READ permission; `git push --dry-run origin HEAD` confirmed HTTP 403 denied to luna-agent1; no remote branch was changed. PR/CI publication remains blocked pending write access.
 
 ## Stage record template
 
