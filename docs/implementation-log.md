@@ -51,6 +51,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 15 | Fix shutdown closure and failed-logout recovery | Distinct failure-path implementation task | Completed; server31/web 19/types/build, RED→GREEN | [15](stages/15-failure-path-fixes.md) |
 | 16 | Integrate, verify UI and recheck publication | Coordinator | Completed locally;61 checks/mock 11/actual1; push403 | [16](stages/16-final-fix-integration.md) |
 | 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high confirmed | PASS; L2/L3 accepted, doc finding corrected | [17](stages/17-final-fix-review.md) |
+| 18 | Publish reviewed branch, PR proof and CI | Coordinator | In progress; write access confirmed | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Local handoff complete; publication blocked by HTTP 403 | [07](stages/07-handoff.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
@@ -112,3 +113,7 @@ Owner said “go” after the proposed fixes, regression tests, independent revi
 Plan: stage15 distinct implementation agent owns the two small failure-path fixes and RED→GREEN regressions; stage16 coordinator integrates, runs combined checks and actual UI failure-path proof, rechecks publication; stage17 fresh isolated fallback review after committing source/evidence. Preserve original14 verdict and known findings. Serialize tests/build/browser work on this host. Record actual native model/effort proof and all failures.
 
 Current final follow-up: product bbc3600 fixes both low bugs,61 checks/types/build and refreshed mock 11/actual service 1 proofs passed. Fresh independent stage17 actual gpt-6-astra/high PASS confirms L2/L3 and retained protections; one low stale-documentation finding corrected. Parent/remote/child invariance passed; fifth reviewer worktree/branch removed. Push ofbbc3600 again HTTP403 denied to luna-agent1; no PR/remote CI. No deployment/exposure or real Google/device/network proof. Earlier completion paragraphs retain historical outcomes, not current unfixed status.
+
+## Publication resumed after owner access update
+
+On2026-10-20 Asia/Kuala_Lumpur the owner replied “done” to the repository write-access request. Actual gh API confirms luna-agent1 push=true/triage=true; authentication succeeds. Default main remains0d168b1, local60d1acb clean and no existing feature PR/ref. Stage18 coordinator publishes the reviewed branch, creates/links PR with synthetic UI screenshots, records live CI and watches through T3. Original403 attempts are retained as history. No source changes, new code review or local test rerun required for publication metadata alone; reviewed productbbc3600/current61-check evidence unchanged. Google/deployment boundaries remain.
