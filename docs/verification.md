@@ -1,39 +1,38 @@
 # Verification evidence and remaining acceptance
 
-The stage index in [implementation-log.md](implementation-log.md) owns the complete handoff history. This page explains how to repeat the checks without real owner data.
+The [stage index](implementation-log.md) records ownership, failed attempts, findings and every handoff. Stages04/05 retain the original baseline evidence; stages 08/09/11 record the review fixes and refreshed proof. Independent review round2 remains pending until stage 10 records its result.
 
-## Package checks
+## Repeat routine checks
 
-From the repository root, `npm run setup` installs committed lockfiles and `npm run check` runs the service and dashboard tests, independent HTTP acceptance, TypeScript checks and production builds. On this host set `TMPDIR` to `$HOME/.cache/storagi/tmp` first. There is no separate lint configuration. Coordinator combined check passed: 16 service tests,10 dashboard tests,6 independent API checks, both typechecks/builds. Exact results are recorded in stage04 and the handoff.
+Use Node 22.22+ and npm. Set TMPDIR under home on this host, then run from the repository root:
 
-## Independent HTTP acceptance
+```sh
+mkdir -p "$HOME/.cache/storagi/tmp"
+export TMPDIR="$HOME/.cache/storagi/tmp"
+npm run setup
+npm run check
+```
 
-`TMPDIR="$HOME/.cache/storagi/tmp" server/node_modules/.bin/tsx --test scripts/acceptance-api.test.ts` exercises the actual service with isolated temporary storage and a signed synthetic OIDC provider. It does not expose a test-authentication route. Final results are recorded in stage 05; preparing a script is not a passing result.
+The check runs service/dashboard tests, independent HTTP acceptance and review regressions, both TypeScript checks and builds sequentially. No separate lint is configured. Latest stage reports: server 29/29, web 14/14, independent API 6/6, independent review-fix HTTP 5/5; coordinator repeated the combined command successfully (exit 0); exact log/commands are in stage 04.
+
+The independent HTTP suites use isolated storage and a signed synthetic OIDC provider with the actual verifier. They cover anonymous/forged endpoint sweeps, owner restriction, cryptographic/CSRF/Host/Origin boundaries, flooding/tampering/replay/expiry, quota, half-open takeover, restart integrity, ranges/validators, Unicode and deletion/expiry with open descriptors still counted in quota. They add no production authentication bypass.
 
 ## Browser proof
 
-T3 preview was attempted first and returned the explicit AppArmor sandbox unsupported error. No host security setting was changed. The acceptance agent used the existing local Chrome via external Playwright as an authorized fallback.
+T3 preview was attempted first and returned the explicit AppArmor sandbox unsupported error. No host security settings were changed. The fallback used the already installed Chrome 151.0.7922.34 through external Playwright. See scripts for executable/module overrides. All preview listeners were loopback-only and stopped afterwards.
 
-Start the test-only loopback mock service with `npm run test:preview --prefix web`, then run `node scripts/acceptance-browser.mjs`. Read the script for external Playwright/Chrome prerequisites and environment overrides. Shut the mock service down after checking. Production never imports the mock service configuration.
+Mocked proof: start `npm run test:preview --prefix web`, then `node scripts/acceptance-browser.mjs`. Production never imports this mock configuration. Final stage 11 result: **8/8 passed**, including 1440/728/390 layouts, search/duplicate names, download/delete confirmation,24 MiB upload/pause/resume/hash, cancellation/reselect, quota/errors/session lock, and HEAD 401/403 preserving the exact fingerprint/reservation and resuming the same 8 MiB offset without another POST after sign-in/reselect. Stop the mock service when finished.
 
-The initial pass overlapped final UI changes and was superseded. After stage03 final stable handoff, the 2026-10-19 browser rerun reported 6 pass/0 fail with Chrome 151.0.7922.34. The real dashboard talked to a separate synthetic service, with a visible MOCKED banner. It checked login shell, 1440/728/390 layouts without horizontal overflow, search/duplicates/download/delete confirmation, a 24 MiB upload/pause/resume/download SHA-256 match, reload/reselect with a nonzero HEAD offset, cancellation releasing the reservation, quota/expired-partial errors, retry and session lock. Evidence JSON reported no page errors. The coordinator visually inspected desktop and 390px screenshots.
+Actual-service proof: build first, then run `server/node_modules/.bin/tsx --test scripts/acceptance-service-browser.test.ts`. Stage11 result: **1/1 passed** against actual built dashboard/tus/SQLite/filesystem, using signed synthetic owner identity and test-context cookie injection from real Auth. It checked upload/download hashes, mobile deletion, real revoked-session 401, actual hostile-Origin 403 response relayed via Playwright, same upload ID/offset with no extra POST, and 404/410 creating fresh copies. The403 relay is explicitly a test boundary: Chromium did not preserve a direct Origin override; the script asserts the service's actual 403 before relaying it. No fabricated 403 or production bypass route. All test processes/temp stores were closed/removed.
 
-Ignored current local evidence lives under `artifacts/acceptance-stage05/final/`, including `MOCKED-evidence.json` and named PNGs; the first run remains preserved in the parent directory. These are not uploaded GitHub attachments. The screen fixtures' large file labels do not represent large transfers; only the explicitly measured synthetic bytes were transferred.
+Tested production JS `index-DzQRuOKC.js`, CSS `index-CJGitPfX.css`; stage 11's runtime-source.json records source/build hashes and verified agent model/effort metadata. Final ignored artifacts are under `artifacts/acceptance-stage11/{mock,actual-service}`. Stage05 originals remain preserved. Screenshots are local evidence, not uploaded GitHub attachments. Fixture names/sizes are synthetic and do not prove real-device or Google setup.
 
-## Actual-service browser smoke
+## Local multi-GB streaming proof
 
-After the final dashboard build, `server/node_modules/.bin/tsx --test scripts/acceptance-service-browser.test.ts` passed 1/0 in approximately 21.8 seconds. Chrome used an isolated signed synthetic owner session with the actual built dashboard and actual tus/file/list/download/delete service on a random loopback port. No mock API or authentication bypass route was added.
+Optional manual command: `server/node_modules/.bin/tsx --test scripts/acceptance-large-file.ts`. Keep TMPDIR under home; this uses roughly 2 GiB of isolated disk and is excluded from routine CI. Final stage 11 result: **1/1 passed**, 2,147,483,649 bytes uploaded and streamed back with matching SHA-256, close/recreate at exactly 1,073,741,824 bytes, then DELETE/zero usage and verified temporary-directory removal. It generated 8 MiB chunks with no source file or second download copy.
 
-It uploaded 10 MiB in two PATCHes, verified the downloaded SHA-256, confirmed/deleted the copy at 390px, and checked usage/reservations returned to zero. Requests carried the session and mutation CSRF headers. The test browser, isolated service and temporary store were closed/removed. Current ignored evidence is under `artifacts/acceptance-stage05/actual-service/`; the coordinator inspected its JSON. A failed optional test-only OIDC helper preflight was removed and retained in the stage record; production code was unchanged.
-
-This is an integrated local application check with synthetic identity. It does not prove real Google registration, public HTTPS proxy behavior or intended-device networks.
-
-## Local multi-GB streaming acceptance
-
-Optional manual command: `server/node_modules/.bin/tsx --test scripts/acceptance-large-file.ts`. Keep TMPDIR under home; this uses approximately 2 GiB of isolated disk storage and is intentionally excluded from routine CI. On 2026-10-19 it passed 1/0: **2,147,483,649 bytes** uploaded and streamed back with matching SHA-256, restart/resume at exactly 1,073,741,824 bytes, then DELETE/zero usage and verified temporary-directory removal. It generated chunks without a source file and did not save a second download copy.
-
-Payload plus cleanup took 166.507 seconds on loopback; peak RSS of the combined service/client transfer process was 236,224,512 bytes (225.3 MiB). Hash: `bfae55ebd5bd69babf603f500511d356e9dc259f9a48e9ee5b2501723eba334e`. Evidence is under `artifacts/acceptance-stage05/large-file/`; stage05 records exact command, output and limitations. These are generated local bytes, not real ZIP/MP4/WAN/Android tests.
+Final payload plus cleanup: 129.193 seconds; full TAP: 130.265 seconds. Peak combined service/client transfer process RSS: 227,856,384 bytes (217.3 MiB). Hash `bfae55ebd5bd69babf603f500511d356e9dc259f9a48e9ee5b2501723eba334e`. Exact logs/counts/hashes/source fingerprints/cleanup evidence are under `artifacts/acceptance-stage11/large-file/` and documented in stage 11. These are generated local bytes, not real ZIP/MP4/WAN/Android tests.
 
 ## Unverified real-world behavior
 
-Real Google registration/owner binding and sign-in, another real Google account, production HTTPS proxy/cookie behavior, Funnel/private Tailscale connectivity and throughput, representative multi-GB ZIP/MP4 hashes, physical Windows/Fedora/Android interruption/background behavior, power/lid behavior and live service startup remain unverified. Nothing has been deployed or publicly exposed. Tests cannot establish those properties.
+Real Google client registration/owner binding and sign-in, another real Google account, production HTTPS proxy/cookie behavior, Funnel/private Tailscale connectivity and WAN throughput, representative ZIP/MP4 files, physical Windows/Fedora/Android interruption/background behavior, browser download recovery, power/lid behavior and live service startup remain unverified. Nothing has been deployed or publicly exposed. Synthetic identity and phone-sized desktop screenshots do not establish those properties.

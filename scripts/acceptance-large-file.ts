@@ -15,7 +15,7 @@ import { identity } from '../server/test/helpers.js';
 test('local 2 GiB + 1 byte streamed tus transfer resumes after 1 GiB restart and matches SHA-256', { timeout: 10 * 60_000 }, async t => {
   const GiB = 1024 ** 3, totalBytes = 2 * GiB + 1, chunkBytes = 8 * 1024 ** 2;
   const temp = `${homedir()}/.cache/storagi/tmp`;
-  const artifacts = path.resolve('artifacts/acceptance-stage05/large-file');
+  const artifacts = path.resolve(process.env.STORAGI_ARTIFACT_DIR || 'artifacts/acceptance-stage05/large-file');
   await mkdir(temp, { recursive: true }); await mkdir(artifacts, { recursive: true });
   const fs = await statfs(temp), freeBefore = fs.bavail * fs.bsize;
   assert.ok(freeBefore >= totalBytes + GiB + 64 * 1024 ** 2, 'Need payload space plus 1 GiB disk reserve and 64 MiB overhead on persistent home storage');

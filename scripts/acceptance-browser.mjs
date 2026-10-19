@@ -140,6 +140,66 @@ try {
       evidence.screenshots.push('MOCKED-session-expired-390.png');
       evidence.flows.push('507 full shelf; 410 expired partial; retry succeeds; expired session locks Inbox');
     });
+    for (const status of [401, 403]) await t.test(`resume HEAD ${status} preserves fingerprint and original reservation through sign-in`, async () => {
+      await fetch(`${base}/__test/reset`, { method: 'POST' });
+      await page.goto(base);
+      const name = `resume-auth-${status}.bin`;
+      const source = `${artifacts}/${name}`;
+      await writeFile(source, Buffer.alloc(24 * 1024 ** 2, status % 251));
+      // Hold later chunks at the browser boundary so pause is deterministic on fast loopback.
+      let release;
+      const gate = new Promise(resolve => { release = resolve; });
+      await page.route('**/api/uploads/**', async route => {
+        if (route.request().method() === 'PATCH' && Number(route.request().headers()['upload-offset']) > 0) {
+          await gate;
+          await route.abort('aborted');
+        } else await route.continue();
+      });
+      try {
+        const chunk = page.waitForResponse(response => response.request().method() === 'PATCH' && response.status() === 204);
+        await page.locator('#picker').setInputFiles(source);
+        await chunk;
+        await page.getByRole('button', { name: `Pause ${name}`, exact: true }).click();
+        await page.getByText(/Paused · ready to resume/).waitFor();
+      } finally {
+        release();
+        await page.unrouteAll({ behavior: 'wait' });
+      }
+      const before = await (await fetch(`${base}/__test/state`)).json();
+      assert.equal(before.partialCount, 1);
+      const partial = before.partials[0];
+      assert.ok(partial.offset > 0 && partial.offset < partial.size);
+      const saved = await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([key]) => key.startsWith('tus::'))));
+      assert.equal(Object.keys(saved).length, 1);
+      assert.equal(new URL(JSON.parse(Object.values(saved)[0]).uploadUrl, base).pathname, `/api/uploads/${partial.id}`);
+      await fetch(`${base}/__test/resume-auth`, { method: 'POST', body: JSON.stringify({ status }) });
+      await page.reload();
+      const rejected = page.waitForResponse(response => response.request().method() === 'HEAD' && response.status() === status);
+      await page.locator('#picker').setInputFiles(source);
+      await rejected;
+      await page.getByRole('link', { name: /Continue with Google/ }).waitFor();
+      assert.deepEqual(await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([key]) => key.startsWith('tus::')))), saved);
+      const denied = await (await fetch(`${base}/__test/state`)).json();
+      assert.deepEqual(denied.partials, before.partials);
+      assert.equal(denied.reservedBytes, before.reservedBytes);
+      assert.deepEqual(denied.uploadRequests.slice(before.uploadRequests.length).map(request => request.method), ['HEAD']);
+      const screenshot = `MOCKED-resume-HEAD-${status}-login.png`;
+      await page.screenshot({ path: `${artifacts}/${screenshot}`, fullPage: true });
+      evidence.screenshots.push(screenshot);
+      await page.getByRole('link', { name: /Continue with Google/ }).click();
+      const resumed = page.waitForResponse(response => response.request().method() === 'HEAD' && response.status() === 200);
+      await page.locator('#picker').setInputFiles(source);
+      assert.equal(Number((await resumed).headers()['upload-offset']), partial.offset);
+      await page.locator('[data-file-id]').filter({ hasText: name }).waitFor({ timeout: 30000 });
+      const after = await (await fetch(`${base}/__test/state`)).json();
+      const requests = after.uploadRequests.slice(before.uploadRequests.length);
+      assert.equal(requests.filter(request => request.method === 'POST').length, 0);
+      assert.ok(requests.every(request => request.path === `/api/uploads/${partial.id}`));
+      assert.equal(Number(requests.find(request => request.method === 'PATCH').offset), partial.offset);
+      assert.equal(after.partialCount, 0); assert.equal(after.reservedBytes, 0);
+      assert.deepEqual(await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([key]) => key.startsWith('tus::')))), {});
+      evidence.flows.push({ status, originalId: partial.id, resumedOffset: partial.offset, extraCreations: 0, fingerprintPreserved: true, requests });
+    });
     assert.deepEqual(pageErrors, [], 'No uncaught browser errors');
   });
 } finally {

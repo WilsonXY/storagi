@@ -33,3 +33,7 @@ Final mock browser proof supersedes the overlapping initial run: 6/0 after stage
 ## Handoff
 
 Independent acceptance stage05 receives stable source and built dashboard; optional local2GiB+1 proof runs alone next, then commit records and independent read-only review.
+
+## Post-review integration recheck
+
+After distinct fix stages08/09 and independent acceptance11 completed, coordinator ran `TMPDIR=$HOME/.cache/storagi/tmp npm run check > $HOME/.cache/storagi/post-review-combined-check.log 2>&1`: exit0. Service29/29, dashboard14/14, independent API+review-fix HTTP11/11 (6+5); both typechecks and builds passed. The root check/CI now includes the new independent review-fix script explicitly and excludes browser/external prerequisites and optional2GiB load. Production/build SHA256 values still match all seven stage11 tested artifacts after rebuilding. git diff --check passed. No further product source edits during this reconciliation. Prepared systemd path /usr/bin/node confirmed actual v22.22.1. Deployment still unperformed.

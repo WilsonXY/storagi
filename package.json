@@ -9,6 +9,6 @@
     "build": "npm run build --prefix server && npm run build --prefix web",
     "check": "npm test && npm run test:acceptance && npm run typecheck && npm run build",
     "start": "npm start --prefix server",
-    "test:acceptance": "server/node_modules/.bin/tsx --test scripts/acceptance-api.test.ts"
+    "test:acceptance": "server/node_modules/.bin/tsx --test scripts/acceptance-api.test.ts scripts/acceptance-review-fixes.test.ts"
   }
 }
