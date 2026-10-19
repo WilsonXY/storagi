@@ -2,7 +2,7 @@
 
 A personal, self-hosted temporary file shelf for transferring artifacts between devices over LAN and the internet.
 
-**Status:** implemented locally; local integration and acceptance passed, including review fixes and a 2 GiB+1 restart/hash check; fresh independent review is in progress. Not deployed. Real Google configuration and intended-device/network validation remain required. Every implementation stage and agent handoff is recorded.
+**Status:** implemented locally; locally implemented, verified and independently reviewed (final PASS), including a 2 GiB+1 restart/hash check. Not deployed. Real Google configuration and intended-device/network validation remain required. Every implementation stage and agent handoff is recorded.
 
 The first version implements:
 

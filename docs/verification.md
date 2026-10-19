@@ -1,6 +1,6 @@
 # Verification evidence and remaining acceptance
 
-The [stage index](implementation-log.md) records ownership, failed attempts, findings and every handoff. Stages 04/05 retain the original baseline evidence; stages 08/09/11 record the review fixes and refreshed proof. Independent review round 2 passed (stage 10); its low cleanup-timeout finding was fixed with a focused regression in stage 12. Final fresh review 13 remains pending.
+The [stage index](implementation-log.md) records ownership, failed attempts, findings and every handoff. Stages 04/05 retain the original baseline evidence; stages 08/09/11 record the review fixes and refreshed proof. Independent review round 2 passed (stage 10); its low cleanup-timeout finding was fixed with a focused regression in stage 12. Final fresh review 13 passed and confirmed the fix.
 
 ## Repeat routine checks
 
@@ -37,4 +37,6 @@ Final payload plus cleanup: 129.193 seconds; full TAP: 130.265 seconds. Peak com
 
 Real Google client registration/owner binding and sign-in, another real Google account, production HTTPS proxy/cookie behavior, Funnel/private Tailscale connectivity and WAN throughput, representative ZIP/MP4 files, physical Windows/Fedora/Android interruption/background behavior, browser download recovery, power/lid behavior and live service startup remain unverified. Nothing has been deployed or publicly exposed. Synthetic identity and phone-sized desktop screenshots do not establish those properties.
 
-The final production change after stage 11 is limited to isolating each cleanup row's failure, so a lock timeout does not skip later expired files. Stage 12 records the regression and final review 13 checks it. Upload/auth/download/storage and browser code are unchanged from refreshed browser/2GiB proof; the heavy proof was not repeated for this isolated cleanup change.
+The final production change after stage 11 is limited to isolating each cleanup row's failure, so a lock timeout does not skip later expired files. Stage 12 records the regression and final review 13 confirmed it. Upload/auth/download/storage and browser code are unchanged from refreshed browser/2GiB proof; the heavy proof was not repeated for this isolated cleanup change.
+
+Final independent review: PASS at product commit e22757e; actual Claude claude-opus-5-5/high confirmed from reviewer session model/effort fields, no fallback. Full findings/dispositions, read-only invariance and cleanup evidence are in stages06/10/13. Known low edge L2 remains: cleanup rejection during shutdown may skip explicit SQLite close and log exit1; process exit still closes handles and committed WAL/FULL data remains durable. This is reported, not claimed fixed.
