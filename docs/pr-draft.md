@@ -12,7 +12,7 @@ Storagi gives the owner a custom browser Inbox with Google-only authorization, r
 **Before:** new application; security and behavior regressions were observed failing before implementation/fixes and documented per stage.
 **After:** final combined checks report 30 service tests, 14 dashboard tests, 11 independent HTTP checks, all passing, plus both typechecks/builds. Independent refreshed mock browser 8/8 and actual-service browser 1/1 passed. Actual local 2 GiB+1 generated transfer passed restart at 1 GiB and matching SHA256 with bounded memory, then deletion/zero quota/temp cleanup.
 
-Screenshots/logs and runtime source hashes remain local under artifacts/acceptance-stage 11. They are not uploaded attachments. Attach them when write access permits publication; do not substitute local paths as GitHub proof. Reproduction and boundaries are in docs/verification.md; ownership/history in docs/implementation-log.md.
+Screenshots/logs and runtime source hashes remain local under artifacts/acceptance-stage11. They are not uploaded attachments. Attach them when write access permits publication; do not substitute local paths as GitHub proof. Reproduction and boundaries are in docs/verification.md; ownership/history in docs/implementation-log.md.
 
 ## Verification
 
