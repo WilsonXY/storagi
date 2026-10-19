@@ -1,5 +1,5 @@
 import {FileStore} from '@tus/file-store';
-import {Upload} from '@tus/server';
+import {Upload,MemoryLocker} from '@tus/server';
 import {Readable} from 'node:stream';
 import {open,rm,stat} from 'node:fs/promises';
 import path from 'node:path';
@@ -18,10 +18,10 @@ export class Transfers extends FileStore {
  }
  async create(file:Upload):Promise<Upload> {
    const name=file.metadata?.filename;
-   if(typeof name!=='string'||!name.trim()||Buffer.byteLength(name)>255||/[\x00-\x1f\x7f/\\]/.test(name)) throw new HttpError(400,'A plain filename of at most 255 bytes is required');
+   if(typeof name!=='string'||!name.trim()||Buffer.byteLength(name)>255||/[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069/\\]/.test(name)) throw new HttpError(400,'A plain filename of at most 255 bytes is required');
    if(file.size===undefined)throw new HttpError(400,'Known Upload-Length required');
    this.storage.reserve(file.id,name,file.size);
-   try{return await super.create(file);}catch(error){await this.remove(file.id);throw error;}
+   try{const created=await super.create(file);if(file.size===0)this.storage.complete(file.id);return created;}catch(error){await this.remove(file.id);throw error;}
  }
  async remove(id:string):Promise<void> {
    // Disk deletion precedes quota release. A failed unlink retains its reservation.
@@ -35,6 +35,7 @@ export class Transfers extends FileStore {
      storage.touch(id);
      // Persist completed data before metadata can advertise it as downloadable.
      const file=await open(path.join(this.directory,id),'r');try{await file.sync();}finally{await file.close();}
+     await this.reconcile(id);
    }
  }
  async reconcile(id:string):Promise<void> {
@@ -44,13 +45,10 @@ export class Transfers extends FileStore {
    if(info.size===row.size)this.storage.complete(id);
  }
 }
-// ponytail: one process with per-file promise locks; use shared locks before adding writers.
-export class FileLocks {
- private pending=new Map<string,Promise<void>>();
+// One process shares tus's maintained lock and its cancellation/takeover semantics.
+export class FileLocks extends MemoryLocker {
  async with<T>(id:string,work:()=>Promise<T>):Promise<T> {
-   const previous=this.pending.get(id)??Promise.resolve();let release!:()=>void;
-   const current=new Promise<void>(resolve=>{release=resolve;});this.pending.set(id,current);
-   await previous;
-   try{return await work();}finally{release();if(this.pending.get(id)===current)this.pending.delete(id);}
+   const lock=this.newLock(id);await lock.lock(new AbortController().signal,()=>{});
+   try{return await work();}finally{await lock.unlock();}
  }
 }

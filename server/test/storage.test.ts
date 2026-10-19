@@ -42,3 +42,13 @@ test('a tus metadata persistence failure rolls back its file and reservation',as
   assert.deepEqual(storage.usage(),{usedBytes:0,reservedBytes:0,budgetBytes:100});assert.deepEqual(await readdir(storage.filesDir),[]);
  }finally{storage.close();await rm(dir,{recursive:true,force:true});}
 });
+
+test('multiple download pins count an unlinked inode once and retain quota until the last close',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'pinned-')),storage=new Storage(dir,10,1,Date.now,()=>1000);
+ try {
+  storage.reserve('a','a',6);storage.complete('a');const first=storage.pin('a'),second=storage.pin('a');
+  assert.equal(storage.usage().usedBytes,6);storage.forget('a');assert.equal(storage.usage().usedBytes,6);
+  first();assert.equal(storage.usage().usedBytes,6);assert.throws(()=>storage.reserve('b','b',5),/budget/);
+  second();assert.equal(storage.usage().usedBytes,0);storage.reserve('b','b',5);assert.equal(storage.usage().reservedBytes,5);
+ }finally{storage.close();await rm(dir,{recursive:true,force:true});}
+});

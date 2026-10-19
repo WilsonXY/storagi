@@ -43,7 +43,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 06 | Independent read-only review round 1 | Claude Opus 5.5 high requested, not yet run | completed — FAIL | [06](stages/06-review-round-1.md) | Claude Opus5.5/high verified;2blocking+5otherfindings;cleaned worktree |
 | 07 | Final verification, PR/CI feasibility and owner handoff | coordinator /root | planned | [07](stages/07-handoff.md) | Actual implementation/setup/deployment status |
 
-| 08 | Backend review fixes: download/cleanup locks, flow availability, resume and validators | fresh backend task `storagi-stage08-backend-review-fixes` | in progress | [08](stages/08-backend-review-fixes.md) | Regression tests and safe lifecycle changes |
+| 08 | Backend review fixes: download/cleanup locks, flow availability, resume and validators | fresh backend task `storagi-stage08-backend-review-fixes` | completed | [08](stages/08-backend-review-fixes.md) | Server29tests/types/buildpass;allassignedfindingsimplemented;acceptance11pending |
 | 09 | Frontend review fix: preserve tus resume URL on expired session | fresh frontend task `storagi-stage09-session-resume` | completed | [09](stages/09-session-resume-fix.md) | Web14tests/types/buildpass;401/403preservesURL;browserstage11pending |
 | 10 | Independent read-only review round 2 | fresh Claude Opus5.5 high requested | planned | [10](stages/10-review-round-2.md) | Resolve all findings and repeat invariance checks |
 
