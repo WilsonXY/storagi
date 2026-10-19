@@ -42,3 +42,7 @@ Pending actual push/PR/attachment/link/CI results. Coordinator maintains central
 - Earlier wrong workflow filename inspection is retained above. No publication failures after owner grant. No code or host changes, no default push/merge/deployment.
 
 Next: push this publication record/index, T3 watch current PR checks. Complete record after actual run outcome, stop watch for final handoff. Google/exposure setup still requires owner-controlled configuration and later approval; not part of PR publication.
+
+## Subsequent privacy correction
+
+Initial publication/access results above are historical. Owner flagged public machine paths; stages19/20/21 normalized and reviewed current files/history candidate. Owner then granted narrow history exception;22 completed exact-lease feature replacement with identical current tree and unchanged main. Original PR#1/screenshots retained. Latest CI/final handoff tracked in22 rather than duplicating stage results here.

@@ -1,6 +1,6 @@
 # 19: Public-path privacy audit and integration
 
-- Status: current-file correction verified/reviewed; public history replacement awaiting owner exception.
+- Status: completed — current files corrected and approved history replacement executed in22.
 - Started/updated: 2026-10-19T16:30:35.303210+00:00.
 - Coordinator: /root, T3 thread mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a; actual runtime Codex gpt-6.1-sol/high.
 - Agent/task/session: coordinator, no child task.
@@ -50,3 +50,7 @@ Closeout scan initially flagged wording in a new PR note because slash-separated
 Ordinary `git push -u origin HEAD` atb36f0e0 exit0 updated feat/storagi without rewriting history; follow-up review-record push at8e152f2 also exit0. PR#1 actual head verified8e152f2. Current tracked82-file scan remainszero, application unchanged, main preserved. PR body updated with privacy disposition while preserving allthree GitHub-hosted screenshot URLs; no actual personal paths in body. Checks remainqueued at actual read, not green. Watch remains stopped while owner history decision is pending; this is not a finished CI claim.
 
 Final closeout commit adds only this status/index metadata. After it is published, candidate is regenerated privately with the same reviewed transform and exact tree/main/history audit. Final result and expected-lease hash stored in `$HOME/.cache/storagi/privacy/final-candidate-report.json`, not a public private-path transcript. Preliminary reviewed candidate is retained separately for comparison. Owner receives the concrete feature-only replacement proposal after verification; no forced mutation before reply. Original owner no-overwrite instruction is the source of this permission requirement, not an inferred skill rule.
+
+## Owner exception received and executed
+
+Owner authorized the narrow proposal with “go as long as you think it is safe.” Stage22 independently repeated lease/tree/main/complete-history/backup checks and successfully replaced only feat/storagi using exact --force-with-lease9e5757d. Published sanitized head4a928b2 has identical approved current content; main0d168b1 and unrelated worktree preserved. No reset or lost local changes. Historical pending-approval sections above retain the actual sequence, not the current status. Latest-head CI and final publication handoff are22; cache/clone limits remain. No merge/deployment.

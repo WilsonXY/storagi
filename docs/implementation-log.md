@@ -51,10 +51,11 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 15 | Fix shutdown closure and failed-logout recovery | Distinct failure-path implementation task | Completed; server31/web 19/types/build, RED→GREEN | [15](stages/15-failure-path-fixes.md) |
 | 16 | Integrate, verify UI and recheck publication | Coordinator | Completed locally;61 checks/mock 11/actual1; push403 | [16](stages/16-final-fix-integration.md) |
 | 17 | Focused independent fallback review | Fresh Codex gpt-6-astra/high confirmed | PASS; L2/L3 accepted, doc finding corrected | [17](stages/17-final-fix-review.md) |
-| 19 | Privacy audit, integration and history correction preparation | Coordinator | Current files pushed clean; history replacement awaits owner exception | [19](stages/19-public-path-privacy.md) |
+| 19 | Privacy audit, integration and history correction preparation | Coordinator | Completed; owner approved guarded replacement in22 | [19](stages/19-public-path-privacy.md) |
 | 20 | Portable public documentation and deployment examples | Distinct sanitization task | Completed; zero tracked matches, unit verify passed | [20](stages/20-portable-paths.md) |
 | 21 | Independent privacy correction review | Fresh fallback gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [21](stages/21-public-path-review.md) |
-| 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked, screenshots uploaded; CI queued | [18](stages/18-publication.md) |
+| 22 | Execute approved feature-history privacy cleanup and CI | Coordinator | Feature history replaced safely; latest CI pending | [22](stages/22-approved-history-cleanup.md) |
+| 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked; initial CI passed, rewrite CI in22 | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Prior handoff/access failures retained; publication resumed in18 | [07](stages/07-handoff.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
@@ -132,3 +133,9 @@ Public records now display normalized portable evidence paths; private literal o
 Privacy review21 PASS, actual gpt-6-astra/high independently confirmed from own native session, current tracked files and24-commit history candidate clean. Parent/remote/child invariance passed; review worktree/branch removed. Main exact unchanged. Coordinator publishes ordinary current-file fix and prepares a final regenerated candidate for narrow owner history exception; no forceupdate performed. Historical original IDs remain evidence of original checks; no false claim cached public objects erased.
 
 Current privacy correction published normally atb36f0e0 and8e152f2, PR#1 updated with reviewed portable files, no history overwritten. Public tracked scanzero; privacy reviewer21 PASS/actualAstrahigh proved and cleanup complete. Final local rewritten candidate is regenerated after closeout with current tree/main/history assertions; owner exception still needed for forced feature replacement. Earlier public commits/cached copies are not claimed erased. PR CIqueued, watchpaused for owner decision.
+
+## Approved feature-history cleanup
+
+Owner replied “go as long as you think it is safe” to the narrow feature-only history replacement proposal. Stage22 executes only if feature lease still9e5757d and main still0d168b1, candidate4a928b2 current tree matches source exactly, complete private backup is verified and history scans are clean. No blanket/mirror push, default-branch mutation, unrelated worktree/branch cleanup, merge or deployment. Fresh preflight found unrelated user worktree t3/test at originalmain; preserve it. Previous PR checks at9e5757d both SUCCESS; rewritten-head CI must be observed separately.
+
+Approved history cleanup executed: stage22 exact-lease feature-only9e5757d→4a928b2 succeeded after fresh26-commit/210-blob scan, identical-tree assertion and private backup verification. Main0d168b1/unrelated worktree preserved. No reset/merge/deployment; current-file and reachable feature-history path scans clean. PR#1 remains the same linked PR with hosted proof; latest rewritten-head CI watched separately. Old9e5757d checks passed, not substituted for new-head results. Cached GitHub/PR/SHA/clone copies not claimed erased.
