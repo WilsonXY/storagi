@@ -33,26 +33,25 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 
 ## Stage index
 
-| Stage | Scope | Agent/task/thread | Status | Record | Handoff/result |
-| --- | --- | --- | --- | --- | --- |
-| 01 | Repository isolation, stage plan, API agreement | coordinator /root | completed | [01](stages/01-foundation.md) | Local baseline before child work |
-| 02 | Owner authentication, resumable service, storage rules and security tests | [Codex service task](t3-thread://v1/thread:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-stage02-service-v1) | completed | [02](stages/02-file-service.md) | 16 tests/typecheck/build pass; stable service handoff |
-| 03 | Responsive custom dashboard and tus browser client | [Codex dashboard task](t3-thread://v1/thread:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-stage03-web-v1) | completed | [03](stages/03-dashboard.md) | 10 tests/typecheck/build pass; final browser proof stage05 |
-| 04 | Integration, deployable configuration and local verification | coordinator /root | completed | [04](stages/04-integration.md) | Combined32checks+types/build pass; service9e6f10d,webc82f907 |
-| 05 | Independent acceptance/security checks | [Codex acceptance task](t3-thread://v1/thread:delegated-task:command%3Amcp%3A84bfb7a9-ff9d-4f5a-9ea2-fc37786fe042%3Adelegate-task%3Astoragi-stage05-acceptance-v1) | completed | [05](stages/05-acceptance.md) | API6/0;finalmock6/0;actualbrowser1/0;2GiB+1stream1/0 |
-| 06 | Independent read-only review round 1 | Claude Opus 5.5 high requested, not yet run | completed — FAIL | [06](stages/06-review-round-1.md) | Claude Opus5.5/high verified;2blocking+5otherfindings;cleaned worktree |
-| 07 | Final verification, PR/CI feasibility and owner handoff | coordinator /root | in progress | [07](stages/07-handoff.md) | Actual implementation/setup/deployment status |
+| Stage | Scope | Owner | Final status | Record |
+| --- | --- | --- | --- | --- |
+| 01 | Repository isolation, owner remote reconciliation and plan | Coordinator | Completed | [01](stages/01-foundation.md) |
+| 02 | Authenticated resumable file service | Distinct service task | Completed; 16 initial tests/types/build | [02](stages/02-file-service.md) |
+| 03 | Custom responsive dashboard | Distinct dashboard task | Completed; 10 initial tests/types/build | [03](stages/03-dashboard.md) |
+| 04 | Integration, startup template and combined verification | Coordinator | Completed; final 55 tests/types/build | [04](stages/04-integration.md) |
+| 05 | Initial independent API/browser/large-file acceptance | Distinct acceptance task | Completed; all recorded checks passed | [05](stages/05-acceptance.md) |
+| 06 | Independent review round 1 | Fresh Claude Opus 5.5/high | FAIL; findings fixed in 08/09 | [06](stages/06-review-round-1.md) |
+| 08 | Backend availability/lifecycle review fixes | Fresh backend fix task | Completed; 29 tests/types/build | [08](stages/08-backend-review-fixes.md) |
+| 09 | Preserve upload recovery through expired sessions | Fresh frontend fix task | Completed; 14 tests/types/build | [09](stages/09-session-resume-fix.md) |
+| 11 | Independent acceptance after review fixes | Fresh acceptance task + execution follow-up | Completed; HTTP 11, mock browser 8, actual browser 1, large-file 1 | [11](stages/11-fix-acceptance.md) |
+| 10 | Independent review round 2 | Fresh Claude Opus 5.5/high | PASS; low cleanup L1 fixed in 12 | [10](stages/10-review-round-2.md) |
+| 12 | Continue cleanup after individual failures | Fresh cleanup fix task | Completed; 30 tests/types/build | [12](stages/12-cleanup-timeout-fix.md) |
+| 13 | Independent review round 3 | Fresh Claude Opus 5.5/high | PASS; low shutdown L2 reported | [13](stages/13-review-round-3.md) |
+| 07 | Final handoff, publication and setup status | Coordinator | Local handoff complete; publication blocked by HTTP 403 | [07](stages/07-handoff.md) |
 
-| 08 | Backend review fixes: download/cleanup locks, flow availability, resume and validators | fresh backend task `storagi-stage08-backend-review-fixes` | completed | [08](stages/08-backend-review-fixes.md) | Server29tests/types/buildpass;allassignedfindingsimplemented;acceptance11pending |
-| 09 | Frontend review fix: preserve tus resume URL on expired session | fresh frontend task `storagi-stage09-session-resume` | completed | [09](stages/09-session-resume-fix.md) | Web14tests/types/buildpass;401/403preservesURL;browserstage11pending |
-| 10 | Independent read-only review round 2 | Claude Opus5.5/high verified | completed — PASS | [10](stages/10-review-round-2.md) | All prior findings fixed; low cleanup L1 assigned12; clean invariants/cleanup |
+Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
-| 11 | Independent acceptance of review fixes and refreshed browser/large-file proof | fresh acceptance task `storagi-stage11-fix-acceptance` + execution follow-up | completed | [11](stages/11-fix-acceptance.md) | FixHTTP5/API6/mock8/actualbrowser1/2GiBstream1 allpass;allprocessesstopped |
-
-| 12 | Continue cleanup after an individual lock timeout | fresh cleanup task `storagi-stage12-cleanup-timeout` | completed | [12](stages/12-cleanup-timeout-fix.md) | RED→GREEN; server30 tests/types/build pass; final combined55 tests/types/build pass |
-| 13 | Independent read-only review round 3 | Claude Opus5.5/high verified | completed — PASS | [13](stages/13-review-round-3.md) | PASS; L1 fixed, low shutdown L2 reported; invariants passed/cleaned |
-
-Dependency order: 01 → independent 02 + 03; 05 may prepare black-box checks concurrently but completion depends on 04 integration; then 06 → 07. Round06 failed;08+09 independent fixes precede acceptance11, fresh review10 then12/L1 fix and final fresh13 before07 handoff. Additional review/fix rounds get new records. Owner subsequently designated `https://github.com/WilsonXY/storagi` (public existing repository). Its default branch is `main`, initial commit `0d168b1`; local baseline was merged with that history without rewriting it. Existing MIT LICENSE retained. Authenticated GitHub account currently reports READ permission; `git push --dry-run origin HEAD` confirmed HTTP 403 denied to luna-agent1; no remote branch was changed. PR/CI publication remains blocked pending write access.
+Owner repository decision: `https://github.com/WilsonXY/storagi`, public, default `main`, initial commit `0d168b1`. Its history and MIT license were preserved by merge `53e58b8`; no public fork was created. Final actual `git push -u origin HEAD` at documentation commit `18954ce` returned HTTP 403 denied to `luna-agent1`; no remote branch changed. No PR or remote CI run exists for this work. Google setup and deployment remain separate from verified implementation.
 
 ## Stage record template
 
@@ -95,3 +94,5 @@ include the coordinator's repository invariance checks and worktree cleanup.
 ## Completion record
 
 Before handing the implementation back, the coordinator must reconcile the stage index, record final verification and independent review, link any PR and current CI outcome, and distinguish working application behavior from Google-account setup or deployment/network checks still requiring the owner.
+
+Final completion entry (2026-10-19): reviewed product source e22757e, final review PASS with actual claude-opus-5-5/high confirmed in all three own reviewer logs; no fallback. Root check reports 30 service +14 web +11 independent HTTP tests, both typechecks/builds passed. Refreshed browser and generated 2 GiB+1 restart/hash/cleanup proof passed. Remaining low shutdown edge L2 is reported in stage13. Feature-branch publication is blocked by account permission; PR draft/setup instructions and portable bundle prepared. Nothing deployed or exposed, existing host services preserved. No tracked credential or private file content.
