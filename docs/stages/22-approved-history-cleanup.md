@@ -1,6 +1,6 @@
 # 22: Approved feature-history privacy cleanup
 
-- Status: approved feature-history replacement completed; new-head CI pending.
+- Status: completed — approved feature-history cleanup verified; rewritten-head CI passed.
 - Started/updated: 2026-10-19T17:10:57.666774+00:00.
 - Coordinator: /root, T3 mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a, actual injected Codex gpt-6.1-sol/high. Coordinator-owned stage; no new implementation/review agent.
 - Owner authorization: “go as long as you think it is safe” after the concrete feature-only exact-lease proposal. This grants the narrow exception to earlier no-overwrite instruction; it does not authorize main, other refs, merge/deployment or removal from other people's clones.
@@ -25,7 +25,7 @@ Private cache `$HOME/.cache/storagi/privacy/` contains final-candidate-report.js
 
 ## Limitations and handoff
 
-This cleans reachable feature history on the branch, not cached SHA/PR views, forks/clones or server garbage collection. No guarantee of retroactive erasure; GitHub limitations already disclosed in19/21. No account/host/service/Google/network/deployment changes. Pending actual push result, canonical synchronization, public scan and new CI results.
+This cleans reachable feature history on the branch, not cached SHA/PR views, forks/clones or server garbage collection. No guarantee of retroactive erasure; GitHub limitations already disclosed in19/21. No account/host/service/Google/network/deployment changes. Actual push/synchronization/public scan/CI results are recorded below; initial planned conditions above are preserved as execution history.
 
 ## Actual execution and results
 
@@ -37,3 +37,12 @@ This cleans reachable feature history on the branch, not cached SHA/PR views, fo
 - No operation failed; all planned guards passed. Only current stage/index documentation remained modified afterward and is committed/pushed normally next. Main and existing host services unchanged.
 
 Current privacy files and reachable rewritten feature history are clean. Earlier cache/PR/SHA references and other clones are outside this operation, as disclosed before approval; no complete-erasure claim. PR metadata is updated to reflect actual approval/execution, retain all three hosted screenshots and resume latest-head T3 CI watch. New-head success not claimed before observation.
+
+## Rewritten-head CI and closeout
+
+- Actual `gh pr checks 1 -R WilsonXY/storagi` at e6a3f09278d588370fe8dd6187bbb4e576c41b0f returned both check jobs PASS (49s/54s). PR read confirms OPEN/MERGEABLE with no comments/reviews, current head e6a3f09 and both completed SUCCESS; not substituted from old history.
+- Verified runs: https://github.com/WilsonXY/storagi/actions/runs/39292140517 and https://github.com/WilsonXY/storagi/actions/runs/39292147912 . Actual run log retained privately at `$HOME/.cache/storagi/privacy/ci-rewritten-head.log`; state snapshot ci-e6a3f09-state.json. Remote workflow completed locked dependency setup,61 tests and both typechecks/builds.
+- Post-publication reachable-history audit at e6a3f09:27 feature commits/215 unique blobs,zero private matches; main exact original0d168b1, remote feature matches local HEAD and working tree clean. Current tracked83 files scanzero. Private published-rewrite-final-audit.json retains actual counts; public PR diff/body and hosted screenshots contain no actual personal paths.
+- Portable implementation bundle refreshed from sanitized feat/storagi and origin/main refs only, verified and SHA256 stored alongside it. Original private evidence/backups not uploaded or included. Unrelated worktree preserved; no owned dev/test services or review worktrees left.
+
+This documentation-only closeout records the verified rewritten-head runs. Its ordinary push will receive another CI run; final handoff checks the latest live PR result and stops the native watch. Latest docs-only CI evidence can be linked in the PR without another repository metadata commit. No app/config changes, repeated history rewrite, merge or deployment. Google/HTTPS/intended devices remain owner setup/acceptance tasks; cached/clone copy limitation unchanged.

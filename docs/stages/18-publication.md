@@ -2,7 +2,7 @@
 
 > Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
 
-- Status: publication completed; CI queued and watch handoff pending.
+- Status: publication completed; CI passed, later privacy correction and final CI recorded in22.
 - Started: 2026-10-19T16:20:54.415276+00:00.
 - Coordinator: /root, T3 `mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a`, actual injected runtime Codex gpt-6.1-sol/high.
 - Native coordinator session from original implementation:01a15442-04e0-7132-b427-d958e244d053; no new delegated implementation/review task for this coordinator-only publication stage.

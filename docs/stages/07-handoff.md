@@ -2,7 +2,7 @@
 
 > Public-path normalization (stage 20): paths and command displays are normalized public references, not original literal invocations. Recorded results, identity metadata and hashes are unchanged; original evidence remains private locally.
 
-- Status: local implementation/check/review complete; original publication blocker resolved in18, PR open and CI pending.
+- Status: implementation published, independently reviewed and rewritten-head CI passed; Google setup/deployment remain pending.
 - Date: 2026-10-19, Asia/Kuala_Lumpur.
 - Coordinator thread: mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a; native session 01a15442-04e0-7132-b427-d958e244d053.
 - Actual provider/model/effort: Codex gpt-6.1-sol/high, confirmed from own session turn_context metadata. Reviewer settings/evidence are separately confirmed in stages 06/10/13/14.
@@ -40,3 +40,7 @@ Final follow-up result: stage17 PASS, actual gpt-6-astra/high proved from own lo
 ## Publication access resolved
 
 Owner's access update verified by actual API push=true and successful feature push. PR https://github.com/WilsonXY/storagi/pull/1 is open/linked with three GitHub-hosted synthetic screenshots. Earlier403/noPR statements above are historical failure evidence. Current CI and publication closeout are stage18; no deployment/Google setup performed.
+
+## Published privacy-corrected implementation
+
+Owner-authorized feature-only history correction completed safely in22. Current files and reachable feature history are clean of personal path/account values; main preserved, private original evidence retained. Published e6a3f09 passed both remote Check jobs (61 tests/types/build), PR#1 open/mergeable with three hosted synthetic screenshots. Final documentation-only CI is checked live before handoff; result linked from PR. Nothing merged/deployed/exposed; real Google binding, HTTPS/network/device acceptance still required. Earlier publication/CI/unfixed statements above are historical records, superseded by the later actual outcomes.
