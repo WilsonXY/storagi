@@ -1,0 +1,29 @@
+{
+  "name": "storagi-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "start": "node dist/src/main.js"
+  },
+  "dependencies": {
+    "@tus/server": "2.4.6",
+    "@tus/file-store": "2.1.1",
+    "openid-client": "6.8.8",
+    "better-sqlite3": "13.0.3",
+    "srvx": "0.11.22"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "tsx": "4.23.15",
+    "@types/node": "22.20.5",
+    "@types/better-sqlite3": "9.6.0",
+    "jose": "6.2.12"
+  }
+}
