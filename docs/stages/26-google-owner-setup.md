@@ -44,3 +44,7 @@ Real Google enrollment/token exchange and controlled local owner configuration s
 ## Handoff
 
 Fresh stage27 review receives the committed documentation and sanitized readiness metadata. Publish only public-safe setup records after review; do not publish credentials, subject, flow URL or private logs. Before starting/exposing the real app, obtain the separate approval required by AGENTS.md and verify the selected HTTPS route is still unused. Existing private synthetic preview stays available. The owner may now close the enrollment SSH-forward window with Ctrl+C.
+
+## Independent review and publication preparation
+
+Stage27 Claude was unavailable due to API rate limit. Fresh fallback stage28 returned PASS with no findings, actual gpt-6-astra/high confirmed from its own native session by both reviewer and coordinator; all read-only invariance checks and owned-worktree cleanup passed. Source/packages/scripts/deployment template still exactly match merged main; only public-safe documentation is published. CI will be observed on the new PR, separately from historical PR#1 checks.
