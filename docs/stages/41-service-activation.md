@@ -1,6 +1,6 @@
 # 41: Persistent service activation and recovery acceptance
 
-- Status: completed reviewed activation and automatic recovery; independent44 PASS and owner Inbox continuity confirmed.
+- Status: completed; recovery verified, independent44 PASS, owner Inbox confirmed and boot autostart accepted by owner with reboot test waived.
 - Started / last updated: 2026-10-20T22:51:47+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner/task/model: coordinator Codex gpt-6.1-sol/high from injected runtime; no independent review claimed here.
@@ -38,3 +38,11 @@ With a fresh three-sample idle check and exact new main PID/release identity, ra
 No activation or recovery failure occurred. Source41 baseline and native checks are above; private process/status records distinguish the stopped historical trial from current systemd ownership. Independent44 acceptance follows before publication. Existing manager/linger and enabled default.target dependency prepare boot startup; no cold reboot, home-unlock behavior, host awake/lid change, real owner cookie continuity or WAN transfer is claimed by this coordinator proof.
 
 Subsequent acceptance: fresh44 actual Astra/high independently observed applied service and22/22 bounded HTTP checks, no findings; invariance/native proof/cleanup recorded there. Owner then confirmed existing-browser Inbox still loads, attributed in42. No real file-transfer or cold-reboot result added by these checks.
+
+## Owner operational acceptance — 2026-10-21
+
+The owner confirms the laptop's sleep/lid/power configuration is already working and is not an issue. This is an owner report; agents did not change or re-test those settings. Preserve them.
+
+The owner explicitly directs treating boot autostart as working based on the reviewed configuration and waives a whole-host reboot test for now, returning if an actual issue occurs. Operational status: accepted/working by owner decision, not a pending deployment blocker. No physical reboot was performed and no observed cold-boot success is claimed. The enabled user service, existing linger, persistent runtime/data and verified16.033second crash recovery remain the supporting implementation evidence. Do not schedule a reboot, re-open this test request or change host settings unless the owner reports a problem or requests it.
+
+This coordinator-only factual documentation update also carries forward the owner file-test note committed after PR#4 merged. Prepared on docs/owner-operational-acceptance from merged main73fc0d6, preserving the original6812c03 note via cherry-pick. No code, unit, environment, data, service or network mutation. Documentation whitespace/portable-path checks are the relevant verification; no new runtime tests or independent review claimed. These records are retained on the documentation branch for the next repository documentation update.
