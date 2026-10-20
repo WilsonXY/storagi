@@ -1,6 +1,6 @@
 # 45: Publish owner operational acceptance notes
 
-- Status: in progress; documentation-only publication.
+- Status: published PR#5; review PASS, current CI pending observation.
 - Date: 2026-10-21, Asia/Kuala_Lumpur.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner/task/model: coordinator, Codex gpt-6.1-sol/high from injected runtime; owner says “pr it for me then”.
@@ -19,3 +19,5 @@ Read instructions, README/design/log and changed records in this continuing sess
 Commit before isolated46; then ordinary feature push, create/link PR, observe current-head CI through T3 and unwatch on owner handoff. Never merge automatically or mutate runtime. Requested reviewer settings are not actual proof.
 
 Independent47 PASS with actual Astra/high native proof confirmed; primary46 API-limited without verdict. Parent/remote/child invariance and exact cleanup passed. Relevant Markdown target/whitespace/privacy checks passed; no source/unit/runtime change. Publication proceeds normally; current-head CI will be observed via linked PR before handoff.
+
+Ordinary branch push443f21d and `gh pr create --body-file` succeeded: [PR#5](https://github.com/WilsonXY/storagi/pull/5), docs/owner-operational-acceptance→main. Immediately linked to T3. Main/runtime unchanged; no merge, reboot, host/settings or application changes. Final publication-record commit follows, then T3 watches that actual head; current CI outcome is recorded on linked PR before handoff. No CI success claimed before observation.

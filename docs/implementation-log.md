@@ -79,7 +79,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 42 | Representative WAN/device transfer acceptance handoff | Owner-assisted coordinator | Owner Inbox + general file test PASS; exact hash/time/resume details unreported | [42](stages/42-wan-transfer-acceptance.md) |
 | 43 | Fallback independent service/domain review after40 unavailable | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [43](stages/43-service-domain-fallback-review.md) |
 | 44 | Independent persistent live service acceptance | Distinct read-only acceptance task | PASS; actual Astra/high,22/22 HTTP, invariance/cleanup passed | [44](stages/44-user-service-acceptance.md) |
-| 45 | Publish owner operational acceptance notes | Coordinator | In progress; documentation only | [45](stages/45-owner-acceptance-publication.md) |
+| 45 | Publish owner operational acceptance notes | Coordinator | Published PR#5; review PASS, current CI watched | [45](stages/45-owner-acceptance-publication.md) |
 | 46 | Independent owner-acceptance documentation review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [46](stages/46-owner-acceptance-review.md) |
 | 47 | Fallback owner-acceptance documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [47](stages/47-owner-acceptance-fallback-review.md) |
 
@@ -248,3 +248,5 @@ Owner explicitly requests a PR for the retained acceptance notes. Stage45 coordi
 Stage46 primary Claude API-limited, no review/verdict or actual execution proof. Parent/remote/clean-child invariance passed; exact assigned worktree/branch removed. Fresh47 follows owner fallback routing with full original brief and unavailable outcome. Native local documentation check counted66 targets (one prompt said46, corrected); no runtime changes.
 
 Stage47 fallback documentation review PASS, no findings. Coordinator independently parsed own native OpenAI/gpt-6-astra/high metadata/context lines1/8; parent HEAD/full status/all remote heads and clean child baseline invariant, exact owned worktree/branch removed.67 local targets/privacy114tracked scan and whitespace passed; no new runtime tests. Stage45 publication follows, preserving explicit owner acceptance without pretending a cold-boot observation or detailed file measurements.
+
+Owner-acceptance notes published as [PR#5](https://github.com/WilsonXY/storagi/pull/5) and immediately linked to T3. Documentation-only branch, independent47 PASS/actual Astra-high confirmed, primary46 API limit retained. Main73fc0d6 and running service untouched. Final publication-record commit is watched for current-head CI; final outcome recorded on linked PR/final handoff. No merge, new empirical reboot/file proof or runtime changes.
