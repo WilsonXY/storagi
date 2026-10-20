@@ -29,6 +29,17 @@ node dist/src/enroll.js
 
 Open its printed Google URL on this machine, select the intended owner account and copy the verified subject into the private environment as OWNER_GOOGLE_SUB. The CLI checks the signed Google identity with state, nonce and PKCE, listens only on loopback, times out after ten minutes, and never changes application ownership/configuration automatically. It does not log tokens. The actual Google registration/flow still needs owner verification.
 
+### Enrollment from another computer over SSH
+
+Keep the CLI on the host and open the Google URL in your own computer's browser. In a separate local terminal, forward its registered callback to the host:
+
+```sh
+ssh -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:8989:127.0.0.1:8989 user@storagi-host
+```
+
+Replace the SSH destination with your normal one and leave that terminal running. The `-N` terminal has no remote shell: run the enrollment CLI in a separate SSH session. Complete Google sign-in within the CLI's ten-minute timeout, then close the forward with Ctrl+C. Never paste credentials, callback codes or enrollment output into public records. Enrollment verifies an identity; explicitly configure the intended owner's verified subject before starting the app.
+
 To run the built app with the private environment loaded, use `npm start` from the repository root. It binds `127.0.0.1:8787` by default; all production login/file cookies require the configured HTTPS origin. `DATA_DIR` and the public dashboard build directory must be separate. Do not substitute dummy identity credentials or disable authentication to obtain a live preview.
 
 ## Prepared service configuration

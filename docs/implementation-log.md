@@ -60,7 +60,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 25 | Fallback instruction review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [25](stages/25-agent-instructions-fallback-review.md) |
 | 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked; initial CI passed, rewrite CI in22 | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Published/CI passed; Google setup and deployment pending | [07](stages/07-handoff.md) |
-| 26 | Real Google owner enrollment preparation | Coordinator | In progress; private credentials validated, owner sign-in pending | [26](stages/26-google-owner-setup.md) |
+| 26 | Real Google owner enrollment and configuration preparation | Coordinator | Completed; real signed identity verified, private config validated; not deployed | [26](stages/26-google-owner-setup.md) |
+| 27 | Independent owner-setup documentation review | Fresh Claude Opus 5.5/high requested | Planned; actual runtime unverified | [27](stages/27-owner-setup-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -155,3 +156,5 @@ AGENTS cleanup:44lines/650words→17lines/163words. Removed copied global rules 
 ## Real Google owner setup
 
 Owner confirmed PR#1 merged and requested the next setup step. Local inspection confirms origin/main cf83f6c and the prior feature have identical trees. Stage26 uses a new feature branch from that merged baseline, preserving the prior branch. The owner created a Google Web OAuth client and saved its JSON privately outside Git. Shape, both expected callback registrations and mode0600 were checked without displaying credential values. This is not proof that Google accepts the credentials or that the real owner login succeeds. Existing owner-approved private synthetic preview remains separate; no real app deployment or exposure is authorized by this setup step.
+
+Stage26 completion: the owner used a local SSH forward and completed real Google enrollment. The existing CLI verified the signed Google identity, printed its subject only to its private output, exited without an error, and closed the loopback listener. The coordinator explicitly prepared an outside-Git owner environment from that verified result; mode0600 environment/credentials and mode0700 persistent data directory checked. Production loadConfig passed without starting the app. This proves real enrollment, not production browser login, cross-account denial, network throughput or deployment. Stage27 reviews the portable setup guidance and sanitized evidence before publication/any requested startup.
