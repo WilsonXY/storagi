@@ -36,3 +36,5 @@ Independent stage30 receives a running private route, proposed endpoint metadata
 ## Independent acceptance and publication handoff
 
 Stage30 passed213 live anonymous HTTP requests/15 checks and1440/728/390 anonymous browser shells. Initial optional-probe review33 found two medium harness problems (error privacy and unbounded responses), fixed in34 with14 RED/GREEN regressions; final live213/15 rerun passed. Fresh35 actual Astra/high PASS confirms both findings resolved and no new issues; read-only evidence/cleanup passed. Source app and its already-running private process were unchanged throughout. Stage32 Claude rate limit and coordinator cleanup-guard retry are recorded separately. Public-safe probe/docs publication and CI follow; actual account tests still await the owner and Funnel remains off.
+
+Publication: https://github.com/WilsonXY/storagi/pull/3 created/linked for the reviewed optional probe/regressions and operational records, with public-safe anonymous1440/390 screenshots hosted by GitHub. Ordinary feature push only; app source unchanged. Current PR CI pending actual observation; owner account checks and Funnel remain pending.
