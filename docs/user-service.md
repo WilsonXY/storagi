@@ -57,7 +57,7 @@ This native check validates directives/dependencies and the `/usr/bin/node` exec
 
 ## Reviewed handoff and acceptance
 
-Proceed only after independent stage40 PASS and with owner transfers idle. Reconfirm the original exact PID still belongs to this app and the expected loopback port; send `kill -TERM "$original_pid"` only to that verified PID, never `pkill`. Wait for its exit and verify no writer or listener remains before starting the unit. If graceful stop fails, pause and investigate; do not force-kill or launch another writer. Keep the original runtime and private startup procedure available for rollback.
+Proceed only after independent service review PASS (stage40; fallback43 after its API limit) and with owner transfers idle. Reconfirm the original exact PID still belongs to this app and the expected loopback port; send `kill -TERM "$original_pid"` only to that verified PID, never `pkill`. Wait for its exit and verify no writer or listener remains before starting the unit. If graceful stop fails, pause and investigate; do not force-kill or launch another writer. Keep the original runtime and private startup procedure available for rollback.
 
 After that clean stop, install only the new user unit (the preflight must have established no conflicting destination):
 

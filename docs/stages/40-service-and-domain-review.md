@@ -1,6 +1,6 @@
 # 40: Independent persistent service and domain brief review
 
-- Status: prepared for fresh Claude review after frozen39 and passing baseline.
+- Status: unavailable; Claude API rate limit, no review verdict.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner: fresh read-only reviewer; coordinator writes record.
 - Reviewer/model/effort: request claudeAgent / claude-opus-5-5 / high through live catalog; actual own-session proof pending, requested settings are not evidence.
@@ -13,4 +13,6 @@ No edits including review record, commits/pushes/posts, credential/session/data 
 
 ## Outcome
 
-Pending.
+T3 task `node:delegated-task:command%3Amcp%3A2bec282a-2497-4ad3-8761-5bd2483f1f3d%3Adelegate-task%3Astoragi-stage40-service-domain-review-claude-high-v1` terminated failed with “Claude API rate limit reached. Try again later.” No review ran; no PASS and no actual model/effort claim. Requested Claude Opus5.5/high only; native execution proof unavailable. Committed review baseline c70871340484db5b3d5479f75b50d6f2822995de.
+
+Coordinator compared private before snapshot: parent HEAD, full porcelain status and all remote heads identical; isolated child clean at starting c708713. T3 assigned branch t3/review-stage40. Exact owned worktree/branch removed after checks. Private snapshot `"$HOME/.cache/storagi/stage40-review-before.json"`; no private transcript published. Source/runtime/unit unchanged. Fresh fallback43 receives full original scope and this unavailable outcome; activation remains gated on its actual PASS.
