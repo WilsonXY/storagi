@@ -60,6 +60,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 25 | Fallback instruction review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [25](stages/25-agent-instructions-fallback-review.md) |
 | 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked; initial CI passed, rewrite CI in22 | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Published/CI passed; Google setup and deployment pending | [07](stages/07-handoff.md) |
+| 26 | Real Google owner enrollment and configuration preparation | Coordinator | Completed; real signed identity verified, private config validated; not deployed | [26](stages/26-google-owner-setup.md) |
+| 27 | Independent owner-setup documentation review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [27](stages/27-owner-setup-review.md) |
+| 28 | Fallback owner-setup documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance and cleanup passed | [28](stages/28-owner-setup-fallback-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -150,3 +153,15 @@ Privacy cleanup closeout: published rewritten head e6a3f09 passed both remote Ch
 Owner requests a shorter project AGENTS.md, removing repeated/nonproject instructions. Stage23 coordinator edits this single instruction file; detailed stage rules stay in this log and global workflow/reviewer rules stay in the owner profile. Stage24 fresh read-only review checks the reduction and preserved project boundaries. No application/deployment changes. Existing PR#1 remains the publication target; ordinary feature push and CI follow review.
 
 AGENTS cleanup:44lines/650words→17lines/163words. Removed copied global rules and resolved setup history; project docs, stage ownership and auth/host/privacy safeguards remain. Review25 PASS, actual Astra/high proved, fallback only because Claude24 hit API rate limit. Read-only invariance passed and owned worktrees cleaned; ordinary PR#1 update/CI follows. App/tests/deps/config unchanged.
+
+## Real Google owner setup
+
+Owner confirmed PR#1 merged and requested the next setup step. Local inspection confirms origin/main cf83f6c and the prior feature have identical trees. Stage26 uses a new feature branch from that merged baseline, preserving the prior branch. The owner created a Google Web OAuth client and saved its JSON privately outside Git. Shape, both expected callback registrations and mode0600 were checked without displaying credential values. This is not proof that Google accepts the credentials or that the real owner login succeeds. Existing owner-approved private synthetic preview remains separate; no real app deployment or exposure is authorized by this setup step.
+
+Stage26 completion: the owner used a local SSH forward and completed real Google enrollment. The existing CLI verified the signed Google identity, printed its subject only to its private output, exited without an error, and closed the loopback listener. The coordinator explicitly prepared an outside-Git owner environment from that verified result; mode0600 environment/credentials and mode0700 persistent data directory checked. Production loadConfig passed without starting the app. This proves real enrollment, not production browser login, cross-account denial, network throughput or deployment. Stage27 reviews the portable setup guidance and sanitized evidence before publication/any requested startup.
+
+Stage27 returned an explicit Claude API rate limit without a review. Parent/remote/child invariance passed and its owned worktree/branch were removed. Stage28 follows the owner profile fallback route in a fresh isolated task; no pass or runtime proof is assumed.
+
+Stage28 PASS: actual gpt-6-astra/high independently confirmed from its native turn_context line8; no findings. Parent HEAD/status/remote heads and clean child baseline matched; owned worktree/branch removed. Documentation-only publication follows on chore/google-owner-setup; actual app startup/exposure still awaits explicit owner approval.
+
+Owner-setup records published on PR https://github.com/WilsonXY/storagi/pull/2 (separate from merged implementation PR#1), linked to T3; current CI pending observation. No real app deployment or exposure.
