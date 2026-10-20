@@ -63,6 +63,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 26 | Real Google owner enrollment and configuration preparation | Coordinator | Completed; real signed identity verified, private config validated; not deployed | [26](stages/26-google-owner-setup.md) |
 | 27 | Independent owner-setup documentation review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [27](stages/27-owner-setup-review.md) |
 | 28 | Fallback owner-setup documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance and cleanup passed | [28](stages/28-owner-setup-fallback-review.md) |
+| 29 | Owner-approved private real-app startup | Coordinator | In progress; explicit staged rollout approved | [29](stages/29-private-rollout.md) |
+| 30 | Independent live private endpoint/browser acceptance | Distinct acceptance task | Planned; waits for private endpoint readiness | [30](stages/30-private-live-acceptance.md) |
+| 31 | Conditional Funnel activation and external acceptance | Coordinator | Planned; requires successful real login and denial checks | [31](stages/31-funnel-rollout.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -165,3 +168,9 @@ Stage27 returned an explicit Claude API rate limit without a review. Parent/remo
 Stage28 PASS: actual gpt-6-astra/high independently confirmed from its native turn_context line8; no findings. Parent HEAD/status/remote heads and clean child baseline matched; owned worktree/branch removed. Documentation-only publication follows on chore/google-owner-setup; actual app startup/exposure still awaits explicit owner approval.
 
 Owner-setup records published on PR https://github.com/WilsonXY/storagi/pull/2 (separate from merged implementation PR#1), linked to T3; current CI pending observation. No real app deployment or exposure.
+
+## Owner-approved staged rollout
+
+Owner confirmed PR#2 merged; fresh gh read verified merge1b5ccec and local origin/main updated. Owner then explicitly replied “approve” to: start privately, verify real Google login and access denial, then enable Funnel once those checks pass. This authorizes that conditional staged rollout without another permission request for the same actions; it does not authorize unrelated network mappings, host power settings or public data. Funnel remains the intended target, private Tailscale the accepted fallback for any blocker. No Funnel blocker was discovered during implementation.
+
+Stage29 coordinator starts the reviewed real app on loopback8787 with the private owner configuration, then adds only unused private HTTPS443, recording preservation and rollback. Stage30 distinct agent independently probes the live private route and browser login shell, with no credential/session bypass, and documents its own bounded results. The owner must complete real browser owner login and a separate-account denial check; synthetic prior proof is not relabeled. Stage31 activates Funnel only after the agreed checks pass, preserving other mappings and providing a narrow rollback. Any new implementation or live finding goes through regression/full-cycle review before public exposure.
