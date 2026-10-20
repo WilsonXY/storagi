@@ -32,3 +32,7 @@ Independent stage30 receives a running private route, proposed endpoint metadata
 - Sanitized readiness metadata is private at "$HOME/.cache/storagi/stage29-sanitized-readiness.json". No credential, cookie, owner subject or hostname copied to public proof.
 - The owner has been asked to perform real owner login and a separate incognito other-account attempt. Google-level test-user rejection cannot substitute for Storagi's server-side account denial.
 - Last updated: 2026-10-20T19:15:54+08:00.
+
+## Independent acceptance and publication handoff
+
+Stage30 passed213 live anonymous HTTP requests/15 checks and1440/728/390 anonymous browser shells. Initial optional-probe review33 found two medium harness problems (error privacy and unbounded responses), fixed in34 with14 RED/GREEN regressions; final live213/15 rerun passed. Fresh35 actual Astra/high PASS confirms both findings resolved and no new issues; read-only evidence/cleanup passed. Source app and its already-running private process were unchanged throughout. Stage32 Claude rate limit and coordinator cleanup-guard retry are recorded separately. Public-safe probe/docs publication and CI follow; actual account tests still await the owner and Funnel remains off.

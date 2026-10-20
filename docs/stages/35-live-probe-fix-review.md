@@ -1,9 +1,9 @@
 # 35: Fresh optional probe fix review
 
-- Status: in progress after stage34 stable handoff.
+- Status: completed, PASS; both original P2s resolved, no new findings.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner: fresh read-only fallback task; coordinator records outcome.
-- Model/effort: unverified; requested fallback Codex gpt-6-astra/high under the current Claude API-limit evidence.
+- Actual model/effort: OpenAI Codex gpt-6-astra/high, independently confirmed from own native turn_context line8 by coordinator; fallback under current Claude API-limit evidence.
 
 ## Scope and prior findings
 
@@ -11,7 +11,16 @@ Original live-probe/rollout scope plus both stage33 P2 findings and stage34 resp
 
 ## Outcome
 
-Pending.
+PASS. Private initialization/output errors are now caught with fixed public categories and exit1. Absolute15s deadline,2MiB cap/request destruction and timer cleanup resolve the response-bounds finding. Reviewer independently ran all14 offline tests and both syntax checks plus full-diff whitespace: PASS; expected VM experimental warning only. No new security/logic/style/overengineering findings; native fixture isolation and regression size judged proportionate.
+
+- Task: node:delegated-task:command%3Amcp%3A3e6c78fc-c05c-4c21-8927-674b0c47336c%3Adelegate-task%3Astoragi-stage35-live-probe-fix-review-astra-high-v1.
+- Native session01a1591b-0853-7983-8128-e29d7f93006f; "$HOME/.codex/sessions/2026/10/20/rollout-2026-10-20T19-38-26-01a1591b-0853-7983-8128-e29d7f93006f.jsonl", turn_context line8 gpt-6-astra/high. Coordinator directly parsed both fields.
+- Reviewer inspected saved before/after live213/15 proof and browser screenshots/limitations. Privacy scan18 relevant text files: zero personal-literal matches. Historical RED claims inspected from records rather than rerun. No live requests, owner auth/browser, file edits or external writes.
+- Parent HEADba35cc8/full status/remote heads matched before snapshot. Reviewer worktree "$HOME/.t3/worktrees/storagi/t3-55fbce97", final branch t3/stage35-rereview, same original HEAD with clean status. All invariance PASS; coordinator removed exact owned worktree and branch.
+- Completed/last updated: 2026-10-20T19:41:59+08:00.
+
+Real owner application login and Storagi denial of another signed Google account remain pending prerequisites. This review does not authorize premature Funnel or relabel anonymous/synthetic proof. Publish independently verified probe and public-safe operational records without private hostnames, identity/client values, credentials or logs.
+
 
 ## Submitted responses and verification
 
