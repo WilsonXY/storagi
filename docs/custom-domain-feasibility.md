@@ -7,9 +7,9 @@ Assessed 2026-10-20; research only. Example: `https://storagi.example.com`.
 A custom app subdomain is feasible in principle, but **defer adoption to the next iteration**: it needs an evaluated
 HTTPS ingress, not just a DNS alias. Preserve the working Funnel link and $0 additional hosting/service budget. The
 owner has confirmed owner login, wrong-account rejection and Inbox access with client Tailscale disconnected
-([stage31](stages/31-funnel-rollout.md)); WAN file transfers and restart persistence remain unverified. Next operational
-work is persistent startup/restart planning and real WAN transfers; the prepared unit is inactive and has not been
-installed. Nothing is switched or installed by this assessment.
+([stage31](stages/31-funnel-rollout.md)). Subsequent [service work](stages/41-service-activation.md) enabled the user
+service and verified automatic failure recovery; real WAN file transfers and a cold reboot remain untested. Nothing
+is switched or installed by this domain assessment.
 
 ## What the subdomain would mean
 

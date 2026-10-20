@@ -43,3 +43,5 @@ No native unit-validation failure or code finding. Candidate-release prerequisit
 ## Frozen handoff
 
 Only `deploy/storagi-user.service`, `docs/user-service.md` and this record are owned. Existing system template, setup/README/index, research records, application and manifests remain unchanged by this task. No commit/branch/push/post/delegation, credential/DB/session read, Google request, service install/start/stop/enable/kill, host network/power/reboot or mapping change. No own temporary artifacts remain. Fresh40 reviews this stable handoff; coordinator41 supplies exact-copy/runtime/recovery/rollback evidence and publication. Do not wait for credentials or weaken authentication to bypass missing prerequisites.
+
+Coordinator traceability: T3 task `node:delegated-task:command%3Amcp%3A2bec282a-2497-4ad3-8761-5bd2483f1f3d%3Adelegate-task%3Astoragi-stage39-user-service-preparation-v1` completed; backing child thread uses the same suffix with `thread:delegated-task:` prefix. Native proof independently checked by coordinator; central index reconciled. This annotation does not change the frozen agent outcome.
