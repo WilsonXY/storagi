@@ -1,6 +1,6 @@
 # 37: Custom-domain follow-up coordination
 
-- Status: in progress; assessment/documentation only.
+- Status: in progress; assessment integrated, service follow-up coordinated.
 - Started / last updated: 2026-10-20T22:43:01+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner/task: coordinator scope, integration, independent review and publication.
@@ -20,3 +20,7 @@ Read project/global profile, README/design/log; fresh gh confirms PR#3 merged an
 ## Handoff
 
 Research and record before deciding further implementation; existing app stays live. Practical remaining work from the merged rollout is persistent startup/restart setup and representative WAN/device transfer verification, separate from custom-domain adoption. No installation or reboot test implied.
+
+## Integration and later owner direction
+
+Stage38 completed its bounded two-file research handoff; coordinator independently confirmed native openai/gpt-6.1-sol/high from session metadata line1 and turn_context line8. No actual custom-origin change is selected or authorized by that assessment. Owner subsequently says “next we go” to proposed persistent startup/recovery and real WAN transfers. Branch renamed feat/storagi-autostart before publication; scopes39–42 planned in the index before delegating39. Stage39 prepared its unit/guide without host mutation and its actual gpt-6.1-sol/high session was independently checked. Coordinator41 separately prepares a versioned exact-copy runtime; fresh40 reviews committed service and research before activation. This broader operational follow-up does not authorize DNS/Cloudflare changes.

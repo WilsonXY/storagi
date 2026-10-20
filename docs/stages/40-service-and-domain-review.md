@@ -1,9 +1,9 @@
 # 40: Independent persistent service and domain brief review
 
-- Status: planned after39 stable handoff.
+- Status: prepared for fresh Claude review after frozen39 and passing baseline.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner: fresh read-only reviewer; coordinator writes record.
-- Reviewer/model/effort: unverified; route from current owner profile and live catalog at dispatch.
+- Reviewer/model/effort: request claudeAgent / claude-opus-5-5 / high through live catalog; actual own-session proof pending, requested settings are not evidence.
 
 ## Scope and acceptance
 
