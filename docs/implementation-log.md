@@ -61,6 +61,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked; initial CI passed, rewrite CI in22 | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Published/CI passed; Google setup and deployment pending | [07](stages/07-handoff.md) |
 
+| 26 | Real Google owner enrollment preparation | Coordinator | In progress; private credentials validated, owner sign-in pending | [26](stages/26-google-owner-setup.md) |
+
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
 Owner repository decision: `https://github.com/WilsonXY/storagi`, public, default `main`, initial commit `0d168b1`. Its history and MIT license were preserved by merge `53e58b8`; no public fork was created. Final actual `git push -u origin HEAD` at documentation commit `18954ce` returned HTTP 403 denied to `luna-agent1`; no remote branch changed. No PR or remote CI run exists for this work. Google setup and deployment remain separate from verified implementation.
@@ -150,3 +152,7 @@ Privacy cleanup closeout: published rewritten head e6a3f09 passed both remote Ch
 Owner requests a shorter project AGENTS.md, removing repeated/nonproject instructions. Stage23 coordinator edits this single instruction file; detailed stage rules stay in this log and global workflow/reviewer rules stay in the owner profile. Stage24 fresh read-only review checks the reduction and preserved project boundaries. No application/deployment changes. Existing PR#1 remains the publication target; ordinary feature push and CI follow review.
 
 AGENTS cleanup:44lines/650words→17lines/163words. Removed copied global rules and resolved setup history; project docs, stage ownership and auth/host/privacy safeguards remain. Review25 PASS, actual Astra/high proved, fallback only because Claude24 hit API rate limit. Read-only invariance passed and owned worktrees cleaned; ordinary PR#1 update/CI follows. App/tests/deps/config unchanged.
+
+## Real Google owner setup
+
+Owner confirmed PR#1 merged and requested the next setup step. Local inspection confirms origin/main cf83f6c and the prior feature have identical trees. Stage26 uses a new feature branch from that merged baseline, preserving the prior branch. The owner created a Google Web OAuth client and saved its JSON privately outside Git. Shape, both expected callback registrations and mode0600 were checked without displaying credential values. This is not proof that Google accepts the credentials or that the real owner login succeeds. Existing owner-approved private synthetic preview remains separate; no real app deployment or exposure is authorized by this setup step.
