@@ -1,6 +1,6 @@
 # 37: Custom-domain follow-up coordination
 
-- Status: integration/publication completed; PR#4 CI observation pending, owner transfer results in42.
+- Status: completed integration/publication; PR#4 c0bfdaa CI PASS, owner transfer results pending42.
 - Started / last updated: 2026-10-20T22:43:01+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner/task: coordinator scope, integration, independent review and publication.
@@ -30,3 +30,5 @@ Stage38 completed its bounded two-file research handoff; coordinator independent
 Branch feat/storagi-autostart pushed normally, PR [#4](https://github.com/WilsonXY/storagi/pull/4) created against main and immediately linked to T3. Main remains39179ed, no merge/tag/default push/force update. Reviewed unit unchanged; source/runtime/credentials/data unchanged by publication. Full baseline61 checks/types/builds, native unit check, independent43 review and44 applied acceptance PASS, actual Astra/high confirmed in both own native logs, primary40 Claude API limit retained. Owner post-handoff Inbox PASS recorded42. Public-safe staged path scan111files zero matches and whitespace check passed. Current published bb08283 CI queued/in-progress on fresh gh read, not claimed green. Next docs-only log commit records publication then T3 watches its actual head; final CI result belongs PR#4 and closeout report. Browser screenshots not applicable to native service-only change; no changed UI or new pixel proof claimed.
 
 Publication command record: normal `git push -u origin HEAD`, `gh pr create --body-file` and T3 link succeeded; duplicate-PR search empty, gh auth valid. One follow-up `gh pr view --comments --json …` failed because those flags are mutually exclusive; corrected to `gh pr view --json headRefOid,reviews,comments,state`, which returned open/current0cf2bcc with no comments/reviews. `gh pr edit --body-file` used public-safe absolute branch links. `gh pr checks` returned exit8/pending for both0cf2bcc jobs, an unfinished check status rather than a test failure. Final log-only commit is pushed normally; T3 watch handles completion without polling.
+
+Final CI observation: `gh pr checks 4` exit0 and fresh `gh pr view --json` confirm head c0bfdaa8d80b5005efa374ae3c7691b5485d9746 with both Check jobs SUCCESS, runs39446840965 (55s)/39446854276 (52s). PR open/mergeable, no comments/reviews awaiting response. Private sanitized result `"$HOME/.cache/storagi/stage37-ci-c0bfdaa.json"`. This last log-only commit records that immutable observation; latest-head follow-up CI is watched separately and recorded on the linked PR before handoff. No runtime/source/unit change or merge. Owner WAN42 remains pending.
