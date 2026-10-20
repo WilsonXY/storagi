@@ -27,4 +27,3 @@ PASS with no findings at any severity. Reviewed five-file delta acd3f5f...c4e39d
 ## Handoff
 
 Publish reviewed closeout to existing PR#3 and observe fresh pushed-head CI; previous acd3f5f CI passed both jobs but is not proof for a later head. App/Funnel remain running under owner approval. Independent off-tailnet browser result and authenticated file operations/real WAN devices/throughput/reboot persistence remain outside current proof. No new approval needed for the already-authorized Funnel; do not install an unapproved persistent system service.
-

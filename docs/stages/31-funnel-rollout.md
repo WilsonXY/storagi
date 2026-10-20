@@ -35,3 +35,5 @@ Before mutation, coordinator rechecked the exact owned443 private route points o
 - Owner asked to disconnect Tailscale on the browsing device only, leave the host's Tailscale running and confirm owner Inbox access through Funnel. That response remains pending.
 - Runtime remains the detached trial app from29, with private persistent DATA_DIR; no installed reboot-persistent app service or host sleep changes. Rollback converts only443 back to private Serve or removes that route and stops only the recorded trial process; other mappings and data retained.
 - Last updated: 2026-10-20T19:46:08+08:00.
+
+Closeout publication: independent36 review PASS with actual Astra/high native proof and read-only cleanup confirmed. A coordinator closeout record had an extra EOF blank line caught by whitespace validation; normalized before the final validation/push. Previous acd3f5f CI passed, newer pushed-head CI is observed separately. No application change or extra service/network action.
