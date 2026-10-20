@@ -37,3 +37,5 @@ Before mutation, coordinator rechecked the exact owned443 private route points o
 - Last updated: 2026-10-20T19:46:08+08:00.
 
 Closeout publication: independent36 review PASS with actual Astra/high native proof and read-only cleanup confirmed. A coordinator closeout record had an extra EOF blank line caught by whitespace validation; normalized before the final validation/push. Previous acd3f5f CI passed, newer pushed-head CI is observed separately. No application change or extra service/network action.
+
+External-tool attempt: the web fetch tool could not retrieve the public origin and returned “is not accessible via this tool,” without an HTTP status or network diagnosis. This failed attempt is retained; it does not establish an application/Funnel failure or independent-device success. The9 direct public-relay checks remain passed. Owner Tailscale-disconnected browser confirmation is still required.
