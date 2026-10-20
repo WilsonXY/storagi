@@ -1,6 +1,6 @@
 # Local build and owner setup
 
-This application is not deployed. No Funnel endpoint, Serve mapping, router/firewall rule, or host power setting has been changed. Development and tests bind loopback. Production expects an HTTPS origin in front of its loopback listener.
+These instructions cover a new installation. The current owner-approved runtime trial and network state are recorded in the [rollout record](stages/31-funnel-rollout.md); the system service template below remains inactive. Development and tests bind loopback. Production expects an HTTPS origin in front of its loopback listener.
 
 ## Build and verify
 
