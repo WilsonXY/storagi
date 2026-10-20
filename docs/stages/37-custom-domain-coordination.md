@@ -1,6 +1,6 @@
 # 37: Custom-domain follow-up coordination
 
-- Status: assessment and reviewed service follow-up integrated; publication and owner WAN handoff pending.
+- Status: integration/publication completed; PR#4 CI observation pending, owner transfer results in42.
 - Started / last updated: 2026-10-20T22:43:01+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner/task: coordinator scope, integration, independent review and publication.
@@ -24,3 +24,7 @@ Research and record before deciding further implementation; existing app stays l
 ## Integration and later owner direction
 
 Stage38 completed its bounded two-file research handoff; coordinator independently confirmed native openai/gpt-6.1-sol/high from session metadata line1 and turn_context line8. No actual custom-origin change is selected or authorized by that assessment. Owner subsequently says “next we go” to proposed persistent startup/recovery and real WAN transfers. Branch renamed feat/storagi-autostart before publication; scopes39–42 planned in the index before delegating39. Stage39 prepared its unit/guide without host mutation and its actual gpt-6.1-sol/high session was independently checked. Coordinator41 separately prepares a versioned exact-copy runtime; fresh40 reviews committed service and research before activation. This broader operational follow-up does not authorize DNS/Cloudflare changes.
+
+## Publication
+
+Branch feat/storagi-autostart pushed normally, PR [#4](https://github.com/WilsonXY/storagi/pull/4) created against main and immediately linked to T3. Main remains39179ed, no merge/tag/default push/force update. Reviewed unit unchanged; source/runtime/credentials/data unchanged by publication. Full baseline61 checks/types/builds, native unit check, independent43 review and44 applied acceptance PASS, actual Astra/high confirmed in both own native logs, primary40 Claude API limit retained. Owner post-handoff Inbox PASS recorded42. Public-safe staged path scan111files zero matches and whitespace check passed. Current published bb08283 CI queued/in-progress on fresh gh read, not claimed green. Next docs-only log commit records publication then T3 watches its actual head; final CI result belongs PR#4 and closeout report. Browser screenshots not applicable to native service-only change; no changed UI or new pixel proof claimed.
