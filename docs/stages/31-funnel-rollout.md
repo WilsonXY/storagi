@@ -1,6 +1,6 @@
 # 31: Conditional Funnel rollout
 
-- Status: planned, not activated.
+- Status: prerequisites met; authorized activation in progress.
 - Owner/task: coordinator conditional public activation/integration.
 - Provider/model/effort: coordinator Codex gpt-6.1-sol/high from injected runtime; no separate agent claimed.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
@@ -18,3 +18,9 @@ Use only the new Storagi HTTPS443 route to the real loopback8787 app. Preserve o
 ## Rollback and limitations
 
 If any Funnel or access-security blocker occurs, disable only Storagi's public flag and restore its private route. Never reset Serve/Funnel globally. No persistent service/reboot, real-device background transfers, multi-GB WAN throughput or host power changes are implied. Nothing activated by this plan.
+
+## Real-account prerequisite results
+
+On 2026-10-20T19:43:44+08:00 the owner explicitly reported that the real owner account reaches the Inbox and that Storagi rejects a DIFFERENT Google account after redirect back. These are owner-observed real private-browser results, not a coordinator-captured session trace or synthetic proof. Earlier anonymous213/15 and browser checks passed; final probe review35 PASS confirms both optional harness findings fixed. This fulfills the staged approval's real-login/denial condition. No account identifiers are recorded.
+
+Before mutation, coordinator rechecked the exact owned443 private route points only to loopback8787, real app alive, TLS dashboard200 and no enabled Funnel. Private before snapshot retained outside Git. Current PR#3 CI is still pending; no false green claim. Application code is unchanged from the previously verified/reviewed merged app; optional probe14 regressions and live213/15 have passed locally and independent35 review passed.
