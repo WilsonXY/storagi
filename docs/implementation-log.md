@@ -55,6 +55,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 20 | Portable public documentation and deployment examples | Distinct sanitization task | Completed; zero tracked matches, unit verify passed | [20](stages/20-portable-paths.md) |
 | 21 | Independent privacy correction review | Fresh fallback gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [21](stages/21-public-path-review.md) |
 | 22 | Execute approved feature-history privacy cleanup and CI | Coordinator | Completed; safe replacement, zero matches, rewritten-head CI PASS | [22](stages/22-approved-history-cleanup.md) |
+| 23 | Trim project AGENTS.md | Coordinator | In progress; documentation only | [23](stages/23-agent-instructions.md) |
+| 24 | Independent instruction review | Fresh Claude review requested | Planned | [24](stages/24-agent-instructions-review.md) |
 | 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked; initial CI passed, rewrite CI in22 | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Published/CI passed; Google setup and deployment pending | [07](stages/07-handoff.md) |
 
@@ -141,3 +143,7 @@ Owner replied “go as long as you think it is safe” to the narrow feature-onl
 Approved history cleanup executed: stage22 exact-lease feature-only9e5757d→4a928b2 succeeded after fresh26-commit/210-blob scan, identical-tree assertion and private backup verification. Main0d168b1/unrelated worktree preserved. No reset/merge/deployment; current-file and reachable feature-history path scans clean. PR#1 remains the same linked PR with hosted proof; latest rewritten-head CI watched separately. Old9e5757d checks passed, not substituted for new-head results. Cached GitHub/PR/SHA/clone copies not claimed erased.
 
 Privacy cleanup closeout: published rewritten head e6a3f09 passed both remote Check jobs, runs39292140517/39292147912; actual gh checks and logs verified. Reachable27-commit/215-blob history and current83 tracked files scanzero; main unchanged, private backups retained, sanitized bundle verified. Final docs-only closeout is pushed normally and latest CI watched before user handoff. No source/template change after passing review/CI, no merge/deployment/real Google claim.
+
+## Project instruction cleanup
+
+Owner requests a shorter project AGENTS.md, removing repeated/nonproject instructions. Stage23 coordinator edits this single instruction file; detailed stage rules stay in this log and global workflow/reviewer rules stay in the owner profile. Stage24 fresh read-only review checks the reduction and preserved project boundaries. No application/deployment changes. Existing PR#1 remains the publication target; ordinary feature push and CI follow review.
