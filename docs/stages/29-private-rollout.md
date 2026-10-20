@@ -1,6 +1,6 @@
 # 29: Owner-approved private real-app startup
 
-- Status: in progress.
+- Status: private startup completed; real browser owner/other-account checks pending.
 - Owner/task: coordinator operational startup/integration.
 - Provider/model/effort: Codex gpt-6.1-sol/high confirmed by injected runtime; no independent review claimed.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
@@ -15,8 +15,20 @@ Before mutation, retain private process/configuration snapshots outside Git and 
 
 ## Verification and artifacts
 
-Pending startup. Earlier enrollment succeeded against real Google, private production config validation passed, and source tests/reviews/CI are recorded in stages26–28. New live checks must be recorded separately. Initial read attempted nonexistent server/src/security.ts; security checks are in app.ts, read directly; no source mutation.
+Earlier enrollment succeeded against real Google, private production config validation passed, and source tests/reviews/CI are recorded in stages26–28. New live checks must be recorded separately. Initial read attempted nonexistent server/src/security.ts; security checks are in app.ts, read directly; no source mutation.
 
 ## Handoff and rollback
 
 Independent stage30 receives a running private route, proposed endpoint metadata without credentials, and a bounded probe/browser scope. Owner browser login and other-account rejection remain required before stage31. Stop only the exact recorded real-app process and remove only the new HTTPS443 mapping if rollback is needed; retain data and other mappings. A detached trial process is not a persistent system service or reboot guarantee.
+
+## Actual private startup
+
+- Before snapshots: current Serve configuration and private process metadata stored mode0600 outside Git; credentials/environment mode0600 and existing private data mode0700 validated without printing values. Tailscale online, planned origin matches the host DNS name,443 mapping absent and loopback443/8787 free.
+- Started the compiled reviewed application using Node --env-file with the private owner environment, detached from tool lifetime, umask0077. Runtime uses code from merged1b5ccec; no source diff. Child startup output retained privately in "$HOME/.cache/storagi/real-app-trial.log"; exact process PID retained privately for bounded shutdown.
+- Native HTTP loopback readiness with configured Host: dashboard200, anonymous /api/files401. ss confirms only127.0.0.1:8787 app listener.
+- Executed tailscale serve --bg --https=443 http://127.0.0.1:8787 after rechecking the full before configuration still matched. Command succeeded.
+- Private HTTPS certificate validation enabled: /200, /api/session401, /api/files401. Real HTML excludes SYNTHETIC PREVIEW.
+- After snapshot comparison removes only the new443 TCP/Web entry and any false443 Funnel flag: all prior mappings match exactly; Funnel remains disabled.
+- Sanitized readiness metadata is private at "$HOME/.cache/storagi/stage29-sanitized-readiness.json". No credential, cookie, owner subject or hostname copied to public proof.
+- The owner has been asked to perform real owner login and a separate incognito other-account attempt. Google-level test-user rejection cannot substitute for Storagi's server-side account denial.
+- Last updated: 2026-10-20T19:15:54+08:00.
