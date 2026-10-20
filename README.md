@@ -2,7 +2,7 @@
 
 A personal, self-hosted temporary file shelf for transferring artifacts between devices over LAN and the internet.
 
-**Status:** implemented, verified and independently reviewed, including a 2 GiB+1 local restart/hash check. An owner-approved user service is enabled with Google owner authorization and Tailscale Funnel; automatic crash recovery was verified. The owner confirmed Google owner login, rejection of another account and Inbox access with Tailscale disconnected on the browsing device; public relay checks passed. Real-device/WAN file transfers and an actual cold reboot remain untested. See the [rollout record](docs/stages/31-funnel-rollout.md) for evidence and limitations.
+**Status:** implemented, verified and independently reviewed, including a 2 GiB+1 local restart/hash check. An owner-approved user service is enabled with Google owner authorization and Tailscale Funnel; automatic crash recovery was verified. The owner confirmed Google owner login, rejection of another account and Inbox access with Tailscale disconnected on the browsing device; public relay checks passed. The owner reports the first real-device file test works; exact WAN throughput/hash/resume measurements and an actual cold reboot remain unverified. See the [rollout record](docs/stages/31-funnel-rollout.md) for evidence and limitations.
 
 The first version implements:
 
