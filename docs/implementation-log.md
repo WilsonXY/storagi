@@ -80,7 +80,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 43 | Fallback independent service/domain review after40 unavailable | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [43](stages/43-service-domain-fallback-review.md) |
 | 44 | Independent persistent live service acceptance | Distinct read-only acceptance task | PASS; actual Astra/high,22/22 HTTP, invariance/cleanup passed | [44](stages/44-user-service-acceptance.md) |
 | 45 | Publish owner operational acceptance notes | Coordinator | In progress; documentation only | [45](stages/45-owner-acceptance-publication.md) |
-| 46 | Independent owner-acceptance documentation review | Fresh read-only reviewer | Planned; actual runtime proof pending | [46](stages/46-owner-acceptance-review.md) |
+| 46 | Independent owner-acceptance documentation review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [46](stages/46-owner-acceptance-review.md) |
+| 47 | Fallback owner-acceptance documentation review | Fresh Codex gpt-6-astra/high requested | Planned; actual proof pending | [47](stages/47-owner-acceptance-fallback-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -243,3 +244,5 @@ Owner confirms sleep/lid/power settings are already configured and working, not 
 Coordinator documents this decision in41, README, user-service/verification guides and transfer checklist. Documentation branch docs/owner-operational-acceptance starts at merged main73fc0d6 and carries the previously post-merge6812c03 owner file-test note via cherry-pick; original feature branch/history preserved. No application, unit, credentials/data, service, network or power changes; no new runtime proof or independent review claimed. Only documentation whitespace/portable-path checks run. This factual documentation branch is retained for the next repository documentation update, not an additional implementation/deployment request.
 
 Owner explicitly requests a PR for the retained acceptance notes. Stage45 coordinates publication on docs/owner-operational-acceptance, preserving merged main73fc0d6 and the original post-merge note. Stage46 fresh read-only review checks accurate attribution of qualitative file success, owner-configured power/lid behavior and accepted boot operation with physical reboot test waived. No new code/runtime change, reboot, test or host-setting work authorized or performed.
+
+Stage46 primary Claude API-limited, no review/verdict or actual execution proof. Parent/remote/clean-child invariance passed; exact assigned worktree/branch removed. Fresh47 follows owner fallback routing with full original brief and unavailable outcome. Native local documentation check counted66 targets (one prompt said46, corrected); no runtime changes.
