@@ -16,7 +16,7 @@ The owner uses Linux/macOS for SSH. A local SSH port-forward is required so the 
 
 ## Changes
 
-- This record and the implementation index only.
+- This record and the implementation index only; initial documentation commit8a8a9d4.
 - Private configuration directory created mode0700; owner-created credential file validated as owned regular mode0600 JSON. Values omitted.
 - No source, dependencies, service units or existing network mappings changed.
 
@@ -28,6 +28,8 @@ The owner uses Linux/macOS for SSH. A local SSH port-forward is required so the 
 - Private Python checks: valid Web client ID/secret fields, both expected callback entries, file mode0600. Client values never printed.
 - Compiled enrollment/auth and built dashboard present; temporary bind to 127.0.0.1:8989 succeeded and closed. This is not a persistent listener.
 - Existing loopback/private HTTPS synthetic preview returned200 with the synthetic banner during prerequisite checks. No production authentication claim.
+
+- Existing compiled enrollment CLI started with real credentials only in its private child environment. Google discovery and authorization URL generation succeeded; no token exchange or identity success claimed. Output and process metadata are private mode0600 cache files, excluded from Git. Listener is127.0.0.1:8989 with the existing ten-minute flow timeout. The owner receives SSH-forward and private-output-display instructions.
 
 ## Findings and limitations
 
