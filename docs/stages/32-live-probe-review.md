@@ -1,6 +1,6 @@
 # 32: Independent live acceptance probe and rollout record review
 
-- Status: planned.
+- Status: unavailable; API rate limit, no verdict.
 - Started / last updated: 2026-10-20T19:24:50+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner: fresh read-only reviewer; coordinator writes this record.
@@ -18,4 +18,6 @@ Stage28 Astra/high PASS covered Google setup documentation, no findings. Its pri
 
 ## Outcome
 
-Pending; no PASS or actual model execution claimed.
+Task node:delegated-task:command%3Amcp%3A3e6c78fc-c05c-4c21-8927-674b0c47336c%3Adelegate-task%3Astoragi-stage32-live-probe-claude-high-v1 returned failed, “Claude API rate limit reached. Try again later.” No native model/effort evidence or review verdict; requested settings remain unverified.
+
+Parent HEAD5268465, full status and remote heads matched the private before snapshot. Owned worktree "$HOME/.t3/worktrees/storagi/t3-2e76c24f", branch t3/2e76c24f, stayed at the same HEAD with clean status and was removed after checks. Invariance PASS. No app/config/service changes. Fresh fallback stage33 receives the unchanged scope and this failed attempt. Last updated: 2026-10-20T19:25:38+08:00.

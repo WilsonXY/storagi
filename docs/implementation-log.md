@@ -66,7 +66,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 29 | Owner-approved private real-app startup | Coordinator | Private startup verified; real browser checks pending | [29](stages/29-private-rollout.md) |
 | 30 | Independent live private endpoint/browser acceptance | Distinct acceptance task, actual gpt-6.1-sol/high | Completed;213 HTTP/15 checks, responsive anonymous UI PASS | [30](stages/30-private-live-acceptance.md) |
 | 31 | Conditional Funnel activation and external acceptance | Coordinator | Planned; requires successful real login and denial checks | [31](stages/31-funnel-rollout.md) |
-| 32 | Independent live acceptance probe/rollout record review | Fresh Claude Opus 5.5/high requested | Planned; actual runtime unverified | [32](stages/32-live-probe-review.md) |
+| 32 | Independent live acceptance probe/rollout record review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [32](stages/32-live-probe-review.md) |
+| 33 | Fallback live acceptance probe/rollout review | Fresh Codex gpt-6-astra/high requested | Planned; actual runtime unverified | [33](stages/33-live-probe-fallback-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
