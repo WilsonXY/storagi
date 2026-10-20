@@ -65,11 +65,12 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 28 | Fallback owner-setup documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance and cleanup passed | [28](stages/28-owner-setup-fallback-review.md) |
 | 29 | Owner-approved private real-app startup | Coordinator | Private startup verified; real browser checks pending | [29](stages/29-private-rollout.md) |
 | 30 | Independent live private endpoint/browser acceptance | Distinct acceptance task, actual gpt-6.1-sol/high | Completed;213 HTTP/15 checks, responsive anonymous UI PASS | [30](stages/30-private-live-acceptance.md) |
-| 31 | Conditional Funnel activation and external acceptance | Coordinator | In progress; owner real-account prerequisites passed | [31](stages/31-funnel-rollout.md) |
+| 31 | Conditional Funnel activation and external acceptance | Coordinator | Active;9 public-relay checks PASS, off-tailnet device pending | [31](stages/31-funnel-rollout.md) |
 | 32 | Independent live acceptance probe/rollout record review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [32](stages/32-live-probe-review.md) |
 | 33 | Fallback live acceptance probe/rollout review | Fresh Codex gpt-6-astra/high confirmed | FAIL; two optional-probe issues accepted for34 | [33](stages/33-live-probe-fallback-review.md) |
 | 34 | Fix optional probe redaction and resource bounds | Distinct implementation task, actual gpt-6.1-sol/high | Completed;14 offline tests + live213/15 PASS | [34](stages/34-live-probe-fixes.md) |
 | 35 | Fresh independent probe fix review | Fresh fallback gpt-6-astra/high confirmed | PASS; both P2s resolved, no new findings | [35](stages/35-live-probe-fix-review.md) |
+| 36 | Independent Funnel closeout/status documentation review | Fresh fallback reviewer | Planned; no public/private identity data allowed | [36](stages/36-funnel-closeout-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -192,3 +193,5 @@ Stage35 PASS confirms both stage33 P2s resolved with14 offline regressions; no n
 Private-rollout/probe records published on PR https://github.com/WilsonXY/storagi/pull/3 against main, immediately linked to T3; anonymous desktop/phone screenshots uploaded to GitHub and hosted links confirmed in the PR body. Current-head CI is watched separately and not yet claimed green. Owner real Google app login/other-account results remain pending; conditional Funnel not activated.
 
 The owner answered both staged real-account checks: owner Inbox loads; Storagi rejects the other signed Google account after redirect. These are explicitly owner-observed results, without public identities or tokens. They meet the condition attached to the earlier approval; stage31 may enable only the owned Storagi443 Funnel route now, with existing mappings preserved. No renewed approval is required for that already-authorized conditional action.
+
+Stage31 executed the already-authorized conditional activation after both owner real-account checks passed. Funnel CLI exit0; only owned443 AllowFunnel flag changed, complete other routes preserved. Nine public relay checks passed via global public DNS/IP with TLS validation and MagicDNS bypass; source host remained Tailscale-connected, so independent off-tailnet device proof is still owner-pending. README/setup status refreshed from historical not-deployed language; inactive system template unchanged. Stage36 reviews new operational/status claims and sanitized proof before PR#3 closeout.

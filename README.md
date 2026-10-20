@@ -2,7 +2,7 @@
 
 A personal, self-hosted temporary file shelf for transferring artifacts between devices over LAN and the internet.
 
-**Status:** implemented locally; locally implemented, verified and independently reviewed (final PASS), including a 2 GiB+1 restart/hash check. Not deployed. Real Google configuration and intended-device/network validation remain required. Every implementation stage and agent handoff is recorded.
+**Status:** implemented, verified and independently reviewed, including a 2 GiB+1 local restart/hash check. An owner-approved runtime trial is active with Google owner authorization and Tailscale Funnel. The owner confirmed private-browser owner login and rejection of another account; public relay checks passed. Independent off-tailnet device access, real-device/WAN transfers and reboot persistence remain pending. See the [rollout record](docs/stages/31-funnel-rollout.md) for evidence and limitations.
 
 The first version implements:
 
@@ -32,6 +32,6 @@ npm run check
 
 The check runs package tests, independent HTTP acceptance, TypeScript checks and production builds. The app reuses openid-client for Google OIDC and the tus Node server/client for disk-backed resumable transfers; SQLite keeps metadata, sessions and quota reservations. One process owns the data directory.
 
-See [setup and deployment preparation](docs/setup.md), [repeatable verification and its limits](docs/verification.md), and the [implementation stage index](docs/implementation-log.md). The prepared systemd unit is not activated. No Funnel/Serve mappings or host settings have been changed.
+See [setup and deployment preparation](docs/setup.md), [repeatable verification and its limits](docs/verification.md), and the [implementation stage index](docs/implementation-log.md). The prepared systemd unit remains inactive. The owner-approved private startup and subsequent Funnel activation are recorded in stages29–31; unrelated host services, mappings and power settings were preserved.
 
 Production startup requires explicit Google OAuth credentials, the owner's verified permanent Google subject, an HTTPS origin and a private persistent data directory. It fails closed without these; there is no password fallback, open registration or first-visitor ownership.
