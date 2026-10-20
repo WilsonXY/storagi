@@ -31,4 +31,3 @@ Completed/last updated: 2026-10-20T19:00:57+08:00.
 ## Handoff
 
 Publish reviewed documentation on its separate feature branch, open/link a new PR and watch CI. No app source changes or source-test rerun justified for this documentation-only diff. Before any private actual-app startup/exposure, ask the explicit deployment approval required by project instructions. Google enrollment succeeded; production HTTPS login, another-account denial and device/network acceptance remain unverified. Stage27's Claude API limit is preserved, not described as a review.
-

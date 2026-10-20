@@ -163,3 +163,5 @@ Stage26 completion: the owner used a local SSH forward and completed real Google
 Stage27 returned an explicit Claude API rate limit without a review. Parent/remote/child invariance passed and its owned worktree/branch were removed. Stage28 follows the owner profile fallback route in a fresh isolated task; no pass or runtime proof is assumed.
 
 Stage28 PASS: actual gpt-6-astra/high independently confirmed from its native turn_context line8; no findings. Parent HEAD/status/remote heads and clean child baseline matched; owned worktree/branch removed. Documentation-only publication follows on chore/google-owner-setup; actual app startup/exposure still awaits explicit owner approval.
+
+Owner-setup records published on PR https://github.com/WilsonXY/storagi/pull/2 (separate from merged implementation PR#1), linked to T3; current CI pending observation. No real app deployment or exposure.

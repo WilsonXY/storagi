@@ -48,3 +48,5 @@ Fresh stage27 review receives the committed documentation and sanitized readines
 ## Independent review and publication preparation
 
 Stage27 Claude was unavailable due to API rate limit. Fresh fallback stage28 returned PASS with no findings, actual gpt-6-astra/high confirmed from its own native session by both reviewer and coordinator; all read-only invariance checks and owned-worktree cleanup passed. Source/packages/scripts/deployment template still exactly match merged main; only public-safe documentation is published. CI will be observed on the new PR, separately from historical PR#1 checks.
+
+Publication: ordinary feature push succeeded and PR https://github.com/WilsonXY/storagi/pull/2 opened against main, immediately linked to T3. The closeout whitespace check caught an extra blank line at the end of stage28; removed and rechecked before the final push. This was a coordinator record formatting error, no source/review finding. New-head CI remains pending until actually observed.
