@@ -1,6 +1,6 @@
 # 27: Independent owner-setup documentation review
 
-- Status: planned.
+- Status: unavailable; Claude API rate limit, no review verdict.
 - Started / last updated: 2026-10-20T18:56:09+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner: fresh read-only delegated reviewer; coordinator records findings.
@@ -14,4 +14,8 @@ Commit documentation before isolated review. Reviewer must not edit any files, s
 
 ## Outcome
 
-Pending; no review pass or model execution claimed.
+T3 task node:delegated-task:command%3Amcp%3A3e6c78fc-c05c-4c21-8927-674b0c47336c%3Adelegate-task%3Astoragi-stage27-owner-setup-claude-high-v1 terminated failed: “Claude API rate limit reached. Try again later.” No review or actual effort proof was returned; the requested model/effort are not claimed as executed.
+
+Coordinator Python checks compared HEAD b79d5a5, full porcelain status and remote heads with the private before snapshot: all unchanged. Owned review worktree at $HOME/.t3/worktrees/storagi/t3-3b2c42e0 and branch t3/review-stage27-docs remained at b79d5a5 with clean status, then were removed. No app/source/config changes.
+
+Handoff: fresh fallback stage28, Codex gpt-6-astra/high per owner profile, new task and isolated baseline. Preserve this failed attempt; do not replace it with the fallback verdict. Last updated: 2026-10-20T18:57:45+08:00.
