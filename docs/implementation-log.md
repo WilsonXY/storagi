@@ -72,7 +72,11 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 35 | Fresh independent probe fix review | Fresh fallback gpt-6-astra/high confirmed | PASS; both P2s resolved, no new findings | [35](stages/35-live-probe-fix-review.md) |
 | 36 | Independent Funnel closeout/status documentation review | Fresh gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [36](stages/36-funnel-closeout-review.md) |
 | 37 | Merged rollout handoff and custom-domain scope | Coordinator | In progress; research/documentation only | [37](stages/37-custom-domain-coordination.md) |
-| 38 | Custom-domain feasibility and deferred iteration brief | Distinct research task | Planned; official sources and no live changes | [38](stages/38-custom-domain-research.md) |
+| 38 | Custom-domain feasibility and deferred iteration brief | Distinct research task, native proof pending coordinator check | Completed research; true custom origin deferred | [38](stages/38-custom-domain-research.md) |
+| 39 | Prepare minimal persistent user service and operator guide | Distinct implementation task | Planned; no live activation by agent | [39](stages/39-user-service.md) |
+| 40 | Independent service and custom-domain brief review | Fresh read-only reviewer | Planned after stable committed handoff | [40](stages/40-service-and-domain-review.md) |
+| 41 | Reviewed service activation and restart/recovery proof | Coordinator | Planned; owner next-step authorization recorded | [41](stages/41-service-activation.md) |
+| 42 | Representative WAN/device transfer acceptance handoff | Owner-assisted coordinator | Planned after service stable | [42](stages/42-wan-transfer-acceptance.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -205,3 +209,9 @@ Stage31 owner completion: owner reports the real Inbox works with Tailscale disc
 ## Custom-domain follow-up after merged rollout
 
 Owner reports PR#3 merged and asks what comes next, what current URL to use, and whether a subdomain of an existing Cloudflare-managed domain can replace the Funnel hostname. Owner explicitly directs documentation first and deferral to a later iteration if this adds substantial changes/issues. Fresh gh read verifies PR#3 MERGED, merge39179ed8b3f44efd9fd0b0d9399411ba110b09ca. Stage37 coordinates a new documentation branch from that merged baseline; stage38 separately researches current official constraints and writes a bounded future-iteration brief. Current working Funnel service, Google owner authorization, DNS, Cloudflare account/tunnels and all host services remain unchanged. Public docs use a generic custom domain; owner-requested actual target is retained privately.
+
+## Persistent startup follow-up
+
+Owner says “next we go” after the proposed next steps: install autostart/crash recovery and test real WAN transfers, with true custom-domain adoption documented/deferred. Continue implementation and bounded activation without asking again for the same next-step scope. Do not reboot or change lid/suspend/router/firewall/Tailscale/Cloudflare settings. Local branch renamed feat/storagi-autostart before any remote publication; stage38 research is frozen.
+
+Read-only preflight: owner user manager running, Linger=yes already, systemd259, default start limit10s/5. sudo -n true failed because interactive authentication is required; do not request a password or stop independent work. Use the existing user manager and linger instead of administrator/system-account installation. A versioned private runtime release and standard user unit can preserve the existing credential/data paths and live Funnel URL, avoiding SQLite/data migration. Storagi user unit/release directory do not exist before preparation. Stage39 owns a minimal native user unit and operator guide;40 independently reviews committed unit and domain brief;41 coordinator prepares/reviews release then gracefully hands off only the exact trial PID, proves service/automatic recovery and rollback;42 prepares owner-device transfer protocol.

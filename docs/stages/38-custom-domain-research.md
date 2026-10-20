@@ -1,10 +1,11 @@
 # 38: Custom-domain feasibility research
 
-- Status: planned.
-- Started / last updated: 2026-10-20T22:43:01+08:00.
+- Status: completed research; frozen handoff for independent review; implementation deferred.
+- Started: 2026-10-20T22:43:01+08:00; completed: 2026-10-20T22:48:06+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
-- Owner: distinct delegated research task.
-- Actual provider/model/effort: unverified until own native runtime evidence.
+- Owner/task: distinct stage38 research/documentation task; native session `01a159c4-076f-7c03-ba2d-93a92ff90634`.
+- Actual provider/model/effort: OpenAI / `gpt-6.1-sol` / high. Own native session metadata line1 records provider `openai`; `turn_context` line8 records model and `effort: high` in `"$HOME/.codex/sessions/2026/10/20/rollout-2026-10-20T22-43-01-01a159c4-076f-7c03-ba2d-93a92ff90634.jsonl"`. Requested settings were not used as proof; no transcript copied.
+- Workspace/branch: repository root, `docs/custom-domain-assessment`; starting HEAD `7d0127053f144ed721885b20e7caf053c529e3fb`, coordinator preparation on merged main `39179ed8b3f44efd9fd0b0d9399411ba110b09ca`; initially clean.
 - Scope: docs/custom-domain-feasibility.md and this record only; current merged code as context.
 
 ## Acceptance
@@ -13,4 +14,25 @@ Use current official primary documentation, distinguish feasibility/inferences/u
 
 ## Outcome
 
-Pending.
+[Feasibility brief](../custom-domain-feasibility.md) recommends deferring a true custom app origin until next iteration, preserving working Funnel. Native Funnel permits only tailnet names; a plain CNAME does not solve TLS identity/SNI or application Host. Cloudflare publishing is technically documented, while large-file policy, proxy features, exact upstream behavior and $0 entitlement are unresolved. Proxied-CNAME/Worker alternatives are unevaluated, not declared impossible. Redirect-only navigation is a smaller distinct option, not implemented. Configurable app origin does not establish a large rewrite; bounded migration validation remains necessary.
+
+## Changes
+
+Only `docs/custom-domain-feasibility.md` and this stage record are owned/changed. Coordinator owns index, commits, fresh independent review and PR. No delegated child, commit, branch change, push, GitHub post, runtime/config/DNS/redirect/account/service mutation or application/network probe was performed. Existing cloudflared configuration, credentials and owner domain were not inspected. Immediate operational follow-up remains persistent startup/restart preparation (inactive, uninstalled unit) and real WAN file transfers.
+
+## Verification and source record
+
+- Read global/project `AGENTS.md`, `README.md`, `docs/design-and-feasibility.md`, `docs/implementation-log.md`, `docs/setup.md`, stages31/37/38 with `cat`/`sed`; read source with `rg -n` and `nl -ba`. `git status --short`, `git branch --show-current`, `git rev-parse HEAD` confirmed clean starting state/branch/HEAD. First combined reads exceeded tool output limits; focused rereads supplied the relied-on sections.
+- A search initially named nonexistent root `.env.example`; `rg` returned exit2. Corrected to checked-in `server/.env.example`. A later dependency search also named nonexistent root `node_modules/tus-js-client` and was oversized; exit2/truncation retained here. Focused reads of existing `web/node_modules/tus-js-client/lib.esm/browser/fileSignature.js` and `urlStorage.js` confirmed endpoint fingerprint and localStorage use; tracked `web/package.json` identifies tus client `^4.3.1`. No dependency was changed. Concrete app references are in the brief.
+- Used `web.run` direct opens on all fifteen primary-source URLs linked in the brief on 2026-10-20; also searched official Origin Rules/Workers/cache documentation, then opened original pages. No secondary search result supports a conclusion. Tailscale page last-validated 2026-01-20 still states tailnet-domain-only and describes TLS termination on the host. RFC9525/RFC6066 support the DNS/TLS/SNI distinction; no live alias was tested.
+- Cloudflare Tunnel FAQ (updated 2026-09-16) explicitly distinguishes public-hostname video/large-file policy from private routing; Application Services terms (2026-09-28), CDN subsection, were checked directly. An exact-text search for `non-HTML` found nothing; the current subsection uses video/large-file/disproportionate-content wording. The brief paraphrases that current wording rather than quoting an obsolete universal ban.
+- Error413 (updated 2026-09-28), cache behavior, Workers limits (2026-10-12), Origin Rules availability (2026-08-14), publishing (2026-10-15), redirect availability and Request API were checked. Confirmed per-request upload ceiling versus multi-request file size, cache-object versus download size, Enterprise-only Origin Rules Host/SNI override, and Workers streaming/resource limits. Default proxy connection table currently lists125s read/30s write; it points Tunnel users to separate origin settings. These are not asserted as universal total-transfer limits.
+- Opening guessed Cloudflare `configure-tunnels/origin-configuration/` returned `Internal Error`. Retried via the connection-limits page's official Origin configuration link, which resolved to `configure-tunnels/origin-parameters/`; direct reopen succeeded (updated 2026-04-17), confirming separate HTTP Host/TLS/SNI/connection options. This documents vendor capability only, not owner configuration or free entitlement. Google OpenID Connect directly confirms exact callback registration.
+- Web `short` responses sometimes yielded navigation without the needed section; reopened with line positions/long responses and selected relevant lines. One diagnostic incorrectly enumerated a returned string's character keys, producing oversized output; corrected to filter source text by line. No conclusion relies on truncated material. No app tests, DNS lookup, endpoint requests, host-service inspection or credential/private-configuration reads were run.
+- Native proof: bounded Python read of session metadata/`turn_context` only, followed by exact own-session reread, confirmed provider/model/effort above without printing prompt contents. Final documentation checks: `git diff --check` and untracked-file whitespace check produced no diagnostics (`git diff --no-index --check` exits1 for the new file difference); Python verified fifteen source-reference definitions, local stage/code targets and line bounds, no personal home path or tailnet hostname, and only the two assigned files changed. Brief: 87 lines including source definitions; no application tests needed or run for this research-only change.
+
+## Limits and frozen handoff
+
+Research is documentation-based; it does not prove any Cloudflare route, account permission, TLS/SNI/Host combination, provider-policy entitlement or live transfer. Prior owner acceptance is attributed to stage31, not repeated here. Browser cookies/localStorage across origins need fresh validation; the tus endpoint is relative, so origin-scoped storage and upload URLs matter even if the fingerprint string stays the same. Rollback must restore old app origin as well as preserve Funnel/data; a saved mapping alone cannot bypass strict Host checks.
+
+Fresh independent review should assess the two documents against their official sources and code references. No architecture selected and no unresolved question is silently converted into implementation authorization. Coordinator may integrate/review/publish; stage38 stops editing after final checks unless returned with findings.
