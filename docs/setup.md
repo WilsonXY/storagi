@@ -1,6 +1,6 @@
 # Local build and owner setup
 
-These instructions cover a new installation. The current owner-approved runtime trial and network state are recorded in the [rollout record](stages/31-funnel-rollout.md); the system service template below remains inactive. Development and tests bind loopback. Production expects an HTTPS origin in front of its loopback listener.
+These instructions cover a new installation. The approved Funnel access is recorded in the [rollout record](stages/31-funnel-rollout.md); the active user service and automatic recovery are recorded in [stage41](stages/41-service-activation.md) with its [operator guide](user-service.md). The separate system service template below remains inactive. Development and tests bind loopback. Production expects an HTTPS origin in front of its loopback listener.
 
 ## Build and verify
 

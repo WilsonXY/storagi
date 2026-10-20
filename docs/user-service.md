@@ -1,6 +1,6 @@
 # Persistent service in the existing user manager
 
-Prepared unit: [deploy/storagi-user.service](../deploy/storagi-user.service). Preparation does not install or activate it. [Stage41](stages/41-service-activation.md) owns the reviewed live handoff and behavior proof; [stage40](stages/40-service-and-domain-review.md) reviews first. The existing system-service example in [setup](setup.md) is a separate deployment option, not part of this procedure.
+Prepared unit: [deploy/storagi-user.service](../deploy/storagi-user.service). The owner-approved installation is now active; automatic recovery passed. The preparation task itself did not install or activate it. [Stage41](stages/41-service-activation.md) owns the reviewed live handoff and behavior proof; [stage40](stages/40-service-and-domain-review.md) reviews first. The existing system-service example in [setup](setup.md) is a separate deployment option, not part of this procedure.
 
 The host preflight found systemd259, a running owner user manager and existing `Linger=yes`. Linger starts that manager at boot and retains it after logout; enabling this unit attaches it to the user's `default.target`. This prepares autostart without sudo or changing linger. It does not prove a cold boot, unlocked/mounted home availability, host wakefulness or WAN transfers. Do not reboot or change power/network settings for this handoff.
 

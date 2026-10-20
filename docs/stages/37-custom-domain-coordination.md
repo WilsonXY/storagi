@@ -1,6 +1,6 @@
 # 37: Custom-domain follow-up coordination
 
-- Status: in progress; assessment integrated, service follow-up coordinated.
+- Status: assessment and reviewed service follow-up integrated; publication and owner WAN handoff pending.
 - Started / last updated: 2026-10-20T22:43:01+08:00.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
 - Owner/task: coordinator scope, integration, independent review and publication.
