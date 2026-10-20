@@ -55,9 +55,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 20 | Portable public documentation and deployment examples | Distinct sanitization task | Completed; zero tracked matches, unit verify passed | [20](stages/20-portable-paths.md) |
 | 21 | Independent privacy correction review | Fresh fallback gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [21](stages/21-public-path-review.md) |
 | 22 | Execute approved feature-history privacy cleanup and CI | Coordinator | Completed; safe replacement, zero matches, rewritten-head CI PASS | [22](stages/22-approved-history-cleanup.md) |
-| 23 | Trim project AGENTS.md | Coordinator | In progress; documentation only | [23](stages/23-agent-instructions.md) |
+| 23 | Trim project AGENTS.md | Coordinator | Completed edit;17 lines/163 words, reviewed PASS | [23](stages/23-agent-instructions.md) |
 | 24 | Independent instruction review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [24](stages/24-agent-instructions-review.md) |
-| 25 | Fallback instruction review | Fresh Codex gpt-6-astra/high requested | Planned | [25](stages/25-agent-instructions-fallback-review.md) |
+| 25 | Fallback instruction review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [25](stages/25-agent-instructions-fallback-review.md) |
 | 18 | Publish reviewed branch, PR proof and CI | Coordinator | PR#1 open/linked; initial CI passed, rewrite CI in22 | [18](stages/18-publication.md) |
 | 07 | Final handoff, publication and setup status | Coordinator | Published/CI passed; Google setup and deployment pending | [07](stages/07-handoff.md) |
 
@@ -148,3 +148,5 @@ Privacy cleanup closeout: published rewritten head e6a3f09 passed both remote Ch
 ## Project instruction cleanup
 
 Owner requests a shorter project AGENTS.md, removing repeated/nonproject instructions. Stage23 coordinator edits this single instruction file; detailed stage rules stay in this log and global workflow/reviewer rules stay in the owner profile. Stage24 fresh read-only review checks the reduction and preserved project boundaries. No application/deployment changes. Existing PR#1 remains the publication target; ordinary feature push and CI follow review.
+
+AGENTS cleanup:44lines/650words→17lines/163words. Removed copied global rules and resolved setup history; project docs, stage ownership and auth/host/privacy safeguards remain. Review25 PASS, actual Astra/high proved, fallback only because Claude24 hit API rate limit. Read-only invariance passed and owned worktrees cleaned; ordinary PR#1 update/CI follows. App/tests/deps/config unchanged.
