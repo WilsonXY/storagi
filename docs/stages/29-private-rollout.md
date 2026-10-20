@@ -1,6 +1,6 @@
 # 29: Owner-approved private real-app startup
 
-- Status: private startup completed; real browser owner/other-account checks pending.
+- Status: completed; private startup and owner-reported real browser owner/other-account checks passed.
 - Owner/task: coordinator operational startup/integration.
 - Provider/model/effort: Codex gpt-6.1-sol/high confirmed by injected runtime; no independent review claimed.
 - Coordinator thread: [implementation](t3-thread://v1/mcp:1bc322fe-14cf-422e-bfb6-6c55dbc5041a).
@@ -38,3 +38,5 @@ Independent stage30 receives a running private route, proposed endpoint metadata
 Stage30 passed213 live anonymous HTTP requests/15 checks and1440/728/390 anonymous browser shells. Initial optional-probe review33 found two medium harness problems (error privacy and unbounded responses), fixed in34 with14 RED/GREEN regressions; final live213/15 rerun passed. Fresh35 actual Astra/high PASS confirms both findings resolved and no new issues; read-only evidence/cleanup passed. Source app and its already-running private process were unchanged throughout. Stage32 Claude rate limit and coordinator cleanup-guard retry are recorded separately. Public-safe probe/docs publication and CI follow; actual account tests still await the owner and Funnel remains off.
 
 Publication: https://github.com/WilsonXY/storagi/pull/3 created/linked for the reviewed optional probe/regressions and operational records, with public-safe anonymous1440/390 screenshots hosted by GitHub. Ordinary feature push only; app source unchanged. Current PR CI pending actual observation; owner account checks and Funnel remain pending.
+
+Subsequent owner report confirms the owner Inbox loads and Storagi rejects the other Google account after redirect. The original conditional approval was fulfilled and stage31 enabled only the owned443 Funnel flag; all prior routes preserved. Public relay9-check proof passed. App remains a detached runtime trial with private persistent data and no installed reboot-persistent service.
