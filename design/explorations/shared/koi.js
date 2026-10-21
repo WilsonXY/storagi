@@ -5,6 +5,7 @@
 //   blocks   — a one-line ASCII bar chart for throughput history.
 // Motion follows the owner's koi setting in storagi.js (swim always by default, or follow the system).
 import { reduced, onMotionChange, mountMotionToggle } from './storagi.js';
+import { MARK } from './brand/mark.js';
 // Each fish is painted as flat shapes into a small offscreen canvas, then read back one cell at a time and
 // re-drawn as a character whose density follows the coverage. When motion is reduced (the owner's setting allows it) the koi are drawn as one still frame.
 
@@ -83,6 +84,8 @@ export class KoiPond {
     // A pond made while its screen is hidden has no size yet: seed the fish, and in reduced motion paint the
     // still frame, whenever the canvas gets a size, not only at construction.
     new ResizeObserver(() => { if (this.dead) return; this.resize(); if (this.still) this.paintStill(); }).observe(canvas);
+    // the cell grid is measured from the mono face, so measure again once it has loaded
+    document.fonts?.load('500 11px "Storagi Mono"').then(() => { if (this.dead) return; this.resize(); if (this.still) this.paintStill(); });
     onMotionChange(() => { this.still = reduced(); this.still ? this.paintStill() : this.start(); });
     this.still ? this.paintStill() : this.start();
   }
@@ -96,7 +99,7 @@ export class KoiPond {
     if (!r.width || !r.height) { this.w = 0; return; }
     this.w = r.width; this.h = r.height; this.c.width = r.width * dpr; this.c.height = r.height * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.ctx.font = `500 ${this.o.font}px "JetBrains Mono", ui-monospace, monospace`; this.ctx.textBaseline = 'top';
+    this.ctx.font = `500 ${this.o.font}px "Storagi Mono", "JetBrains Mono", ui-monospace, monospace`; this.ctx.textBaseline = 'top';
     this.cw = Math.ceil(this.ctx.measureText('M').width); this.chh = Math.round(this.o.font * 1.25);
     this.cols = Math.ceil(this.w / this.cw); this.rows = Math.ceil(this.h / this.chh);
     this.buf.width = this.cols * 2; this.buf.height = this.rows * 2;
@@ -162,30 +165,24 @@ export class KoiPond {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The owner's mark: a kohaku curl in grayscale glyph cells (shared/brand). KoiMark samples it by default.
-export const BRAND_MARK = new URL('./brand/icon-512.png', import.meta.url).href;
-const marks = new Map();
-function loadMark(src) {
-  if (!marks.has(src)) marks.set(src, new Promise((ok, fail) => {
-    const img = new Image(); img.onload = () => {
-      // crop to the drawing itself: everything brighter than the black tile
-      const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
-      const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
-      const d = x.getImageData(0, 0, c.width, c.height).data; let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
-      for (let y = 0; y < c.height; y++) for (let i = 0; i < c.width; i++) { const k = (y * c.width + i) * 4; if (d[k] + d[k + 1] + d[k + 2] > 90) { x0 = Math.min(x0, i); y0 = Math.min(y0, y); x1 = Math.max(x1, i); y1 = Math.max(y1, y); } }
-      ok({ img, box: [x0, y0, x1 - x0 + 1, y1 - y0 + 1] });
-    }; img.onerror = fail; img.src = src;
-  }));
-  return marks.get(src);
+// The owner's mark: a kohaku curl in grayscale glyph cells, baked into brand/mark.js. KoiMark samples it by default.
+let markCanvas;
+function markImage() {
+  if (!markCanvas) {
+    const bytes = Uint8Array.from(atob(MARK.gray), c => c.charCodeAt(0)), img = new ImageData(MARK.w, MARK.h);
+    for (let i = 0; i < bytes.length; i++) { const v = bytes[i]; img.data.set([v, v, v, 255], i * 4); }
+    markCanvas = document.createElement('canvas'); markCanvas.width = MARK.w; markCanvas.height = MARK.h;
+    markCanvas.getContext('2d').putImageData(img, 0, 0);
+  }
+  return markCanvas;
 }
 
 export class KoiMark {
   // A koi in stippled dots. Dots run from the pointer and spring home; the fish keeps a slow swimming wave.
-  // By default the dots are sampled from the owner's mark; pass `src: null` for the drawn fish instead.
+  // By default the dots are sampled from the owner's mark (brand/mark.js); pass `src: null` for the drawn fish instead.
   constructor(canvas, opts = {}) {
     this.c = canvas; this.ctx = canvas.getContext('2d');
-    this.o = { density: 1, dot: 1.6, radius: 46, wave: 1, src: BRAND_MARK, ...opts };
-    if (this.o.src) loadMark(this.o.src).then(m => { this.mark = m; this.build(); if (this.still) this.draw(); }).catch(() => { this.o.src = null; this.build(); });
+    this.o = { density: 1, dot: 1.6, radius: 46, wave: 1, src: 'mark', ...opts };
     this.mouse = null; this.t = 0;
     canvas.addEventListener('pointermove', e => { const r = canvas.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
     canvas.addEventListener('pointerleave', () => (this.mouse = null));
@@ -202,9 +199,8 @@ export class KoiMark {
     this.w = r.width; this.h = r.height; this.c.width = r.width * dpr; this.c.height = r.height * dpr; this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const off = document.createElement('canvas'); off.width = this.w; off.height = this.h; const o = off.getContext('2d', { willReadFrequently: true });
     if (this.o.src) {
-      if (!this.mark) { this.dots = []; return; } // still loading
-      const [bx, by, bw, bh] = this.mark.box, s = Math.min(this.w * 0.92 / bw, this.h * 0.92 / bh);
-      o.drawImage(this.mark.img, bx, by, bw, bh, (this.w - bw * s) / 2, (this.h - bh * s) / 2, bw * s, bh * s);
+      const m = markImage(), s = Math.min(this.w * 0.92 / m.width, this.h * 0.92 / m.height);
+      o.imageSmoothingEnabled = true; o.drawImage(m, (this.w - m.width * s) / 2, (this.h - m.height * s) / 2, m.width * s, m.height * s);
     } else {
       const len = Math.min(this.w * 0.86, this.h * 2.6);
       paintFish(o, { x: this.w / 2 - len * 0.5, y: this.h / 2 + len * 0.04, a: Math.PI - 0.12, len, v: this.o.variety || VARIETIES[0], phase: 1.2, amp: 1.4, turn: -0.5 }, 1, 1);

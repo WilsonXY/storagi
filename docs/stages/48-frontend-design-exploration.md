@@ -61,6 +61,11 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 - Koi motion: "i want them to swim anyway", with a toggle if not too costly. Implemented as one stored preference in `shared/storagi.js` (`storagi.motion`): `always` (default) swims regardless of `prefers-reduced-motion`; `system` follows it. The pond, stippled mark, loader and variant C's crossing read it and switch live without a reload. Prototypes show it as "Koi: swim / system" in the state bar; in the app it belongs in the account menu. Checked in all four variants with the browser set to reduced motion: moving by default, still on `system`, moving again after switching back. CSS micro-transitions still follow the system setting.
 - Accent: keep the koi red-orange alongside the grayscale mark.
 
+## Owner-reported rendering bugs (2026-10-21)
+
+- Variant A's throughput chart ended unevenly at the right on the owner's Windows browser. Cause: JetBrains Mono came from Google Fonts, whose subsets omit the block and box characters, so the browser substituted fonts of different widths and rows of equal length ended apart. Fixed by self-hosting the full JetBrains Mono 2.304 (OFL, `shared/fonts/`) as "Storagi Mono"; every ASCII glyph in use is in it at one width, except Ledger's `▮▯`, replaced with `▌`. Not reproducible on Linux, where the fallback widths happened to match.
+- Variant D's stippled koi was missing on the published page. It sampled `icon-512.png` through a canvas; an image the page cannot read back leaves the mark empty. The mark is now baked into `shared/brand/mark.js` as a grayscale bitmap, with no image request.
+
 ## Handoff
 
 The owner picks a direction (or a mix); a later stage ports it into `web/` with tests.

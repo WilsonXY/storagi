@@ -30,7 +30,7 @@ function left(f) {
 function xbar(f, cells) {
   if (!cells) return '';
   const on = expired(f) ? 0 : Math.min(cells, Math.ceil(hoursLeft(f) / 24 / (30 / cells)));
-  return `<span class="xbar${soon(f) ? ' soon' : ''}" aria-hidden="true"><span class="on">${'▮'.repeat(on)}</span><span class="off">${'▯'.repeat(cells - on)}</span></span>`;
+  return `<span class="xbar${soon(f) ? ' soon' : ''}" aria-hidden="true"><span class="on">${'▌'.repeat(on)}</span><span class="off">${'▌'.repeat(cells - on)}</span></span>`;
 }
 const barCells = () => (innerWidth > 1180 ? 30 : innerWidth > 640 ? 10 : 0); // tablet: one cell per 3 days
 
