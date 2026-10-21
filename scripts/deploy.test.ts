@@ -262,6 +262,8 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     ['PORT out of range', f => setEnv(f, 'PORT', '"70000"'), ['v1.1.0'], /PORT/],
     ['backslash in DATA_DIR', f => { write(`${f.data}\\x/storagi.sqlite`, 'other db\n'); setEnv(f, 'DATA_DIR', `"${f.data}\\x"`); }, ['v1.1.0'], /backslash/],
     ['mismatched quotes in PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid'), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    // config.ts compares the untrimmed value with the canonical origin, so padding would stop the app.
+    ['space inside quoted PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid "'), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['release name exists', f => { writeFileSync(`${f.state}/date`, '2026-10-21T01:02:03Z\n'); mkdirSync(`${f.root}/releases/v1.1.0-${sh(f.clone, 'git rev-parse --short v1.1.0^{commit}')}-20261021T010203Z`); }, ['v1.1.0'], /exists/],
   ];
   for (const [label, arrange, args, reason] of cases) await t.test(label, () => {

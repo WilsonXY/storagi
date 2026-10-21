@@ -89,20 +89,24 @@ prev_target=$(readlink "$root/current")
 [[ -f $unit ]] || die "no installed unit at $unit"
 [[ -f $env_file && $(stat -c %a "$env_file") == 600 ]] || die "environment $env_file missing or not mode 600"
 # Plain-text reads of three keys only: never source the file or print other values.
-# Like systemd, drop one pair of matching surrounding quotes (the live file quotes every value),
-# then trim spaces and tabs like config.ts. Backslashes refuse: systemd would decode escapes.
+# Like systemd, drop one pair of matching surrounding quotes (the live file quotes every value).
+# Backslashes refuse: systemd would decode escapes. With "trim", strip spaces and tabs as
+# config.ts does for PORT and DATA_DIR; PUBLIC_ORIGIN must match exactly, so it is not trimmed.
 env_value() {
   local v
   v=$(sed -n "s/^$1=//p" "$env_file" | tail -n 1)
   [[ $v =~ ^\"(.*)\"$ || $v =~ ^\'(.*)\'$ ]] && v=${BASH_REMATCH[1]}
   [[ $v != *\\* ]] || die "$1 in the environment contains a backslash"
-  v=${v#"${v%%[![:blank:]]*}"}
-  printf '%s' "${v%"${v##*[![:blank:]]}"}"
+  if [[ ${2-} == trim ]]; then
+    v=${v#"${v%%[![:blank:]]*}"}
+    v=${v%"${v##*[![:blank:]]}"}
+  fi
+  printf '%s' "$v"
 }
 # Like config.ts: absent PORT is 8787, present must be 1-65535 (empty refuses).
 port=8787
-grep -q '^PORT=' "$env_file" && port=$(env_value PORT)
-data_dir=$(env_value DATA_DIR)
+grep -q '^PORT=' "$env_file" && port=$(env_value PORT trim)
+data_dir=$(env_value DATA_DIR trim)
 public_origin=$(env_value PUBLIC_ORIGIN)
 [[ $port =~ ^[0-9]{1,5}$ ]] || port=0
 port=$((10#$port))
