@@ -94,7 +94,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 57 | Stop trimming PUBLIC_ORIGIN | Coordinator | Completed; RED→GREEN, deploy 43/43 | [57](stages/57-origin-trim-fix.md) |
 | 58 | Focused independent review of stage57 | Fresh Codex gpt-6.1-sol/high confirmed | FAIL; 1 P1 + 1 P2 (config-rule divergence) accepted for59 | [58](stages/58-origin-trim-review.md) |
 | 59 | Use the app's own loadConfig via systemd for deploy settings | Distinct fix task, actual claude-opus-5-5/high confirmed | Completed on branch; bash config copy deleted, stage58 cases RED→GREEN, deploy 51/51, check passed, nothing deployed; live app_config probe 200/401 | [59](stages/59-app-config-gate.md) |
-| 60 | Independent review of the loadConfig deploy gate | Fresh read-only reviewer | In progress | [60](stages/60-config-gate-review.md) |
+| 60 | Independent review of the loadConfig deploy gate | Fresh Codex gpt-6.1-sol/high confirmed | FAIL; no P1, redesign closes divergence class, 1 P2 accepted for61 | [60](stages/60-config-gate-review.md) |
+| 61 | Back up the database file the app opens | Coordinator | Completed; RED→GREEN, deploy 52/52, check PASS, live probe 200/401 | [61](stages/61-database-path-fix.md) |
+| 62 | Focused independent review of stage61 | Fresh read-only reviewer | In progress | [62](stages/62-database-path-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

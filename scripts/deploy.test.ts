@@ -348,6 +348,18 @@ test('the backup uses the DATA_DIR the app resolves', { timeout: 120000 }, async
     const backup = `${f.root}/backups/${path.basename(readlinkSync(`${f.root}/current`))}`;
     assert.equal(readFileSync(`${backup}/storagi.sqlite`, 'utf8'), 'db bytes\n');
   });
+  // storage.ts uses path.join, which drops link/.. lexically; the shell would follow the link first.
+  await t.test('symlink then ..', () => {
+    const f = fixture(), other = `${path.dirname(f.data)}/elsewhere`;
+    write(`${other}/storagi.sqlite`, 'wrong db\n', 0o600);
+    mkdirSync(`${other}/child`);
+    symlinkSync(`${other}/child`, `${f.data}/link`);
+    setEnv(f, 'DATA_DIR', `"${f.data}/link/.."`);
+    const r = f.run('v1.1.0');
+    assert.equal(r.status, 0, r.out);
+    const backup = `${f.root}/backups/${path.basename(readlinkSync(`${f.root}/current`))}`;
+    assert.equal(readFileSync(`${backup}/storagi.sqlite`, 'utf8'), 'db bytes\n');
+  });
 });
 
 test('a new release resolving different settings refuses before the stop', { timeout: 60000 }, () => {

@@ -90,26 +90,28 @@ prev_target=$(readlink "$root/current")
 [[ -f $env_file && $(stat -c %a "$env_file") == 600 ]] || die "environment $env_file missing or not mode 600"
 unit_node() { sed -n 's/^ExecStart=\([^ ]*\) .*/\1/p' "$1"; }
 # The app's own config check, in a transient unit with the service's EnvironmentFile: systemd
-# decodes the file and config.ts validates the result, as at service start. Only port, DATA_DIR
-# and origin host come out; on error only config.ts's message (an uncaught error prints values).
+# decodes the file and config.ts validates the result, as at service start. Only port, the
+# database file (path.join, as storage.ts) and origin host come out; on error only config.ts's
+# message (an uncaught error prints values).
 config_js="try {
-  const {loadConfig} = await import('./dist/src/config.js'), c = loadConfig(process.env);
-  process.stdout.write([c.port, c.dataDir, new URL(c.origin).host].join('\n'));
+  const {loadConfig} = await import('./dist/src/config.js'), {join} = await import('node:path');
+  const c = loadConfig(process.env);
+  process.stdout.write([c.port, join(c.dataDir, 'storagi.sqlite'), new URL(c.origin).host].join('\n'));
 } catch (e) { console.error(e.message); process.exitCode = 1; }"
-app_config() { # $1: node, $2: release dir; sets config, port, data_dir, authority
+app_config() { # $1: node, $2: release dir; sets config, port, db, authority
   local cfg
   config=$(systemd-run --user --pipe --wait --quiet --collect -p EnvironmentFile="$env_file" \
     -p WorkingDirectory="$2/server" "$1" --input-type=module -e "$config_js") ||
     die "the app's config check in ${2##*/} refuses the environment"
   mapfile -t cfg <<<"$config"
   [[ ${#cfg[@]} == 3 && -n ${cfg[0]} && -n ${cfg[1]} && -n ${cfg[2]} ]] ||
-    die "the app's config check in ${2##*/} did not return port, DATA_DIR and host"
-  port=${cfg[0]} data_dir=${cfg[1]} authority=${cfg[2]}
+    die "the app's config check in ${2##*/} did not return port, database and host"
+  port=${cfg[0]} db=${cfg[1]} authority=${cfg[2]}
 }
 # The running release's own rules decide what is idle and what to back up.
 app_config "$(unit_node "$unit")" "$prev"
 early=$config
-[[ -f $data_dir/storagi.sqlite ]] || die "no storagi.sqlite in DATA_DIR from the environment"
+[[ -f $db ]] || die "no storagi.sqlite in DATA_DIR from the environment"
 idle || die "open connections to 127.0.0.1:$port (or ss failed); wait for transfers to finish (idle keep-alives close within minutes)"
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 name=$tag-$(git -C "$repo" rev-parse --short "$commit")-${built_at//[-:]/}
@@ -158,7 +160,7 @@ if ! systemctl --user stop "$service" || ! wait_for 60 stopped; then
     manual "could not stop $service, and starting it again did not make it healthy."
   die "could not stop $service; it is healthy again, nothing changed"
 fi
-for f in "$data_dir"/storagi.sqlite{,-wal,-shm}; do
+for f in "$db"{,-wal,-shm}; do
   [[ -e $f ]] || continue
   install -m 600 "$f" "$backup/"
   cmp -s "$f" "$backup/${f##*/}" || die "database backup of ${f##*/} does not match"
