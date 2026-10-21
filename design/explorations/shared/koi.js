@@ -79,6 +79,8 @@ export class KoiPond {
     const host = this.o.pointerTarget || window;
     host.addEventListener('pointermove', e => { const r = this.c.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
     host.addEventListener('pointerleave', () => (this.mouse = null));
+    // a finger has no hover: once it lifts, the fish stop fleeing the spot it left
+    for (const t of ['pointerup', 'pointercancel']) host.addEventListener(t, e => { if (e.pointerType !== 'mouse') this.mouse = null; });
     this.still = reduced();
     // A pond made while its screen is hidden has no size yet: seed the fish, and in reduced motion paint the
     // still frame, whenever the canvas gets a size, not only at construction.
@@ -186,8 +188,13 @@ export class KoiMark {
     this.c = canvas; this.ctx = canvas.getContext('2d');
     this.o = { density: 1, dot: 1.6, radius: 46, wave: 1, src: 'mark', ...opts };
     this.mouse = null; this.t = 0;
-    canvas.addEventListener('pointermove', e => { const r = canvas.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
-    canvas.addEventListener('pointerleave', () => (this.mouse = null));
+    // Mouse, pen and finger: on touch the canvas keeps the gesture (no page pan), dots follow the finger while it
+    // drags, and the hole closes when it lifts (a touch has no hover, so it never sends a plain pointerleave).
+    canvas.style.touchAction = 'none';
+    const at = e => { const r = canvas.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; };
+    canvas.addEventListener('pointerdown', at);
+    canvas.addEventListener('pointermove', at);
+    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) canvas.addEventListener(t, () => (this.mouse = null));
     this.still = reduced();
     this.build(); new ResizeObserver(() => { if (!this.dead) { this.build(); if (this.still) this.draw(); } }).observe(canvas);
     onMotionChange(() => { this.still = reduced(); this.still ? this.draw() : this.start(); });
