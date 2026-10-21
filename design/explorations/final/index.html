@@ -61,7 +61,7 @@
         <div class="crumb"><span class="muted">Shelf</span><span class="faint" aria-hidden="true">/</span><h1 id="page-title">Inbox</h1></div>
         <label class="search"><svg class="i" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><input type="search" id="search" placeholder="Search filenames" aria-label="Search filenames" title="Search filenames ( / )" aria-keyshortcuts="/"></label>
         <div class="fresh" id="fresh" aria-live="polite">
-          <span class="dot" id="fresh-dot"></span><span id="fresh-text" class="mono">—</span>
+          <span class="fresh-pill"><span class="dot" id="fresh-dot"></span><span id="fresh-text" class="mono">—</span></span>
           <button type="button" class="icon-btn" id="refresh" aria-label="Refresh now" title="Refresh now"><svg class="i" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5V5h-2.5"/></svg></button>
         </div>
       </header>
@@ -101,7 +101,7 @@
             <div class="empty" id="empty" hidden>
               <canvas class="koi-mark" id="koi-mark" aria-hidden="true"></canvas>
               <h2>A fresh shelf.</h2>
-              <p class="muted">Your next upload lands here, newest first. Move your cursor through the koi.</p>
+              <p class="muted">Your next upload lands here, newest first.</p>
             </div>
             <p class="no-match" id="no-match" hidden></p>
           </section>

@@ -52,7 +52,7 @@ function go(next) {
   if (['shelf', 'empty', 'offline'].includes(next)) {
     world = next === 'empty' ? worlds.empty : worlds.shelf;
     const narrow = innerWidth < 640;
-    pond ||= new KoiPond($('#pond'), { count: narrow ? 2 : 4, size: narrow ? [80, 130] : [110, 190], font: 11, flee: 130, avoid: () => [rel($('#composer'), $('#pond'), 0.14), rel($('.lede'), $('#pond'), 0.1), rel($('.search'), $('#pond'), 0.1)] });
+    pond ||= new KoiPond($('#pond'), { count: narrow ? 2 : 4, size: narrow ? [80, 130] : [110, 190], font: 11, flee: 130, avoid: () => [rel($('#composer'), $('#pond'), 0.32), rel($('.lede'), $('#pond'), 0.1), rel($('.search'), $('#pond'), 0.1)] });
     pond.resize(); renderAll();
     if (next === 'offline') { for (const t of world.tr.items) if (['uploading', 'downloading', 'queued'].includes(t.state)) { world.tr.pause(t); t.held = true; } ar.now(); }
     else releaseHeld();
@@ -280,7 +280,7 @@ function renderFresh() {
   f.classList.toggle('busy', ar.busy); f.classList.toggle('off', mode === 'offline' && !ar.busy);
   if (ar.busy) t.innerHTML = '<span class="fresh-long">Refreshing</span>…';
   else if (mode === 'offline') t.innerHTML = `Offline<span class="fresh-long"> · last good ${clock(lastGood)}</span>`;
-  else t.innerHTML = `<span class="fresh-long">Updated ${clock(new Date(simNow().getTime() - (Date.now() - ar.last)))} · next in </span>${ar.remaining}s`;
+  else t.innerHTML = `<span class="fresh-long">Updated </span>${clock(new Date(simNow().getTime() - (Date.now() - ar.last)))}<span class="fresh-long"> · next in ${ar.remaining}s</span>`;
   $('#refresh').setAttribute('aria-label', `Refresh now (auto-refresh in ${ar.remaining} seconds)`);
 }
 $('#refresh').onclick = () => ar.now();
