@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directories: [/server, /web]
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Major updates are planned tasks, not weekly PRs; this also keeps @types/node
+    # on the deployed Node major (22). Security updates are not affected.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
