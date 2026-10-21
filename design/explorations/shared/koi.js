@@ -258,7 +258,7 @@ export function orbitLoader(size = 40, { color = 'var(--koi)' } = {}) {
   const still = reduced(); let t0 = performance.now();
   function frame(now) {
     if (!svg.isConnected && now - t0 > 2000) return;
-    const [x, y, r] = orbitAt(((now - t0) / 1900) % 1);
+    const [x, y, r] = orbitAt(((now - t0) / 1800) % 1);
     ring.setAttribute('cx', x); ring.setAttribute('cy', y); ring.setAttribute('r', r);
     for (const [a, l] of ticks) { const d = Math.hypot(Math.cos(a) * 33 - x, Math.sin(a) * 33 - y); l.style.opacity = d < r + 8 ? 0 : 0.5; }
     if (!still) requestAnimationFrame(frame);
