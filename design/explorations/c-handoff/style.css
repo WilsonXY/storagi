@@ -10,7 +10,7 @@ body { min-height: 100vh; overflow-x: hidden; }
   box-shadow: inset 0 -1px var(--rule);
 }
 .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
-.brand svg { width: 24px; height: 24px; flex: none; }
+.brand svg, .brand img { width: 24px; height: 24px; flex: none; }
 .brand h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
 .brand .scope { color: var(--faint); font-size: 13px; padding-left: 10px; box-shadow: inset 1px 0 var(--border); margin-left: 2px; }
 .stamp { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }

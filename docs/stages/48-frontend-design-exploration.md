@@ -5,7 +5,7 @@
 - Coordinator thread: Claude Code cloud session on branch `claude/nifty-knuth-k90bhs`, starting commit `1fa9cd8`.
 - Agent/task identifiers: coordinator plus four delegated variant builders (forks of the coordinator session), listed under Delegation.
 - Provider/model/effort: the session is configured for Claude Opus 5.5; the serving model per turn is not independently proven here. Forks inherit the coordinator's model.
-- Scope: design exploration only. Static prototypes under `design/explorations/`; no change to `web/`, `server/`, deployment or the running service. Nothing deployed or exposed; local preview servers bind to `127.0.0.1`.
+- Scope: design exploration only. Static prototypes under `design/explorations/`; the only change outside them is the owner's favicon in `web/public/`. No change to `server/`, deployment or the running service. Nothing deployed or exposed; local preview servers bind to `127.0.0.1`.
 
 ## Owner's request (2026-10-21)
 
@@ -48,7 +48,8 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 
 ## Findings and limitations
 
-- The koi favicon is not in the repository on any branch (only the orange "s." SVG). Variants use a drawn stand-in until the owner supplies the file.
+- The koi favicon was not in the repository at first; the owner then supplied it (a grayscale kohaku curl in glyph cells). It now lives in `design/explorations/shared/brand/`, is every prototype's tab icon and brand mark, is the source the stippled `KoiMark` samples, and replaces `web/public/favicon.svg` (web tests 19/19 and build passed). The `.ico`, PNG and touch icons are not served by production yet: `server/src/static.ts` allows only `/favicon.svg` besides the app shell and assets.
+- Owner report: opened from the published page, the variants showed no fish. Reproduced with `prefers-reduced-motion: reduce`: the pond painted its single still frame at construction, while its screen was still hidden. Fixed in `shared/koi.js` (pond and mark repaint and seed fish whenever the canvas gets a size); all four locked screens re-checked with motion on and reduced.
 - Leon Sans 2.0 has proportional digits and no `tnum` feature, so live figures are set in a monospace.
 - The real service deletes immediately; an undo needs a client-side grace period before the DELETE request.
 - Download progress needs the download to run through `fetch` streaming rather than a plain link; see `REFERENCES.md`.

@@ -54,7 +54,7 @@ function renderLocked() {
   app.innerHTML = `<main class="locked">
     <canvas class="pond" aria-hidden="true"></canvas>
     <section class="card" aria-labelledby="lock-title">
-      <div class="prompt"><canvas aria-hidden="true"></canvas><span>storagi open --owner <span class="caret"></span></span></div>
+      <div class="prompt"><img src="../shared/brand/favicon.svg" alt="" width="24" height="24"><span>storagi open --owner <span class="caret"></span></span></div>
       <h1 id="lock-title">Your shelf is locked.</h1>
       <p>Only the owner's Google account opens this shelf. Unfinished uploads resume after you sign in and reselect the file.</p>
       <a class="btn btn-primary" href="#" id="google"><span class="g">G</span> Continue with Google</a>
@@ -63,7 +63,6 @@ function renderLocked() {
   const card = app.querySelector('.card');
   const pond = new KoiPond(app.querySelector('.pond'), { count: 3, size: [180, 280], font: 11, avoid: () => { const r = card.getBoundingClientRect(); return [{ x: r.left, y: r.top, w: r.width, h: r.height, dim: 0.12 }]; } });
   S.pond = pond;
-  new KoiMark(app.querySelector('.prompt canvas'), { density: 5, dot: 1, radius: 14, variety: undefined });
   app.querySelector('#google').addEventListener('click', e => { e.preventDefault(); setState('loading'); setTimeout(() => S.name === 'loading' && setState('shelf'), 1100); });
 }
 
@@ -71,7 +70,7 @@ function renderLocked() {
 function renderShell() {
   app.innerHTML = `<div class="shell">
     <nav class="rail" aria-label="Storagi">
-      <canvas class="mark" aria-label="Storagi" role="img"></canvas>
+      <img class="mark" src="../shared/brand/favicon.svg" alt="Storagi" width="32" height="32">
       <a href="#" aria-current="page" title="Shelf">≡<span class="tip">Shelf</span></a>
       <button type="button" id="rail-xfer" aria-pressed="false">⇅<span class="badge" id="rail-badge"></span><span class="tip">Transfers · t</span></button>
       <button type="button" id="rail-up">↥<span class="tip">Upload · u</span></button>
@@ -108,7 +107,6 @@ function renderShell() {
     <button type="button" id="tb-keys"><span class="g">⎋</span>Sign out</button>
   </nav>`;
   const railMark = app.querySelector('.rail .mark');
-  if (railMark.getBoundingClientRect().width) new KoiMark(railMark, { density: 6, dot: 1.1, radius: 16 }); // KoiMark throws on a hidden (0-width) canvas
   const drawer = app.querySelector('#drawer');
   const toggleDrawer = open => {
     open = open ?? drawer.classList.contains('closed');

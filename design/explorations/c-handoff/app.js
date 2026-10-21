@@ -15,8 +15,8 @@ const I = {
   search: svg('<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>'),
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 'width="14" height="14"'),
 };
-// Stand-in koi mark until the owner's favicon is added.
-const KOI = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#111214"/><path d="M4 12c1.5-3 4-4.5 7-4.5 3.2 0 5.3 1.7 6.8 3.6L21 9l-1 3 1 3-3.2-2.1c-1.5 1.9-3.6 3.6-6.8 3.6-3 0-5.5-1.5-7-4.5z" fill="#ece8e1"/><circle cx="9" cy="11" r="2" fill="#ff5b35"/></svg>`;
+// The owner's koi mark.
+const KOI = `<img src="../shared/brand/favicon.svg" alt="" width="24" height="24">`;
 
 // ---------------------------------------------------------------------------------------------
 let host = createHost();

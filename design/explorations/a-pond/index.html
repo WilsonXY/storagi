@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#000000">
+  <link rel="icon" type="image/svg+xml" href="../shared/brand/favicon.svg">
+  <link rel="icon" href="../shared/brand/favicon.ico" sizes="48x48">
+  <link rel="apple-touch-icon" href="../shared/brand/apple-touch-icon.png">
   <title>Storagi · Pond</title>
   <meta name="description" content="Variant A: a T3 Code shell with an ASCII koi pond behind the drop bar.">
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../shared/tokens.css">
@@ -25,7 +27,7 @@
   <!-- The shelf -->
   <div class="app" id="app" hidden>
     <aside class="side" id="side" aria-label="Storagi">
-      <a class="brand" href="#"><img src="./koi.svg" alt="" width="22" height="22"><span>storagi</span></a>
+      <a class="brand" href="#"><img src="../shared/brand/favicon.svg" alt="" width="22" height="22"><span>storagi</span></a>
       <nav class="nav" aria-label="Shelf">
         <a href="#" class="nav-item is-active" aria-current="page" data-tab="inbox"><svg class="i" viewBox="0 0 16 16"><path d="M2 9.5V13h12V9.5M2 9.5 4 3h8l2 6.5M2 9.5h3.5l1 1.5h3l1-1.5H14"/></svg><span>Inbox</span><b class="mono" id="nav-files">0</b></a>
         <a href="#" class="nav-item" data-tab="transfers" id="nav-transfers"><svg class="i" viewBox="0 0 16 16"><path d="M5 13V3M2.5 5.5 5 3l2.5 2.5M11 3v10M8.5 10.5 11 13l2.5-2.5"/></svg><span>Transfers</span><b class="mono" id="nav-open">0</b></a>
@@ -48,7 +50,7 @@
     <div class="main">
       <header class="top">
         <button type="button" class="icon-btn menu-btn" id="menu-btn" aria-label="Open menu" aria-expanded="false"><svg class="i" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg></button>
-        <a class="brand brand-top" href="#"><img src="./koi.svg" alt="" width="22" height="22"><span>storagi</span></a>
+        <a class="brand brand-top" href="#"><img src="../shared/brand/favicon.svg" alt="" width="22" height="22"><span>storagi</span></a>
         <div class="crumb"><span class="muted">Shelf</span><span class="faint" aria-hidden="true">/</span><h1 id="page-title">Inbox</h1></div>
         <label class="search"><svg class="i" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><input type="search" id="search" placeholder="Search filenames" aria-label="Search filenames"><span class="kbd">/</span></label>
         <div class="fresh" id="fresh" aria-live="polite">
@@ -124,7 +126,7 @@
 
     <div class="sheet" id="sheet" hidden>
       <div class="sheet-inner">
-        <div class="sheet-head"><a class="brand" href="#"><img src="./koi.svg" alt="" width="22" height="22"><span>storagi</span></a><button type="button" class="icon-btn" id="sheet-close" aria-label="Close menu"><svg class="i" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
+        <div class="sheet-head"><a class="brand" href="#"><img src="../shared/brand/favicon.svg" alt="" width="22" height="22"><span>storagi</span></a><button type="button" class="icon-btn" id="sheet-close" aria-label="Close menu"><svg class="i" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></div>
         <div class="sheet-slot" id="sheet-slot"></div>
       </div>
     </div>
@@ -134,7 +136,7 @@
   <section class="locked" id="locked" hidden>
     <canvas class="locked-pond" id="locked-pond" aria-hidden="true"></canvas>
     <div class="locked-card" id="locked-card">
-      <img src="./koi.svg" alt="" width="40" height="40">
+      <img src="../shared/brand/favicon.svg" alt="" width="40" height="40">
       <h1>Your shelf is locked.</h1>
       <p>Only the owner's Google account opens this shelf. Interrupted uploads pick up where they stopped once you are back in.</p>
       <a class="btn btn-primary btn-lg" href="#" id="sign-in"><span class="g" aria-hidden="true">G</span>Continue with Google</a>

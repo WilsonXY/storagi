@@ -77,11 +77,15 @@ export class KoiPond {
     const host = this.o.pointerTarget || window;
     host.addEventListener('pointermove', e => { const r = this.c.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
     host.addEventListener('pointerleave', () => (this.mouse = null));
-    for (let i = 0; i < this.o.count; i++) this.spawn(i, true);
     this.still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (this.still) { for (let i = 0; i < 40; i++) this.step(0.05); this.draw(); }
+    // A pond made while its screen is hidden has no size yet: seed the fish, and in reduced motion paint the
+    // still frame, whenever the canvas gets a size, not only at construction.
+    new ResizeObserver(() => { if (this.dead) return; this.resize(); if (this.still) this.paintStill(); }).observe(canvas);
+    if (this.still) this.paintStill();
     else requestAnimationFrame(t => this.loop(t));
   }
+  seed() { if (this.seeded || !this.w) return; this.seeded = true; for (let i = 0; i < this.o.count; i++) this.spawn(i, true); }
+  paintStill() { if (!this.w) return; if (!this.seeded) { this.seed(); for (let i = 0; i < 40; i++) this.step(0.05); } this.draw(); }
   destroy() { this.dead = true; this.ctx.clearRect(0, 0, this.w || 0, this.h || 0);
   }
   resize() {
@@ -124,6 +128,7 @@ export class KoiPond {
     const dt = Math.min(0.05, (t - this.last) / 1000 || 0.016); this.last = t;
     if (this.dead) return;
     if (!this.w) this.resize();
+    this.seed();
     if (this.w && document.visibilityState === 'visible') { this.step(dt); this.draw(); }
     requestAnimationFrame(n => this.loop(n));
   }
@@ -154,16 +159,35 @@ export class KoiPond {
 }
 
 // ---------------------------------------------------------------------------------------------
+// The owner's mark: a kohaku curl in grayscale glyph cells (shared/brand). KoiMark samples it by default.
+export const BRAND_MARK = new URL('./brand/icon-512.png', import.meta.url).href;
+const marks = new Map();
+function loadMark(src) {
+  if (!marks.has(src)) marks.set(src, new Promise((ok, fail) => {
+    const img = new Image(); img.onload = () => {
+      // crop to the drawing itself: everything brighter than the black tile
+      const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, c.width, c.height).data; let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+      for (let y = 0; y < c.height; y++) for (let i = 0; i < c.width; i++) { const k = (y * c.width + i) * 4; if (d[k] + d[k + 1] + d[k + 2] > 90) { x0 = Math.min(x0, i); y0 = Math.min(y0, y); x1 = Math.max(x1, i); y1 = Math.max(y1, y); } }
+      ok({ img, box: [x0, y0, x1 - x0 + 1, y1 - y0 + 1] });
+    }; img.onerror = fail; img.src = src;
+  }));
+  return marks.get(src);
+}
+
 export class KoiMark {
   // A koi in stippled dots. Dots run from the pointer and spring home; the fish keeps a slow swimming wave.
+  // By default the dots are sampled from the owner's mark; pass `src: null` for the drawn fish instead.
   constructor(canvas, opts = {}) {
     this.c = canvas; this.ctx = canvas.getContext('2d');
-    this.o = { density: 1, dot: 1.6, radius: 46, wave: 1, ...opts };
+    this.o = { density: 1, dot: 1.6, radius: 46, wave: 1, src: BRAND_MARK, ...opts };
+    if (this.o.src) loadMark(this.o.src).then(m => { this.mark = m; this.build(); if (this.still) this.draw(); }).catch(() => { this.o.src = null; this.build(); });
     this.mouse = null; this.t = 0;
     canvas.addEventListener('pointermove', e => { const r = canvas.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
     canvas.addEventListener('pointerleave', () => (this.mouse = null));
-    this.build(); addEventListener('resize', () => this.build());
     this.still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.build(); new ResizeObserver(() => { if (!this.dead) { this.build(); if (this.still) this.draw(); } }).observe(canvas);
     if (this.still) this.draw(); else requestAnimationFrame(() => this.loop());
   }
   build() {
@@ -171,14 +195,22 @@ export class KoiMark {
     if (!r.width || !r.height) { this.w = 0; this.dots = []; return; }
     this.w = r.width; this.h = r.height; this.c.width = r.width * dpr; this.c.height = r.height * dpr; this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const off = document.createElement('canvas'); off.width = this.w; off.height = this.h; const o = off.getContext('2d', { willReadFrequently: true });
-    const len = Math.min(this.w * 0.86, this.h * 2.6);
-    paintFish(o, { x: this.w / 2 - len * 0.5, y: this.h / 2 + len * 0.04, a: Math.PI - 0.12, len, v: this.o.variety || VARIETIES[0], phase: 1.2, amp: 1.4, turn: -0.5 }, 1, 1);
+    if (this.o.src) {
+      if (!this.mark) { this.dots = []; return; } // still loading
+      const [bx, by, bw, bh] = this.mark.box, s = Math.min(this.w * 0.92 / bw, this.h * 0.92 / bh);
+      o.drawImage(this.mark.img, bx, by, bw, bh, (this.w - bw * s) / 2, (this.h - bh * s) / 2, bw * s, bh * s);
+    } else {
+      const len = Math.min(this.w * 0.86, this.h * 2.6);
+      paintFish(o, { x: this.w / 2 - len * 0.5, y: this.h / 2 + len * 0.04, a: Math.PI - 0.12, len, v: this.o.variety || VARIETIES[0], phase: 1.2, amp: 1.4, turn: -0.5 }, 1, 1);
+    }
     const d = o.getImageData(0, 0, this.w, this.h).data, dots = [];
-    const tries = this.w * this.h * 0.16 * this.o.density;
+    const tries = this.w * this.h * (this.o.src ? 0.3 : 0.16) * this.o.density;
     for (let i = 0; i < tries; i++) {
       const x = Math.random() * this.w, y = Math.random() * this.h, k = ((y | 0) * this.w + (x | 0)) * 4;
       if (d[k + 3] < 90) continue;
-      const lum = (d[k] + d[k + 1] + d[k + 2]) / 765, keep = d[k + 3] < 200 ? 0.35 : 0.55 + lum * 0.45;
+      const lum = (d[k] + d[k + 1] + d[k + 2]) / 765;
+      if (this.o.src && lum < 0.12) continue; // the mark's black tile and cell gaps
+      const keep = d[k + 3] < 200 ? 0.35 : 0.55 + lum * 0.45;
       if (Math.random() > keep) continue;
       dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${d[k]},${d[k + 1]},${d[k + 2]})` });
     }
