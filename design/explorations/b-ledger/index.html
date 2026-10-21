@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Storagi — Ledger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/tokens.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="proto" role="group" aria-label="Prototype state">
+    <span>b · ledger</span>
+    <button type="button" data-state="locked">Locked</button>
+    <button type="button" data-state="loading">Loading</button>
+    <button type="button" data-state="shelf">Shelf</button>
+    <button type="button" data-state="empty">Empty</button>
+    <button type="button" data-state="offline">Offline</button>
+  </div>
+  <div id="app"></div>
+  <input id="picker" type="file" multiple hidden>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
