@@ -166,7 +166,7 @@ export class KoiPond {
 
 // ---------------------------------------------------------------------------------------------
 // The owner's mark: a kohaku curl in grayscale glyph cells, baked into brand/mark.js. KoiMark samples it by default.
-const staticGrey = () => 22 + (Math.random() * 70 | 0);
+const staticGrey = () => 26 + (Math.random() * 44 | 0); // fine, dark grain, as the readback bug looked
 let markBytes;
 const markData = () => (markBytes ||= Uint8Array.from(atob(MARK.gray), c => c.charCodeAt(0)));
 
@@ -217,10 +217,11 @@ export class KoiMark {
     const tries = this.w * this.h * 0.3 * this.o.density;
     for (let i = 0; i < tries; i++) {
       const x = Math.random() * this.w, y = Math.random() * this.h, bx = Math.floor((x - ox) / s), by = Math.floor((y - oy) / s);
-      // `static`: the owner kept the look of a readback bug, a dim flickering field of grey dots across the canvas
-      if (this.o.static && Math.random() < 0.55) { const n = staticGrey(); statics.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${n},${n},${n})`, noise: true }); }
-      if (bx < 0 || by < 0 || bx >= MARK.w || by >= MARK.h) continue;
-      const v = g[by * MARK.w + bx], lum = v / 255;
+      // `static`: the owner kept the look of a readback bug, a fine dark field of grey grain across the canvas.
+      // None falls inside the koi, so the fish reads as a bright shape cut out of the noise.
+      const inside = bx >= 0 && by >= 0 && bx < MARK.w && by < MARK.h, v = inside ? g[by * MARK.w + bx] : 0, lum = v / 255;
+      if (this.o.static && lum < 0.12 && Math.random() < 0.7) { const n = staticGrey(); statics.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${n},${n},${n})`, noise: true }); }
+      if (!inside) continue;
       if (lum < 0.12 || Math.random() > 0.55 + lum * 0.45) continue;
       dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${v},${v},${v})` });
     }
@@ -236,7 +237,7 @@ export class KoiMark {
   step() {
     const R = this.o.radius, m = this.mouse;
     for (const p of this.dots) {
-      const wave = Math.sin(this.t * 1.6 - p.hx / 34) * 2.2 * this.o.wave * (p.hx / this.w);
+      const wave = p.noise ? 0 : Math.sin(this.t * 1.6 - p.hx / 34) * 2.2 * this.o.wave * (p.hx / this.w); // the grain holds still
       let ax = (p.hx - p.x) * 0.06, ay = (p.hy + wave - p.y) * 0.06;
       if (m) { const dx = p.x - m[0], dy = p.y - m[1], d = Math.hypot(dx, dy); if (d < R && d > 0.1) { const f = (1 - d / R) ** 2 * 5.5; ax += dx / d * f; ay += dy / d * f; } }
       p.vx = (p.vx + ax) * 0.82; p.vy = (p.vy + ay) * 0.82; p.x += p.vx; p.y += p.vy;
@@ -246,7 +247,7 @@ export class KoiMark {
     const { ctx } = this, s = this.o.dot; ctx.clearRect(0, 0, this.w, this.h);
     for (const p of this.dots) {
       if (p.noise && !this.still && Math.random() < 0.04) { const n = staticGrey(); p.c = `rgb(${n},${n},${n})`; } // flicker
-      ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, s, s);
+      ctx.fillStyle = p.c; const d = p.noise ? 1 : s; ctx.fillRect(p.x, p.y, d, d);
     }
   }
 }
