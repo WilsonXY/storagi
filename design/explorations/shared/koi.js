@@ -2,9 +2,8 @@
 //   KoiPond  — koi drawn in glyph cells swimming behind the interface (after stackedlol's ASCII sharks, via @sundyme).
 //   KoiMark  — a stippled koi whose dots run from the cursor and spring home (after Emil Kowalski's dithered Linear icon).
 //   orbitLoader — a tick ring with a solid ring passing through it (after Emil Kowalski's loader).
-//   blocks   — a one-line ASCII bar chart for throughput history.
 // Motion follows the owner's koi switch in storagi.js: swim (default) or static.
-import { reduced, onMotionChange, mountMotionToggle } from './storagi.js';
+import { reduced, onMotionChange } from './storagi.js';
 import { MARK } from './brand/mark.js';
 // Each fish is painted as flat shapes into a small offscreen canvas, then read back one cell at a time and
 // re-drawn as a character whose density follows the coverage. When motion is reduced (the owner's setting allows it) the koi are drawn as one still frame.
@@ -303,13 +302,3 @@ export function orbitAt(t) {
   const a = a1 - ease((t - 0.6) / 0.4) * Math.PI; // back round through the bottom and the right
   return [R * Math.cos(a), R * Math.sin(a), 4];
 }
-
-// One line of block characters, newest on the right, scaled to `max`.
-export function blocks(values, width, max) {
-  const g = ' ▁▂▃▄▅▆▇█', v = values.slice(-width), top = max || Math.max(1, ...v);
-  return ' '.repeat(Math.max(0, width - v.length)) + v.map(x => g[Math.min(8, Math.round(x / top * 8))]).join('');
-}
-// A braille spinner for inline "working" states.
-export function brailleSpinner(el) { const g = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'; let i = 0; const t = setInterval(() => { if (!el.isConnected) return clearInterval(t); el.textContent = g[i++ % g.length]; }, 80); }
-
-mountMotionToggle();

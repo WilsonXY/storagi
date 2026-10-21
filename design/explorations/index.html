@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#000000">
-  <title>Storagi Directions</title>
+  <title>Storagi Redesign</title>
   <link rel="icon" type="image/svg+xml" href="shared/brand/favicon.svg">
   <link rel="icon" href="shared/brand/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="shared/brand/apple-touch-icon.png">
@@ -13,45 +13,28 @@
     .page { max-width: 1200px; margin: 0 auto; padding: 0 24px 96px; }
     .pond { position: relative; height: 340px; margin: 0 -24px; }
     .pond canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-    .pond .head { position: absolute; left: 24px; right: 24px; bottom: 36px; }
+    .pond .head { position: absolute; left: 24px; right: 24px; bottom: 36px; display: grid; gap: 18px; justify-items: start; }
     .brand { display: flex; align-items: center; gap: 10px; padding-top: 22px; position: relative; font-weight: 500; font-size: 15px; }
     h1 { font-weight: 300; font-size: clamp(34px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.02em; }
-    .lede { margin-top: 14px; max-width: 640px; color: var(--muted); font-size: 16px; }
+    .lede { max-width: 620px; color: var(--muted); font-size: 16px; }
     section { margin-top: 88px; }
     h2 { font-weight: 500; font-size: 24px; letter-spacing: -0.01em; }
-    .variant { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 24px; margin-top: 28px; align-items: start; }
-    .variant + .variant { margin-top: 72px; }
-    .variant .text { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: end; }
-    .variant h3 { font-weight: 500; font-size: 20px; }
-    .variant h3 .num { color: var(--koi-ink); margin-right: 10px; font-size: 16px; }
-    .variant p { color: var(--muted); max-width: 720px; }
-    .variant .open { justify-self: end; }
-    .variant ul { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--faint); font-size: 13px; }
+    .screens { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 24px; margin-top: 24px; align-items: start; }
+    .screens .wide { grid-column: 1 / -1; }
     .shot { display: block; border-radius: 10px; overflow: hidden; background: var(--raised); box-shadow: 0 0 0 1px var(--border); }
     .shot img { display: block; width: 100%; height: auto; }
+    figure { margin: 0; display: grid; gap: 8px; }
+    figcaption { color: var(--muted); font-size: 13px; }
     .before { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; }
     .before ul { display: grid; gap: 10px; color: var(--muted); }
     .before li b { color: var(--text); font-weight: 500; }
     .docs { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
-    .locked { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
-    .locked figure { margin: 0; display: grid; gap: 8px; }
-    .locked figcaption { color: var(--muted); font-size: 13px; }
-    .compare { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 14px; }
-    .compare th, .compare td { text-align: left; padding: 12px 16px 12px 0; vertical-align: top; border-bottom: 1px solid var(--rule); }
-    .compare th { color: var(--muted); font-weight: 400; font-size: 13px; }
-    .compare td:first-child { color: var(--text); white-space: nowrap; }
-    .compare td { color: var(--muted); }
-    .table-wrap { overflow-x: auto; }
     footer { margin-top: 96px; color: var(--faint); font-size: 12px; }
     footer a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
     @media (max-width: 760px) {
-      .variant { grid-template-columns: 1fr; }
-      .variant .text { grid-template-columns: 1fr; }
-      .variant .open { justify-self: start; }
-      .variant .phone { max-width: 220px; }
-      .before { grid-template-columns: 1fr; }
-      .locked { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .pond { height: 300px; }
+      .screens, .before { grid-template-columns: 1fr; }
+      .screens .phone { max-width: 220px; }
+      .pond { height: 320px; }
     }
   </style>
 </head>
@@ -61,78 +44,45 @@
       <canvas id="pond" aria-hidden="true"></canvas>
       <div class="brand"><img src="shared/brand/favicon.svg" alt="" width="28" height="28">storagi</div>
       <div class="head">
-        <h1>Four directions for Storagi</h1>
-        <p class="lede">True black on T3 Code's theme, the koi as the one colour, ASCII where it carries meaning. Each prototype runs with sample files and a simulated host: drag, select, delete, upload and watch the speeds.</p>
+        <h1>The new Storagi</h1>
+        <p class="lede">True black on T3 Code's theme, your koi as the mark, ASCII where it carries meaning. The prototype runs on sample files and a simulated host.</p>
+        <a class="btn btn-primary" href="final/index.html">Open the prototype</a>
       </div>
     </header>
 
-    <section aria-labelledby="v-title">
-      <h2 id="v-title" class="sr-only">Variants</h2>
-      <div id="variants"></div>
-    </section>
-
-    <section aria-labelledby="l-title">
-      <h2 id="l-title">The locked screen, four ways</h2>
-      <p class="lede">Every variant opens on the koi pond when you are signed out: the fish turn away from your cursor and fade where they pass under the sign-in.</p>
-      <div class="locked" id="locked"></div>
-    </section>
-
-    <section aria-labelledby="c-title">
-      <h2 id="c-title">How they differ</h2>
-      <div class="table-wrap">
-        <table class="compare">
-          <thead><tr><th scope="col">Variant</th><th scope="col">Where the koi live</th><th scope="col">Transfers</th><th scope="col">Refresh clock</th><th scope="col">Suits</th></tr></thead>
-          <tbody>
-            <tr><td>A Pond</td><td>Behind the composer at the top of the shelf</td><td>Right panel: both speeds, a 30-second throughput chart, finish times</td><td>Top bar</td><td>Desktop sessions; closest to T3 Code</td></tr>
-            <tr><td>B Ledger</td><td>Only on the locked and empty screens</td><td>Bottom drawer and an always-on status line</td><td>Status line</td><td>Many files, keyboard use, scanning expiry</td></tr>
-            <tr><td>C Handoff</td><td>A channel between Send and Pick up; one swims across when an upload lands</td><td>Cards in the Send lane; downloads inside their row</td><td>Top bar</td><td>Moving one batch from one device to another</td></tr>
-            <tr><td>D Still water</td><td>A stippled koi at the head of the page, the pond when you drag files in</td><td>An "In motion" block that collapses to one line when idle</td><td>The same line</td><td>Quick visits from the phone; the calmest</td></tr>
-          </tbody>
-        </table>
+    <section aria-labelledby="s-title">
+      <h2 id="s-title">Screens</h2>
+      <div class="screens">
+        <figure><a class="shot" href="final/index.html?state=shelf"><img src="shots/final-desktop.webp" alt="The shelf at desktop width: sidebar, drop box under the koi pond, the Inbox, and the transfers panel" loading="lazy"></a><figcaption>The shelf</figcaption></figure>
+        <figure class="phone"><a class="shot" href="final/index.html?state=shelf"><img src="shots/final-phone.webp" alt="The shelf on a phone" loading="lazy"></a><figcaption>On a phone</figcaption></figure>
+        <figure class="wide"><a class="shot" href="final/index.html?state=locked"><img src="shots/final-locked.webp" alt="The locked screen: a card with the static-band koi, Your shelf is locked, and Continue with Google, over the koi pond" loading="lazy"></a><figcaption>Locked</figcaption></figure>
       </div>
     </section>
 
     <section aria-labelledby="b-title">
-      <h2 id="b-title">Where it starts</h2>
+      <h2 id="b-title">Where it started</h2>
       <div class="before">
-        <a class="shot" href="shots/before-desktop.webp"><img src="shots/before-desktop.webp" alt="The current Storagi shelf: cream page, serif title, drop box and storage card above the fold, Inbox below it" loading="lazy"></a>
+        <a class="shot" href="shots/before-desktop.webp"><img src="shots/before-desktop.webp" alt="The previous Storagi shelf: cream page, serif title, drop box and storage card above the fold, Inbox below it" loading="lazy"></a>
         <ul>
-          <li><b>6 fails, 2 warnings</b> from the taste inspector: the cream-and-terracotta assistant palette, four typefaces, 45 text blocks under 11px, 13 tiny uppercase labels, a gradient drop zone, a 45px landing-page title.</li>
-          <li><b>The Inbox starts below the fold</b> at 1440×900; on a phone, more than a screen down.</li>
-          <li><b>Seven taglines</b> on a working screen, and no speed, time left or download progress on transfers.</li>
-          <li><b>Manual refresh only,</b> one file at a time, and delete through a modal with no undo.</li>
+          <li><b>6 fails, 2 warnings</b> from the taste inspector.</li>
+          <li><b>The Inbox started below the fold.</b></li>
+          <li><b>No speed, time left or download progress.</b></li>
+          <li><b>Manual refresh, one file at a time, delete without undo.</b></li>
         </ul>
       </div>
       <div class="docs">
-        <a class="btn btn-outline" href="AUDIT.md">Full audit</a>
-        <a class="btn btn-outline" href="REFERENCES.md">References and feasibility</a>
+        <a class="btn btn-outline" href="AUDIT.md">Audit</a>
+        <a class="btn btn-outline" href="REFERENCES.md">References</a>
       </div>
     </section>
 
     <footer>
-      Leon Sans 2.0 by Jongmin Kim, <a href="shared/fonts/LeonSans-OFL.txt">SIL Open Font License 1.1</a>. JetBrains Mono by JetBrains, <a href="shared/fonts/JetBrainsMono-OFL.txt">SIL Open Font License 1.1</a>. Ideas borrowed from stackedlol, Kevser, Elia Kuratli and Emil Kowalski, credited in the references.
+      Leon Sans 2.0 by Jongmin Kim and JetBrains Mono by JetBrains, both under the <a href="shared/fonts/LeonSans-OFL.txt">SIL Open Font License 1.1</a>. Ideas borrowed from stackedlol, Kevser, Elia Kuratli and Emil Kowalski, credited in the references.
     </footer>
   </div>
 
   <script type="module">
     import { KoiPond } from './shared/koi.js';
-    const variants = [
-      { id: 'a-pond', name: 'Pond', idea: 'T3 Code’s own shell: a thread-list sidebar, a composer to drop into, a details panel for transfers. The koi swim behind the top of the shelf and slip under the composer.', takes: ['T3 shell', 'ASCII koi pond', 'tick bars', 'select bar', 'inline delete'] },
-      { id: 'b-ledger', name: 'Ledger', idea: 'Keyboard-first and dense. A full-width table, expiry as ASCII countdown bars, and a status line along the bottom carrying both speeds, the ETA, storage and the refresh clock.', takes: ['data terminal', 'status line', 'j/k/x keys', 'throughput blocks'] },
-      { id: 'c-handoff', name: 'Handoff', idea: 'The product’s idea as layout: Send on the left, Pick up on the right, a koi channel between them. When an upload lands, a koi swims across.', takes: ['Kevser cards', 'two lanes', 'koi crossing', 'inline download progress'] },
-      { id: 'd-still-water', name: 'Still water', idea: 'The most room to breathe. One centred column, a stippled koi that scatters from your cursor, one sentence about the shelf, and transfers that only appear while something moves.', takes: ['Emil’s dithered mark', 'waterline meter', 'grouped by day', 'quiet chrome'] },
-    ];
-    document.getElementById('variants').innerHTML = variants.map((v, i) => `
-      <article class="variant" aria-labelledby="${v.id}-t">
-        <div class="text">
-          <div><h3 id="${v.id}-t"><span class="num">${String.fromCharCode(65 + i)}</span>${v.name}</h3><p>${v.idea}</p></div>
-          <a class="btn btn-primary open" href="${v.id}/index.html">Open ${v.name}</a>
-        </div>
-        <a class="shot" href="${v.id}/index.html"><img src="shots/${v.id}-desktop.webp" alt="${v.name} at desktop width" loading="lazy"></a>
-        <a class="shot phone" href="${v.id}/index.html"><img src="shots/${v.id}-phone.webp" alt="${v.name} on a phone" loading="lazy"></a>
-        <ul>${v.takes.map(t => `<li>${t}</li>`).join('')}</ul>
-      </article>`).join('');
-    document.getElementById('locked').innerHTML = variants.map((v, i) => `<figure><a class="shot" href="${v.id}/index.html?state=locked"><img src="shots/${v.id}-locked.webp" alt="${v.name} locked screen" loading="lazy"></a><figcaption>${String.fromCharCode(65 + i)} ${v.name}</figcaption></figure>`).join('');
     const pond = document.getElementById('pond');
     new KoiPond(pond, { count: 4, size: [140, 220], opacity: 0.85, avoid: () => { const h = document.querySelector('.head').getBoundingClientRect(), r = pond.getBoundingClientRect(); return [{ x: h.left - r.left, y: h.top - r.top, w: h.width, h: h.height, dim: 0.22 }]; } });
   </script>

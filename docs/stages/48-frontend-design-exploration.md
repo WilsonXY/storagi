@@ -1,6 +1,6 @@
 # 48: Frontend design exploration (dark ASCII koi direction)
 
-- Status: completed; owner to choose a direction
+- Status: completed; owner chose the final design (A's app with C's locked screen)
 - Started: 2026-10-21 16:00 +08:00; completed 2026-10-21
 - Coordinator thread: Claude Code cloud session on branch `claude/nifty-knuth-k90bhs`, starting commit `1fa9cd8`.
 - Agent/task identifiers: coordinator plus four delegated variant builders (forks of the coordinator session), listed under Delegation.
@@ -72,6 +72,10 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 - Settings: a sidebar Settings item opens a Settings view with a "Swimming koi" switch (on: swim, off: one still picture), saved per browser and applied live, with a live preview pond. The koi preference is now the owner's swim/static switch rather than following the system setting. Variants B–D keep the switch in their prototype state bar.
 - Found while testing: A's tab click handler matched the app container's own `data-tab` attribute, so every click inside A was treated as a tab click (reset the view, cancelled the click's default). Fixed for `data-tab` and the new `data-view`. Checked: preview moving when on, still when off, still after reload, moving again after switching on; desktop, 1100px and phone menu paths.
 
+## Final design (2026-10-21)
+
+Owner: "i want both of these final version! removes others that were untouched. combine the A and this locked screen C". Variant A becomes `design/explorations/final/`, with C's locked screen: a centred card (the dotted koi over a band of static, "Your shelf is locked.", Continue with Google, "Owner only.") over a full-window koi pond, the app shell faint and inert behind it with no shelf data shown. Variants B, C and D, their screenshots, and the helpers only they used (`ticks`, `blocks`, `brailleSpinner`, the state-bar koi toggle) were removed; they remain in Git history. Checked: every final state loads with no console errors, signing in from the locked card returns to the shelf, and the comparison page now presents the final design.
+
 ## Handoff
 
-The owner picks a direction (or a mix); a later stage ports it into `web/` with tests.
+A later stage ports `design/explorations/final/` into `web/` against the real endpoints, with tests.

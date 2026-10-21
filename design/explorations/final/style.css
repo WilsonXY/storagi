@@ -11,14 +11,18 @@
 .icon-btn:hover { background: var(--active); color: var(--text); }
 
 /* ---------- locked ---------- */
-.locked { position: fixed; inset: 0; display: grid; place-items: center; background: var(--ground); }
-.locked-pond { position: absolute; inset: 0; width: 100%; height: 100%; }
-.locked-card { position: relative; width: min(440px, calc(100% - 32px)); text-align: center; display: grid; justify-items: center; gap: 16px; padding: 36px 28px 28px; }
-.locked-card h1 { font-size: 34px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; }
-.locked-card p { color: var(--muted); font-size: 15px; max-width: 34ch; }
-.locked-card .btn { margin-top: 8px; }
-.g { width: 20px; height: 20px; border-radius: 50%; background: #000; color: #fff; display: inline-grid; place-items: center; font: 600 12px/1 Arial, sans-serif; }
-.locked-note { font-size: 12px !important; color: var(--faint) !important; margin-top: 4px; }
+.locked { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; }
+.locked-pond { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.locked-card { position: relative; width: min(400px, calc(100vw - 32px)); padding: 28px; border-radius: 16px; background: var(--raised);
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+.locked-mark { width: 100%; height: 132px; display: block; margin: -6px 0 20px; cursor: crosshair; }
+.locked-card h1 { font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+.locked-card .btn { margin-top: -4px; height: 40px; padding: 0 16px; font-size: 14px; }
+.locked-card small { margin-top: 26px; color: var(--faint); font-size: 12px; }
+.g { width: 16px; height: 16px; }
+/* signed out: the app shows faintly behind the card, with nothing from the shelf in it */
+.app.is-locked { opacity: .14; filter: grayscale(1); pointer-events: none; }
+.app.is-locked :is(#groups, .list-head, .details, .tabs, .pulse-line, #pond, .nav-item b, .storage, #fresh, .offline-banner) { visibility: hidden; }
 
 /* ---------- loading ---------- */
 .loading { position: fixed; inset: 0; display: grid; place-items: center; }

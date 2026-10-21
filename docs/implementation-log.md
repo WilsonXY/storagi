@@ -82,7 +82,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 45 | Publish owner operational acceptance notes | Coordinator | Published PR#5; review PASS, current CI watched | [45](stages/45-owner-acceptance-publication.md) |
 | 46 | Independent owner-acceptance documentation review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [46](stages/46-owner-acceptance-review.md) |
 | 47 | Fallback owner-acceptance documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [47](stages/47-owner-acceptance-fallback-review.md) |
-| 48 | Frontend design exploration: dark ASCII koi variants | Coordinator + four delegated variant forks | Completed; 4 variants, 0 console errors; owner choice pending | [48](stages/48-frontend-design-exploration.md) |
+| 48 | Frontend design exploration: dark ASCII koi variants | Coordinator + four delegated variant forks | Completed; owner chose A + C's locked screen, others removed | [48](stages/48-frontend-design-exploration.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

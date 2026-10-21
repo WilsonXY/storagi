@@ -1,6 +1,6 @@
 // Variant A — Pond. T3 Code shell; ASCII koi swim behind the composer and pass under it.
-import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref , fileDrop , reduced } from '../shared/storagi.js';
-import { KoiPond, KoiMark, orbitLoader, blocks } from '../shared/koi.js';
+import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref , fileDrop , reduced } from '../shared/storagi.js';
+import { KoiPond, KoiMark, orbitLoader } from '../shared/koi.js';
 
 const $ = s => document.querySelector(s);
 const GiB = 1024 ** 3, MiB = 1024 ** 2;
@@ -37,13 +37,18 @@ const ar = new AutoRefresh(async () => {
 ar.addEventListener('change', renderFresh);
 
 // ---------- states ----------
-let pond, lockedPond, mark;
+let pond, lockedPond, lockMark, mark;
 function go(next) {
   mode = next;
   for (const b of document.querySelectorAll('[data-go]')) b.setAttribute('aria-pressed', String(b.dataset.go === next));
-  $('#locked').hidden = next !== 'locked'; $('#loading').hidden = next !== 'loading'; $('#app').hidden = !['shelf', 'empty', 'offline'].includes(next);
+  $('#locked').hidden = next !== 'locked'; $('#loading').hidden = next !== 'loading'; $('#app').hidden = !['shelf', 'empty', 'offline', 'locked'].includes(next);
+  $('#app').classList.toggle('is-locked', next === 'locked'); $('#app').inert = next === 'locked';
   $('.select-bar').classList.add('out');
-  if (next === 'locked') { lockedPond ||= new KoiPond($('#locked-pond'), { count: innerWidth < 640 ? 4 : 7, size: innerWidth < 640 ? [110, 180] : [170, 300], font: 11, flee: 160, avoid: () => [rel($('#locked-card'), $('#locked-pond'), 0.12)] }); lockedPond.resize(); }
+  if (next === 'locked') {
+    lockedPond ||= new KoiPond($('#locked-pond'), { count: innerWidth < 640 ? 4 : 6, size: innerWidth < 640 ? [110, 180] : [150, 240], opacity: 0.85, flee: 160, avoid: () => [rel($('#locked-card'), $('#locked-pond'), 0.12)] });
+    lockMark ||= new KoiMark($('#locked-mark'), { radius: 40, static: true });
+    lockedPond.resize();
+  }
   if (['shelf', 'empty', 'offline'].includes(next)) {
     world = next === 'empty' ? worlds.empty : worlds.shelf;
     const narrow = innerWidth < 640;
@@ -59,7 +64,7 @@ function go(next) {
 let retryAt = 0, retryTimer = 0;
 function setOffline(on) {
   $('#app').classList.toggle('is-offline', on);
-  document.title = on ? 'Offline · Storagi' : 'Storagi · Pond';
+  document.title = on ? 'Offline · Storagi' : 'Storagi';
   if (pond) { if (on) { pond.still = true; pond.paintStill(); } else { pond.still = reduced(); if (!pond.still) pond.start(); } }
   clearInterval(retryTimer);
   if (!on) return;

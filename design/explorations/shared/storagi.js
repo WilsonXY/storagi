@@ -74,19 +74,6 @@ export function usage(files, transfers = []) {
   return { used, reserved, budget: BUDGET, free: BUDGET - used - reserved };
 }
 
-// ---------- ASCII tick bar (Kevser's segmented progress, as text) ----------
-export function ticks(el, ratio, { glyph = '|', off = '|' } = {}) {
-  // measure the glyph width again until the web fonts have loaded, then keep it
-  const ch = (document.fonts?.status === 'loaded' && el._ch) || (el._ch = measureCh(el));
-  const cs = getComputedStyle(el), inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const n = Math.max(8, Math.floor(inner / ch));
-  const on = Math.round(Math.max(0, Math.min(1, ratio)) * n);
-  if (el._n === n && el._on === on) return;
-  el._n = n; el._on = on;
-  el.innerHTML = `<span class="on">${glyph.repeat(on)}</span><span class="off">${off.repeat(n - on)}</span>`;
-}
-function measureCh(el) { const s = document.createElement('span'); s.textContent = '||||||||||'; s.style.visibility = 'hidden'; el.append(s); const w = s.getBoundingClientRect().width / 10; s.remove(); return w || 7; }
-
 // ---------- transfer simulator: uploads one at a time (as the real tus queue), downloads in parallel ----------
 // Speed is an exponential moving average over 1 s windows; ETA = remaining / speed, shown after 2 s of samples.
 export class Transfers extends EventTarget {
@@ -230,14 +217,3 @@ export function setMotionPref(value) { try { localStorage.setItem(MOTION_KEY, va
 export const reduced = () => motionPref() === 'static';
 export function onMotionChange(fn) { addEventListener('storagi:motion', fn); }
 
-// Prototype only: a "Koi" switch appended to a variant's state bar, unless the variant has its own Settings (data-no-motion).
-export function mountMotionToggle() {
-  const add = () => document.querySelectorAll('.proto:not([data-no-motion])').forEach(bar => {
-    if (bar.querySelector('[data-motion]')) return;
-    const b = document.createElement('button'); b.type = 'button'; b.dataset.motion = '';
-    const paint = () => { const swim = motionPref() === 'swim'; b.textContent = swim ? 'Koi: swim' : 'Koi: static'; b.title = swim ? 'The koi swim. Click to hold them still.' : 'The koi are still. Click to let them swim.'; };
-    b.addEventListener('click', () => { setMotionPref(motionPref() === 'swim' ? 'static' : 'swim'); });
-    addEventListener('storagi:motion', paint); paint(); bar.append(b);
-  });
-  add(); new MutationObserver(add).observe(document.body, { childList: true, subtree: true });
-}

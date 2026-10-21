@@ -102,12 +102,6 @@ ul { list-style: none; margin: 0; padding: 0; }
 .check:indeterminate { background: var(--text); box-shadow: none; }
 .check:indeterminate::after { content: ""; width: 8px; height: 2px; background: #000; }
 
-/* ---------- ASCII tick progress (after Kevser's upload card) ---------- */
-.ticks { font: 500 12px/1 var(--mono); letter-spacing: -0.5px; white-space: pre; overflow: hidden; display: block; }
-.ticks .on { color: var(--koi); }
-.ticks .off { color: #2c2c2e; }
-.ticks.done .on { color: var(--koi-white); }
-
 /* ---------- inline delete morph (after Elia's "Deleting should feel this safe") ---------- */
 .morph {
   display: inline-flex; align-items: center; height: 30px; border-radius: 999px;
@@ -164,7 +158,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 @media (max-width: 640px) { .proto { top: auto; bottom: 12px; right: 50%; transform: translateX(50%); } }
 
 /* the font shorthand resets font-variant-numeric; restate tabular figures where shorthands are used */
-.ticks, .kbd, .select-bar .count b, .toast .clock, .proto { font-variant-numeric: tabular-nums; }
+.kbd, .select-bar .count b, .toast .clock, .proto { font-variant-numeric: tabular-nums; }
 
 /* Motion is the owner's choice, not the OS's: interface transitions always play, and the koi follow the
    Swimming koi switch (shared/storagi.js). There is deliberately no prefers-reduced-motion override here. */
