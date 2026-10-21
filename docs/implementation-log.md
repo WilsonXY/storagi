@@ -255,4 +255,3 @@ Owner-acceptance notes published as [PR#5](https://github.com/WilsonXY/storagi/p
 ## Frontend design exploration — 2026-10-21
 
 Owner asked for a dark, ASCII-led redesign on T3 Code's theme with the koi as symbol, live transfer speed with ETA, browser auto-refresh, and several layout variants drawn from listed references. Stage48 records the audit, reference research, shared prototype foundation and four delegated variants under `design/explorations/`. Design only: `web/`, `server/`, the running service and its configuration are unchanged; previews bound to loopback. The owner's koi favicon was not found in the repository; a drawn stand-in is used until it is supplied.
-
