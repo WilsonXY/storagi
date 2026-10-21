@@ -1,6 +1,6 @@
 # 59: Use the app's own loadConfig for deploy settings
 
-- Status: completed on branch; review pending. Nothing deployed.
+- Status: completed; review60 confirmed the redesign (one P2 fixed in61, review62 PASS). Nothing deployed.
 - Started / completed: 2026-10-21, Asia/Kuala_Lumpur (about 17:10–17:30+08:00).
 - Coordinator thread: [deployment safety](t3-thread://v1/6b27b52f-7f18-4dd5-8543-2af3e102c844).
 - Agent/task: distinct delegated fix agent (task id recorded by the coordinator).
