@@ -224,17 +224,20 @@ export class KoiMark {
   sampleMark() {
     const g = markData(), s = Math.min(this.w * 0.92 / MARK.w, this.h * 0.92 / MARK.h);
     const ox = (this.w - MARK.w * s) / 2, oy = (this.h - MARK.h * s) / 2, dots = [], statics = [];
-    const tries = this.w * this.h * 0.3 * this.o.density;
-    for (let i = 0; i < tries; i++) {
-      const x = Math.random() * this.w, y = Math.random() * this.h, bx = Math.floor((x - ox) / s), by = Math.floor((y - oy) / s);
-      // `static`: the owner kept the look of a readback bug, a fine dark field of grey grain across the canvas.
-      // None falls inside the koi, so the fish reads as a bright shape cut out of the noise.
-      const inside = bx >= 0 && by >= 0 && bx < MARK.w && by < MARK.h, v = inside ? g[by * MARK.w + bx] : 0, lum = v / 255;
-      if (this.o.static && lum < 0.12 && Math.random() < 0.7) { const n = staticGrey(); statics.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${n},${n},${n})`, noise: true }); }
-      if (!inside) continue;
-      if (lum < 0.12 || Math.random() > 0.7 + lum * 0.3) continue;
+    const at = (x, y) => { const bx = Math.floor((x - ox) / s), by = Math.floor((y - oy) / s); return bx >= 0 && by >= 0 && bx < MARK.w && by < MARK.h ? g[by * MARK.w + bx] : 0; };
+    // The koi: one dot per cell of a jittered grid about a dot apart, so the body fills evenly with no holes.
+    const step = this.o.dot * 1.15 / Math.sqrt(this.o.density);
+    for (let y = 0; y < this.h; y += step) for (let x = 0; x < this.w; x += step) {
+      const px = x + Math.random() * step, py = y + Math.random() * step, v = at(px, py);
+      if (v / 255 < 0.12) continue;
       const c = Math.min(255, v * 1.25 | 0); // the blur dims the body a little; lift it back
-      dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${c},${c},${c})` });
+      dots.push({ hx: px, hy: py, x: px, y: py, vx: 0, vy: 0, c: `rgb(${c},${c},${c})` });
+    }
+    // `static`: the owner kept the look of a readback bug, a fine dark grain across the canvas, outside the koi.
+    if (this.o.static) for (let i = 0, n = this.w * this.h * 0.2; i < n; i++) {
+      const x = Math.random() * this.w, y = Math.random() * this.h;
+      if (at(x, y) / 255 >= 0.12) continue;
+      const v = staticGrey(); statics.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${v},${v},${v})`, noise: true });
     }
     this.dots = statics.concat(dots); // static first, so the koi draws on top
   }
