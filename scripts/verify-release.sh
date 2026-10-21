@@ -14,8 +14,10 @@ content_hash() {
   while IFS= read -r -d '' p; do
     [[ $(readlink -e -- "$p") == "$top"/* ]] || die "symlink $p points outside the release or is dangling"
   done < <(find "${paths[@]}" -type l -print0)
+  wait $! || die "could not list symlinks"
+  # && and the caller's status check: errexit is off inside $(...).
   {
-    find "${paths[@]}" -type f -print0 | LC_ALL=C sort -z | xargs -0r sha256sum --
+    find "${paths[@]}" -type f -print0 | LC_ALL=C sort -z | xargs -0r sha256sum -- &&
     find "${paths[@]}" -type l -printf '%p -> %l\n' | LC_ALL=C sort
   } | sha256sum | cut -d' ' -f1
 }
@@ -31,5 +33,6 @@ done
 [[ $(field DEPLOYED_BY) == scripts/deploy.sh ]] || die "DEPLOYED_BY is not scripts/deploy.sh"
 [[ $(field TAG) =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "TAG is not vX.Y.Z"
 [[ $(field COMMIT) =~ ^[0-9a-f]{40}$ ]] || die "COMMIT is not a full sha"
-[[ $(content_hash) == "$(field CONTENT_SHA256)" ]] || die "content differs from CONTENT_SHA256 in $(pwd -P)"
+hash=$(content_hash) || die "could not hash $(pwd -P)"
+[[ $hash == "$(field CONTENT_SHA256)" ]] || die "content differs from CONTENT_SHA256 in $(pwd -P)"
 echo "verify-release: $(field TAG) $(field COMMIT) ok"
