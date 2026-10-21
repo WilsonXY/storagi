@@ -77,10 +77,13 @@ function fixture(publicOrigin = 'https://example.invalid') {
   write(`${data}/storagi.sqlite`, 'db bytes\n', 0o600);
   write(`${data}/storagi.sqlite-wal`, 'wal bytes\n', 0o600);
   write(`${data}/objects/owner-file`, 'owner object\n', 0o600);
+  // The fake service runs while its sleep is alive. kill -0 also succeeds for a killed sleep nobody has
+  // reaped yet (a zombie): orphans are reaped at once under a desktop user manager but can linger on CI.
+  const alive = `[ -f "$STATE/pid" ] && grep -qs '^[0-9]* (sleep) [^Z]' "/proc/$(cat "$STATE/pid")/stat"`;
   // Fake user manager: the "service" is a sleep whose cwd is current/server; start runs the unit's ExecStartPre.
   write(`${bin}/systemctl`, `#!/bin/sh
 echo "$*" >> "$STATE/systemctl.log"; shift
-running() { [ -f "$STATE/pid" ] && kill -0 "$(cat "$STATE/pid")" 2>/dev/null; }
+running() { ${alive}; }
 case "$1" in
   stop) [ -f "$STATE/stop-kills" ] && running && kill "$(cat "$STATE/pid")"
     [ -f "$STATE/stop-fails" ] && exit 1; running && kill "$(cat "$STATE/pid")"; rm -f "$STATE/pid" ;;
@@ -102,7 +105,7 @@ esac
   write(`${bin}/curl`, `#!/bin/sh
 host=
 for a; do case "$a" in "Host: "*) host=\${a#Host: } ;; esac; url=$a; done
-[ -f "$STATE/pid" ] && kill -0 "$(cat "$STATE/pid")" 2>/dev/null || { echo 000; exit 7; }
+${alive} || { echo 000; exit 7; }
 [ "$host" = "$(cat "$STATE/host")" ] || { echo 400; exit 0; }
 cwd=$(readlink -f "/proc/$(cat "$STATE/pid")/cwd")
 if [ -f "$STATE/bad" ]; then case "$cwd" in *"$(cat "$STATE/bad")"*) echo 500; exit 0 ;; esac; fi
@@ -113,7 +116,7 @@ case "$url" in */api/session) echo 401 ;; */) echo 200 ;; *) echo 404 ;; esac
   write(`${bin}/ss`, `#!/bin/sh
 [ -f "$STATE/ss-fails" ] && exit 1
 case "$*" in *-Htln*) [ -f "$STATE/ss-listen-fails" ] && exit 1 ;; esac
-case "$*" in *established*) cat "$STATE/busy" 2>/dev/null ;; *) [ -f "$STATE/pid" ] && kill -0 "$(cat "$STATE/pid")" 2>/dev/null && echo "LISTEN 0 511 127.0.0.1:18787 0.0.0.0:*" ;; esac; exit 0
+case "$*" in *established*) cat "$STATE/busy" 2>/dev/null ;; *) ${alive} && echo "LISTEN 0 511 127.0.0.1:18787 0.0.0.0:*" ;; esac; exit 0
 `, 0o755);
   write(`${bin}/npm`, `#!/bin/sh
 if [ "$1" = prune ]; then echo "$* in $PWD" >> "$STATE/npm.log"; [ -f "$STATE/busy-late" ] && mv "$STATE/busy-late" "$STATE/busy"; exit 0; fi
