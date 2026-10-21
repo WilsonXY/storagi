@@ -40,8 +40,12 @@
 .storage-label { font-size: 12px; color: var(--muted); }
 .storage-line { font-size: 12px; color: var(--faint); margin-top: 2px; }
 .storage-line b { color: var(--text); font-weight: 500; }
-.meter { display: block; margin-top: 8px; padding: 6px 7px; border-radius: 7px; box-shadow: inset 0 0 0 1px var(--border); font-size: 13px; line-height: 1; white-space: pre; overflow: hidden; letter-spacing: 0; min-width: 0; contain: inline-size; }
-.meter .u { color: var(--koi-white); } .meter .r { color: var(--koi); } .meter .f { color: #2c2c2e; }
+/* bars of small rounded blocks: the meter and each transfer */
+.meter, .blocks { display: flex; gap: 3px; height: 13px; overflow: hidden; contain: inline-size; min-width: 0; }
+.meter { margin-top: 8px; }
+.meter i, .blocks i { flex: none; width: 5px; border-radius: 2px; background: #2c2c2e; }
+.meter i.u { background: var(--koi-white); } .meter i.r { background: var(--koi); }
+.blocks i.on { background: var(--koi); } .blocks.done i.on { background: var(--koi-white); }
 .storage-note { margin-top: 6px; font-size: 12px; color: var(--faint); }
 .account { display: flex; align-items: center; gap: 10px; padding: 8px 6px 4px 10px; border-top: 1px solid var(--rule); padding-top: 14px; }
 .account > div { display: grid; line-height: 1.3; min-width: 0; }
@@ -87,6 +91,21 @@
 .tabs button { height: 36px; padding: 0 14px; border-radius: var(--radius-control); color: var(--muted); font-size: 14px; }
 .tabs button b { font-weight: 400; font-size: 12px; color: var(--faint); margin-left: 4px; }
 .tabs button[aria-selected="true"] { background: var(--active); color: var(--text); }
+.settings { padding: 28px var(--gut, 32px) 120px; max-width: 820px; width: 100%; margin: 0 auto; display: grid; gap: 16px; align-content: start; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 20px; border-radius: var(--radius-card); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.set-text h2 { font-size: 15px; font-weight: 500; }
+.set-text p { margin-top: 4px; font-size: 13px; max-width: 52ch; }
+.switch { position: relative; flex: none; width: 40px; height: 24px; border-radius: 999px; background: var(--control); transition: background .2s; }
+.switch .knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--text); transition: transform .22s var(--ease), background .2s; }
+.switch[aria-checked="true"] { background: var(--text); }
+.switch[aria-checked="true"] .knob { transform: translateX(16px); background: #000; }
+.set-preview { position: relative; height: 140px; border-radius: var(--radius-card); overflow: hidden; background: var(--ground); box-shadow: inset 0 0 0 1px var(--border); }
+.set-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.set-saved { min-height: 18px; font-size: 12px; color: var(--faint); }
+.app[data-view="settings"] .center, .app[data-view="settings"] .details { display: none !important; }
+.app[data-view="settings"] .body { grid-template-columns: minmax(0, 1fr); }
+.app[data-view="settings"] .search { display: none; }
+.app[data-view="settings"] #nav-transfers.is-active { background: none; color: #bbbbbb; }
 .pulse-line { display: none; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 12px; margin-bottom: 8px; border-radius: var(--radius-control); background: var(--surface); font: 12px var(--mono); color: var(--muted); text-align: left; }
 .pulse-line .up { color: var(--koi); }
 .pulse-line span:last-child { margin-left: auto; color: var(--faint); font-family: var(--font); }
@@ -176,7 +195,7 @@
 .tr-top { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 20px; }
 .tr-top .arrow { flex: none; }
 .tr-name { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tr .ticks { contain: inline-size; font-size: 13px; line-height: 1; padding: 5px 6px; border-radius: 7px; box-shadow: inset 0 0 0 1px var(--border); letter-spacing: 0; }
+.tr .blocks { margin: 2px 0; }
 .tr-meta { display: flex; justify-content: space-between; gap: 8px; font: 12px var(--mono); color: var(--faint); white-space: nowrap; }
 .tr-meta .speed, .tr-pct { color: var(--muted); }
 .tr-acts { display: none; gap: 2px; flex: none; }
@@ -185,7 +204,7 @@
 .tr-acts button:hover { color: var(--text); background: var(--active); }
 .tr.done .tr-pct { color: var(--positive); }
 .tr.done .tr-name, .tr.cancelled .tr-name { color: var(--muted); }
-.tr.cancelled .ticks .on { color: #3a3a3c; }
+.tr.cancelled .blocks i.on { background: #3a3a3c; }
 .tr.done .tr-meta:last-child, .tr.cancelled .tr-meta:last-child { display: none; }
 
 /* the prototype switcher sits bottom-right here so the top bar's freshness stays visible */

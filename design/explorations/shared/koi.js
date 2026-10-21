@@ -3,7 +3,7 @@
 //   KoiMark  — a stippled koi whose dots run from the cursor and spring home (after Emil Kowalski's dithered Linear icon).
 //   orbitLoader — a tick ring with a solid ring passing through it (after Emil Kowalski's loader).
 //   blocks   — a one-line ASCII bar chart for throughput history.
-// Motion follows the owner's koi setting in storagi.js (swim always by default, or follow the system).
+// Motion follows the owner's koi switch in storagi.js: swim (default) or static.
 import { reduced, onMotionChange, mountMotionToggle } from './storagi.js';
 import { MARK } from './brand/mark.js';
 // Each fish is painted as flat shapes into a small offscreen canvas, then read back one cell at a time and

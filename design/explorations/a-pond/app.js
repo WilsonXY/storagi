@@ -1,5 +1,5 @@
 // Variant A — Pond. T3 Code shell; ASCII koi swim behind the composer and pass under it.
-import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow } from '../shared/storagi.js';
+import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader, blocks } from '../shared/koi.js';
 
 const $ = s => document.querySelector(s);
@@ -158,14 +158,14 @@ function renderTransfers() {
     let li = rows.get(key);
     if (!li) {
       li = document.createElement('li'); li.className = 'tr'; li.dataset.tid = t.id;
-      li.innerHTML = `<div class="tr-top"><span class="arrow ${t.dir === 'up' ? 'up' : ''}" aria-hidden="true">${t.dir === 'up' ? '↑' : '↓'}</span><span class="tr-name"></span><span class="tr-acts"></span></div><span class="ticks" aria-hidden="true"></span><div class="tr-meta"><span class="amt"></span><span class="tr-pct"></span></div><div class="tr-meta"><span class="speed"></span><span class="left"></span></div>`;
+      li.innerHTML = `<div class="tr-top"><span class="arrow ${t.dir === 'up' ? 'up' : ''}" aria-hidden="true">${t.dir === 'up' ? '↑' : '↓'}</span><span class="tr-name"></span><span class="tr-acts"></span></div><span class="blocks" aria-hidden="true"></span><div class="tr-meta"><span class="amt"></span><span class="tr-pct"></span></div><div class="tr-meta"><span class="speed"></span><span class="left"></span></div>`;
       li.querySelector('.tr-name').textContent = t.name; li.querySelector('.tr-name').title = t.name;
       rows.set(key, li); list.append(li);
     }
     const r = t.sent / t.size, live = t.state === 'uploading' || t.state === 'downloading';
     li.className = `tr ${t.state}`;
     li.querySelector('.tr-pct').textContent = t.state === 'done' ? '✓' : `${Math.floor(r * 100)}%`;
-    const tk = li.querySelector('.ticks'); tk.classList.toggle('done', t.state === 'done'); ticks(tk, r, { glyph: '▌', off: '▌' });
+    const tk = li.querySelector('.blocks'); tk.classList.toggle('done', t.state === 'done'); const n = blockCount(tk), on = Math.round(Math.max(0, Math.min(1, r)) * n); blockBar(tk, [[on, 'on'], [n - on, 'off']]);
     li.querySelector('.amt').textContent = t.state === 'done' ? (t.dir === 'up' ? 'On your shelf' : 'Saved to this device') : `${bytes(t.sent)} of ${bytes(t.size)}`;
     const eta = tr.eta(t);
     li.querySelector('.speed').textContent = live ? rate(t.speed) : { queued: t.dir === 'up' ? 'Waiting its turn' : 'Starting', paused: t.held ? 'Waiting for the host' : 'Paused', cancelled: 'Cancelled', done: '', error: 'Interrupted' }[t.state] || '';
@@ -229,12 +229,17 @@ $('#clear-done').onclick = () => world.tr.clearDone();
 function renderUsage() {
   const u = usage(world.host.files.filter(f => !world.hidden.has(f.id)), world.tr.items), m = $('#meter');
   $('#used').textContent = bytes(u.used);
-  const cs = getComputedStyle(m), cw = (document.fonts?.status === 'loaded' && m._cw) || (m._cw = measureCh(m)), n = Math.max(10, Math.floor((m.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / cw));
+  const n = blockCount(m);
   const a = u.used ? Math.max(1, Math.round(u.used / u.budget * n)) : 0, b = u.reserved ? Math.max(1, Math.round(u.reserved / u.budget * n)) : 0;
-  m.innerHTML = `<span class="u">${'▌'.repeat(a)}</span><span class="r">${'▌'.repeat(b)}</span><span class="f">${'▌'.repeat(Math.max(0, n - a - b))}</span>`;
+  blockBar(m, [[a, 'u'], [b, 'r'], [Math.max(0, n - a - b), 'f']]);
   $('#reserved').innerHTML = u.reserved ? `${bytes(u.free)} free<br>${bytes(u.reserved)} held for uploads` : `${bytes(u.free)} free`;
 }
-function measureCh(el) { const s = document.createElement('span'); s.textContent = '▌▌▌▌▌▌▌▌▌▌'; s.style.visibility = 'hidden'; el.append(s); const w = s.getBoundingClientRect().width / 10; s.remove(); return w || 6; }
+// Bars of small rounded blocks (meter and transfers): as many 5px blocks with 3px gaps as fit the bar's width.
+function blockCount(el) { return Math.max(8, Math.floor((el.clientWidth + 3) / 8)); }
+function blockBar(el, parts) {
+  const key = parts.map(p => p.join(':')).join('|'); if (el._key === key) return; el._key = key;
+  el.innerHTML = parts.map(([n, cls]) => `<i class="${cls}"></i>`.repeat(n)).join('');
+}
 
 // ---------- freshness ----------
 function renderFresh() {
@@ -250,6 +255,7 @@ $('#retry').onclick = async () => { mode = 'shelf'; releaseHeld(); for (const b 
 
 // ---------- tabs and sheet ----------
 function setTab(tab) {
+  showView('shelf');
   $('#app').dataset.tab = tab;
   $('#page-title').textContent = tab === 'transfers' && innerWidth < 1180 ? 'Transfers' : 'Inbox';
   for (const b of document.querySelectorAll('.tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
@@ -260,10 +266,31 @@ function togglePanel(open = $('#app').classList.contains('panel-closed')) {
   $('#nav-transfers').classList.toggle('is-active', open); $('#nav-transfers').setAttribute('aria-expanded', String(open));
   if (open) $('#details').animate?.([{ opacity: 0, transform: 'translateX(12px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
 }
+// ---------- settings ----------
+// The sidebar's Settings item opens its own view; Inbox (or any tab) returns to the shelf.
+let setPond;
+function showView(view) {
+  const app = $('#app'), on = view === 'settings';
+  app.dataset.view = view; $('#settings').hidden = !on;
+  $('#nav-settings').classList.toggle('is-active', on); $('#nav-settings').toggleAttribute('aria-current', on);
+  const inbox = document.querySelector('.nav-item[data-tab="inbox"]'); inbox.classList.toggle('is-active', !on); inbox.toggleAttribute('aria-current', !on);
+  if (on) { $('#page-title').textContent = 'Settings'; setPond ||= new KoiPond($('#set-pond'), { count: 3, size: [110, 170], font: 10, flee: 90, pointerTarget: $('#set-pond') }); paintKoiSwitch(); }
+  else if ($('#page-title').textContent === 'Settings') $('#page-title').textContent = 'Inbox';
+}
+function paintKoiSwitch(saved) {
+  const swim = motionPref() === 'swim';
+  $('#koi-switch').setAttribute('aria-checked', String(swim));
+  if (saved) $('#koi-saved').textContent = swim ? 'Saved · the koi swim' : 'Saved · the koi stay still';
+}
+$('#koi-switch').addEventListener('click', () => { setMotionPref(motionPref() === 'swim' ? 'static' : 'swim'); paintKoiSwitch(true); });
+// only real view links: #app carries data-view (the current view) too
+document.addEventListener('click', e => { const v = e.target.closest('a[data-view], button[data-view]'); if (!v) return; e.preventDefault(); showView(v.dataset.view); closeSheet(); });
+
 function flashPulse() { const p = $('#pulse-line'); p.animate?.([{ background: 'var(--koi-dim)' }, { background: 'var(--surface)' }], { duration: 900 }); }
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab]'); if (!t) return; e.preventDefault();
-  if (t.dataset.tab === 'transfers' && innerWidth >= 1180) { togglePanel(t.classList.contains('nav-item') ? undefined : true); closeSheet(); return; }
+  // only real tab controls: #app also carries data-tab (the current tab) and must not count as one
+  const t = e.target.closest('a[data-tab], button[data-tab]'); if (!t) return; e.preventDefault();
+  if (t.dataset.tab === 'transfers' && innerWidth >= 1180) { showView('shelf'); togglePanel(t.classList.contains('nav-item') ? undefined : true); closeSheet(); return; }
   setTab(t.dataset.tab); closeSheet();
 });
 const side = $('#side');

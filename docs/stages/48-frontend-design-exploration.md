@@ -66,6 +66,12 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 - Variant A's throughput chart ended unevenly at the right on the owner's Windows browser. Cause: JetBrains Mono came from Google Fonts, whose subsets omit the block and box characters, so the browser substituted fonts of different widths and rows of equal length ended apart. Fixed by self-hosting the full JetBrains Mono 2.304 (OFL, `shared/fonts/`) as "Storagi Mono"; every ASCII glyph in use is in it at one width, except Ledger's `▮▯`, replaced with `▌`. Not reproducible on Linux, where the fallback widths happened to match.
 - Variant D's stippled koi was missing on the published page. It sampled `icon-512.png` through a canvas; an image the page cannot read back leaves the mark empty. The mark is now baked into `shared/brand/mark.js` as a grayscale bitmap, with no image request.
 
+## Owner iteration on variant A (2026-10-21)
+
+- Round 1: clock time of the last refresh; checkboxes always visible; "est." instead of "done"; the storage meter and transfer bars drawn as rounded blocks (the owner asked for rounder blocks, not a frame; a first attempt with a frame was removed); the Google sign-in label removed; the sidebar's Transfers item opens and closes the panel at desktop width.
+- Settings: a sidebar Settings item opens a Settings view with a "Swimming koi" switch (on: swim, off: one still picture), saved per browser and applied live, with a live preview pond. The koi preference is now the owner's swim/static switch rather than following the system setting. Variants B–D keep the switch in their prototype state bar.
+- Found while testing: A's tab click handler matched the app container's own `data-tab` attribute, so every click inside A was treated as a tab click (reset the view, cancelled the click's default). Fixed for `data-tab` and the new `data-view`. Checked: preview moving when on, still when off, still after reload, moving again after switching on; desktop, 1100px and phone menu paths.
+
 ## Handoff
 
 The owner picks a direction (or a mix); a later stage ports it into `web/` with tests.
