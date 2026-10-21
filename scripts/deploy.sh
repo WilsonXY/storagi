@@ -12,8 +12,14 @@ service=storagi-user.service
 
 die() { echo "deploy: $*" >&2; exit 1; }
 wait_for() { local i; for ((i = 0; i < $1; i++)); do "${@:2}" && return; sleep 1; done; return 1; }
-stopped() { [[ $(systemctl --user is-active "$service") =~ ^(inactive|failed)$ && -z $(ss -Htln "sport = :$port") ]]; }
-code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$port$1"; }
+# A failing or missing ss counts as busy / still listening.
+idle() { local out; out=$(ss -Htn state established "sport = :$port") && [[ -z $out ]]; }
+stopped() {
+  local out
+  [[ $(systemctl --user is-active "$service") =~ ^(inactive|failed)$ ]] && out=$(ss -Htln "sport = :$port") && [[ -z $out ]]
+}
+# The app answers 400 unless Host is the PUBLIC_ORIGIN authority.
+code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: $authority" "http://127.0.0.1:$port$1"; }
 healthy() { # $1: physical release dir the service must run from
   local pid
   [[ $(code /) == 200 && $(code /api/session) == 401 ]] &&
@@ -26,9 +32,9 @@ phase=
 on_exit() {
   local status=$?
   case $phase in
-    build) chmod -R u+w "$release" && rm -rf "$release"; echo "deploy: build failed; removed releases/$name, production untouched" >&2; exit 1 ;;
+    build) chmod -R u+w "$release" && rm -rf "$release"; echo "deploy: stopped before cutover; removed releases/$name, production untouched" >&2; exit 1 ;;
     cutover) rollback ;;
-    live) ;;
+    live | manual) ;;
     *) ((status == 0)) || exit 1 ;;
   esac
 }
@@ -36,19 +42,25 @@ rollback() {
   trap '' HUP INT TERM
   set +e
   echo "deploy: cutover failed; rolling back to $prev_target" >&2
+  local failed=
   if systemctl --user stop "$service" && wait_for 60 stopped; then
-    ln -sfn "$prev_target" "$root/current.next"
-    mv -T "$root/current.next" "$root/current"
-    install -m 600 "$backup/storagi-user.service" "$unit"
-    systemctl --user daemon-reload
-    systemctl --user start "$service"
-    if wait_for 90 healthy "$prev"; then
+    { ln -sfn "$prev_target" "$root/current.next" && mv -T "$root/current.next" "$root/current"; } || failed+=' current'
+    install -m 600 "$backup/storagi-user.service" "$unit" || failed+=' unit'
+    systemctl --user daemon-reload || failed+=' daemon-reload'
+    systemctl --user start "$service" || failed+=' start'
+    if [[ -z $failed ]] && wait_for 90 healthy "$prev"; then
       echo "deploy: rolled back to $prev_target; database backup (not restored) in $backup" >&2
       exit 2
     fi
+  else failed=' stop'
   fi
-  echo "deploy: MANUAL RECOVERY REQUIRED: $service is not healthy on $prev_target." >&2
-  echo "deploy: old unit and database backup (not restored) in $backup; never run two app processes on one DATA_DIR." >&2
+  echo "deploy: rollback failed at:$failed" >&2
+  manual "old unit and database backup (not restored) in $backup."
+}
+manual() {
+  echo "deploy: MANUAL RECOVERY REQUIRED: $service is not restored and healthy on $prev_target." >&2
+  echo "deploy: $1 Never run two app processes on one DATA_DIR." >&2
+  phase=manual
   exit 3
 }
 trap on_exit EXIT
@@ -75,14 +87,19 @@ prev=$(readlink -e "$root/current") && [[ ${prev%/*} == "$(readlink -e "$root/re
 prev_target=$(readlink "$root/current")
 [[ -f $unit ]] || die "no installed unit at $unit"
 [[ -f $env_file && $(stat -c %a "$env_file") == 600 ]] || die "environment $env_file missing or not mode 600"
-# Plain-text reads of two keys only: never source the file or print other values.
+# Plain-text reads of three keys only: never source the file or print other values.
 port=$(sed -n 's/^PORT=//p' "$env_file" | tail -n 1)
 port=${port:-8787}
 data_dir=$(sed -n 's/^DATA_DIR=//p' "$env_file" | tail -n 1)
+public_origin=$(sed -n 's/^PUBLIC_ORIGIN=//p' "$env_file" | tail -n 1)
 [[ $port =~ ^[0-9]+$ ]] || die "PORT in the environment is not a number"
+[[ $public_origin =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || die "PUBLIC_ORIGIN in the environment is not https://host[:port]"
+# Same as WHATWG URL .host: lowercase, default port dropped.
+authority=${public_origin#https://}
+authority=${authority,,}
+authority=${authority%:443}
 [[ -f $data_dir/storagi.sqlite ]] || die "no storagi.sqlite in DATA_DIR from the environment"
-[[ -z $(ss -Htn state established "sport = :$port") ]] ||
-  die "open connections to 127.0.0.1:$port; wait for transfers to finish (idle keep-alives close within minutes)"
+idle || die "open connections to 127.0.0.1:$port (or ss failed); wait for transfers to finish (idle keep-alives close within minutes)"
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 name=$tag-$(git -C "$repo" rev-parse --short "$commit")-${built_at//[-:]/}
 release=$root/releases/$name
@@ -111,6 +128,8 @@ EOF
 chmod -R a-w "$release"
 "$release/scripts/verify-release.sh"
 release=$(readlink -e "$release")
+# The build takes minutes: check again just before the stop.
+idle || die "connections to 127.0.0.1:$port opened during the build (or ss failed); retry when idle"
 install -d -m 700 "$root/backups" "$backup"
 install -m 600 "$unit" "$backup/storagi-user.service"
 
@@ -119,8 +138,10 @@ echo "deploy: stopping $service"
 phase=cutover
 if ! systemctl --user stop "$service" || ! wait_for 60 stopped; then
   phase=
-  systemctl --user start "$service" || true
-  die "could not stop $service; started it again, nothing changed"
+  trap '' HUP INT TERM
+  { systemctl --user start "$service" && wait_for 90 healthy "$prev"; } ||
+    manual "could not stop $service, and starting it again did not make it healthy."
+  die "could not stop $service; it is healthy again, nothing changed"
 fi
 for f in "$data_dir"/storagi.sqlite{,-wal,-shm}; do
   [[ -e $f ]] || continue

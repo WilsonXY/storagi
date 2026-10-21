@@ -53,7 +53,7 @@ before(() => {
 after(() => { for (const pid of pids) try { process.kill(pid); } catch {} spawnSync('chmod', ['-R', 'u+w', base]); rmSync(base, { recursive: true, force: true }); });
 
 let count = 0;
-function fixture() {
+function fixture(publicOrigin = 'https://example.invalid') {
   const dir = `${base}/case${++count}`, home = `${dir}/home`, state = `${dir}/state`, bin = `${dir}/bin`, clone = `${dir}/clone`;
   const root = `${home}/.local/lib/storagi`, unit = `${home}/.config/systemd/user/storagi-user.service`, data = `${dir}/data`;
   mkdirSync(state, { recursive: true });
@@ -62,7 +62,7 @@ function fixture() {
   write(`${root}/releases/main-old-hand-copied/server/dist/src/main.js`, 'old\n');
   symlinkSync('releases/main-old-hand-copied', `${root}/current`);
   write(unit, '[Service]\nExecStart=/usr/bin/node old\n', 0o600);
-  write(`${home}/.config/storagi/environment`, `PUBLIC_ORIGIN=https://example.invalid\nGOOGLE_CLIENT_SECRET=${secret}\nPORT=18787\nDATA_DIR=${data}\n`, 0o600);
+  write(`${home}/.config/storagi/environment`, `PUBLIC_ORIGIN=${publicOrigin}\nGOOGLE_CLIENT_SECRET=${secret}\nPORT=18787\nDATA_DIR=${data}\n`, 0o600);
   write(`${data}/storagi.sqlite`, 'db bytes\n', 0o600);
   write(`${data}/storagi.sqlite-wal`, 'wal bytes\n', 0o600);
   write(`${data}/objects/owner-file`, 'owner object\n', 0o600);
@@ -71,9 +71,12 @@ function fixture() {
 echo "$*" >> "$STATE/systemctl.log"; shift
 running() { [ -f "$STATE/pid" ] && kill -0 "$(cat "$STATE/pid")" 2>/dev/null; }
 case "$1" in
-  stop) [ -f "$STATE/stop-fails" ] && exit 1; running && kill "$(cat "$STATE/pid")"; rm -f "$STATE/pid" ;;
+  stop) [ -f "$STATE/stop-kills" ] && running && kill "$(cat "$STATE/pid")"
+    [ -f "$STATE/stop-fails" ] && exit 1; running && kill "$(cat "$STATE/pid")"; rm -f "$STATE/pid" ;;
   start) running && exit 0
     if [ -f "$STATE/term-on-start" ]; then rm "$STATE/term-on-start"; kill -TERM "$(cat "$STATE/deploy-pid")"; fi
+    if [ -f "$STATE/break-unit-backup" ]; then rm "$STATE/break-unit-backup"; chmod 000 "$HOME"/.local/lib/storagi/backups/*/storagi-user.service; fi
+    [ -f "$STATE/start-fails" ] && exit 1
     pre=$(sed -n 's/^ExecStartPre=//p' "$HOME/.config/systemd/user/storagi-user.service" | sed "s|%h|$HOME|g")
     [ -z "$pre" ] || $pre >> "$STATE/prestart.log" 2>&1 || exit 1
     cd "$HOME/.local/lib/storagi/current/server" || exit 1
@@ -83,19 +86,26 @@ case "$1" in
 esac
 `, 0o755);
   // Fake app: 200 for / and 401 for /api/session while running, unless its cwd matches $STATE/bad.
+  // Like server/src/app.ts it answers 400 unless Host is the PUBLIC_ORIGIN authority (WHATWG URL host).
+  writeFileSync(`${state}/host`, new URL(publicOrigin).host);
   write(`${bin}/curl`, `#!/bin/sh
-for a; do url=$a; done
+host=
+for a; do case "$a" in "Host: "*) host=\${a#Host: } ;; esac; url=$a; done
 [ -f "$STATE/pid" ] && kill -0 "$(cat "$STATE/pid")" 2>/dev/null || { echo 000; exit 7; }
+[ "$host" = "$(cat "$STATE/host")" ] || { echo 400; exit 0; }
 cwd=$(readlink -f "/proc/$(cat "$STATE/pid")/cwd")
 if [ -f "$STATE/bad" ]; then case "$cwd" in *"$(cat "$STATE/bad")"*) echo 500; exit 0 ;; esac; fi
 case "$url" in */api/session) echo 401 ;; */) echo 200 ;; *) echo 404 ;; esac
 `, 0o755);
   // Fake sockets: listener while the service runs; established connections from $STATE/busy.
+  // $STATE/ss-fails fails every call, $STATE/ss-listen-fails only listener queries, with no output.
   write(`${bin}/ss`, `#!/bin/sh
+[ -f "$STATE/ss-fails" ] && exit 1
+case "$*" in *-Htln*) [ -f "$STATE/ss-listen-fails" ] && exit 1 ;; esac
 case "$*" in *established*) cat "$STATE/busy" 2>/dev/null ;; *) [ -f "$STATE/pid" ] && kill -0 "$(cat "$STATE/pid")" 2>/dev/null && echo "LISTEN 0 511 127.0.0.1:18787 0.0.0.0:*" ;; esac; exit 0
 `, 0o755);
   write(`${bin}/npm`, `#!/bin/sh
-if [ "$1" = prune ]; then echo "$* in $PWD" >> "$STATE/npm.log"; exit 0; fi
+if [ "$1" = prune ]; then echo "$* in $PWD" >> "$STATE/npm.log"; [ -f "$STATE/busy-late" ] && mv "$STATE/busy-late" "$STATE/busy"; exit 0; fi
 exec ${JSON.stringify(realNpm)} "$@"
 `, 0o755);
   write(`${bin}/sleep`, '#!/bin/sh\nexit 0\n', 0o755);
@@ -137,6 +147,12 @@ function snapshot(dirs: string[]) {
   };
   dirs.forEach(walk);
   return out;
+}
+// Replace (or with null remove) one KEY= line of the fixture environment.
+function setEnv(f: ReturnType<typeof fixture>, key: string, value: string | null) {
+  const file = `${f.home}/.config/storagi/environment`;
+  const lines = readFileSync(file, 'utf8').split('\n').filter(l => !l.startsWith(`${key}=`));
+  writeFileSync(file, [...(value === null ? [] : [`${key}=${value}`]), ...lines].join('\n'));
 }
 const manifest = (release: string) => Object.fromEntries(readFileSync(`${release}/BUILD_MANIFEST`, 'utf8').trim().split('\n').map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
 
@@ -226,6 +242,11 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     ['environment not 0600', f => chmodSync(`${f.home}/.config/storagi/environment`, 0o640), ['v1.1.0'], /environment/],
     ['missing database', f => unlinkSync(`${f.data}/storagi.sqlite`), ['v1.1.0'], /storagi\.sqlite/],
     ['active connections', f => writeFileSync(`${f.state}/busy`, 'ESTAB 0 0 127.0.0.1:18787 127.0.0.1:50000\n'), ['v1.1.0'], /connection/],
+    ['ss fails', f => writeFileSync(`${f.state}/ss-fails`, ''), ['v1.1.0'], /connection/],
+    ['missing PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', null), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    ['http PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', 'http://example.invalid'), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    ['PUBLIC_ORIGIN with a path', f => setEnv(f, 'PUBLIC_ORIGIN', 'https://example.invalid/'), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    ['quoted PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid"'), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['release name exists', f => { writeFileSync(`${f.state}/date`, '2026-10-21T01:02:03Z\n'); mkdirSync(`${f.root}/releases/v1.1.0-${sh(f.clone, 'git rev-parse --short v1.1.0^{commit}')}-20261021T010203Z`); }, ['v1.1.0'], /exists/],
   ];
   for (const [label, arrange, args, reason] of cases) await t.test(label, () => {
@@ -249,19 +270,50 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
 
 test('a failing check aborts with production untouched', { timeout: 60000 }, () => {
   const f = fixture(), before = f.snapshot(), r = f.run('v0.0.1');
-  assert.equal(r.status, 1, r.out); assert.match(r.out, /build failed/);
+  assert.equal(r.status, 1, r.out); assert.match(r.out, /removed releases\//);
   assert.deepEqual(f.snapshot(), before);
   assert.doesNotMatch(f.systemctl(), /stop/);
+});
+
+test('a connection opened during the build refuses before the stop', { timeout: 60000 }, () => {
+  const f = fixture(); writeFileSync(`${f.state}/busy-late`, 'ESTAB 0 0 127.0.0.1:18787 127.0.0.1:50000\n');
+  const before = f.snapshot(), r = f.run('v1.1.0');
+  assert.equal(r.status, 1, r.out); assert.match(r.out, /during the build/); assert.match(r.out, /removed releases\//);
+  assert.ok(existsSync(`${f.state}/busy`), 'the build must have run');
+  assert.deepEqual(f.snapshot(), before);
+  assert.doesNotMatch(f.systemctl(), /stop/);
+});
+
+test('a non-default PUBLIC_ORIGIN port is sent in the health Host header', { timeout: 60000 }, () => {
+  const f = fixture('https://example.invalid:8443'), r = f.run('v1.1.0');
+  assert.equal(r.status, 0, r.out);
+  assert.match(readlinkSync(`${f.root}/current`), /^releases\/v1\.1\.0-/);
 });
 
 test('a failed stop restarts the service and changes nothing', { timeout: 60000 }, () => {
   const f = fixture(); writeFileSync(`${f.state}/stop-fails`, '');
   const before = f.snapshot(), r = f.run('v1.1.0');
-  assert.equal(r.status, 1, r.out); assert.match(r.out, /could not stop/);
+  assert.equal(r.status, 1, r.out); assert.match(r.out, /could not stop.*healthy again/);
   const now = f.snapshot();
   for (const [p, v] of Object.entries(before)) assert.equal(now[p], v, p);
-  assert.match(f.systemctl(), /stop storagi-user\.service\n--user start storagi-user\.service\n$/);
+  assert.match(f.systemctl(), /stop storagi-user\.service\n--user start storagi-user\.service\n(--user show .*\n)+$/);
   assert.equal(readlinkSync(`${f.root}/current`), 'releases/main-old-hand-copied');
+});
+
+test('a failed stop with a failed restart requires manual recovery (exit 3)', { timeout: 60000 }, () => {
+  const f = fixture(); for (const m of ['stop-fails', 'stop-kills', 'start-fails']) writeFileSync(`${f.state}/${m}`, '');
+  const r = f.run('v1.1.0');
+  assert.equal(r.status, 3, r.out); assert.match(r.out, /MANUAL RECOVERY REQUIRED/);
+  assert.doesNotMatch(r.out, /nothing changed/);
+  assert.equal(readlinkSync(`${f.root}/current`), 'releases/main-old-hand-copied');
+});
+
+test('a failing listener check counts as not stopped', { timeout: 60000 }, () => {
+  const f = fixture(); writeFileSync(`${f.state}/ss-listen-fails`, '');
+  const r = f.run('v1.1.0');
+  assert.equal(r.status, 1, r.out); assert.match(r.out, /could not stop/);
+  assert.equal(readlinkSync(`${f.root}/current`), 'releases/main-old-hand-copied');
+  assert.equal(f.serviceCwd(), `${realpathSync(f.root)}/releases/main-old-hand-copied/server`);
 });
 
 const rolledBack = (f: ReturnType<typeof fixture>) => {
@@ -291,4 +343,16 @@ test('an unhealthy rollback requires manual recovery (exit 3)', { timeout: 60000
   const r = f.run('v1.1.0');
   assert.equal(r.status, 3, r.out); assert.match(r.out, /MANUAL RECOVERY REQUIRED/); assert.match(r.out, /backups\/v1\.1\.0-/);
   rolledBack(f);
+});
+
+test('a failed rollback step requires manual recovery even when health passes (exit 3)', { timeout: 120000 }, () => {
+  const f = fixture();
+  const first = f.run('v1.0.0'); assert.equal(first.status, 0, first.out);
+  const prev = readlinkSync(`${f.root}/current`);
+  writeFileSync(`${f.state}/bad`, '/releases/v1.1.0-'); writeFileSync(`${f.state}/break-unit-backup`, '');
+  const r = f.run('v1.1.0');
+  assert.equal(r.status, 3, r.out); assert.match(r.out, /MANUAL RECOVERY REQUIRED/); assert.match(r.out, /unit/);
+  // Everything else was restored and the previous scripted release is healthy again.
+  assert.equal(readlinkSync(`${f.root}/current`), prev);
+  assert.equal(f.serviceCwd(), `${realpathSync(f.root)}/${prev}/server`);
 });
