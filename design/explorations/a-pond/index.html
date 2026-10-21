@@ -41,7 +41,15 @@
         <div class="account">
           <span class="avatar" aria-hidden="true">O</span>
           <div><b>Owner</b></div>
-          <button type="button" class="btn btn-ghost btn-sm" id="sign-out">Sign out</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="sign-out" aria-haspopup="dialog" aria-expanded="false" aria-controls="signout-pop">Sign out</button>
+          <div class="confirm-pop" id="signout-pop" role="dialog" aria-labelledby="signout-title" aria-describedby="signout-note" hidden>
+            <p class="cp-title" id="signout-title">Sign out of this browser?</p>
+            <p class="cp-note" id="signout-note"></p>
+            <div class="cp-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="signout-cancel">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" id="signout-confirm">Sign out</button>
+            </div>
+          </div>
         </div>
       </div>
     </aside>

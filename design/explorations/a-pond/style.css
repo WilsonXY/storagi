@@ -52,6 +52,16 @@
 .account b { font-weight: 500; font-size: 13px; }
 .account span { font-size: 12px; color: var(--faint); }
 .account .btn { margin-left: auto; }
+.account { position: relative; }
+/* sign-out confirmation: pops up above the button */
+.confirm-pop { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 40; padding: 14px; border-radius: var(--radius-card);
+  background: var(--raised); box-shadow: 0 0 0 1px var(--border), 0 18px 40px -12px rgb(0 0 0 / 90%); transform-origin: bottom right;
+  animation: pop-in .22s cubic-bezier(0.34, 1.4, 0.64, 1); }
+@keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(.96); } }
+.confirm-pop .cp-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.confirm-pop .cp-note { margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.confirm-pop .cp-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 14px; }
+.confirm-pop .cp-actions .btn { margin-left: 0; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--active); display: grid; place-items: center; font-size: 12px; color: var(--muted); flex: none; }
 
 .main { min-width: 0; display: flex; flex-direction: column; }

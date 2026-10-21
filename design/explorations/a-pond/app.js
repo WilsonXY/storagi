@@ -326,7 +326,24 @@ addEventListener('keydown', e => {
 });
 
 // ---------- sign in / out ----------
-$('#sign-out').onclick = () => go('locked');
+// Sign out asks first, in a small pop-up above the button. It names what stops if transfers are running.
+const signPop = $('#signout-pop');
+function openSignout() {
+  const busy = d => world.tr.items.filter(t => t.dir === d && ['uploading', 'downloading', 'queued', 'paused'].includes(t.state)).length;
+  const up = busy('up'), down = busy('down'), parts = [up && `${up} upload${up > 1 ? 's' : ''}`, down && `${down} download${down > 1 ? 's' : ''}`].filter(Boolean);
+  $('#signout-note').textContent = parts.length
+    ? `${parts.join(' and ')} will stop. Sign back in and choose the same files to resume uploads.`
+    : 'Your files stay on the shelf. You will need your Google account to open it again.';
+  signPop.hidden = false; $('#sign-out').setAttribute('aria-expanded', 'true'); $('#signout-cancel').focus();
+}
+function closeSignout(refocus = true) {
+  if (signPop.hidden) return; signPop.hidden = true; $('#sign-out').setAttribute('aria-expanded', 'false'); if (refocus) $('#sign-out').focus();
+}
+$('#sign-out').onclick = () => (signPop.hidden ? openSignout() : closeSignout());
+$('#signout-cancel').onclick = () => closeSignout();
+$('#signout-confirm').onclick = () => { closeSignout(false); closeSheet(); go('locked'); };
+document.addEventListener('pointerdown', e => { if (!signPop.hidden && !e.target.closest('#signout-pop, #sign-out')) closeSignout(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !signPop.hidden) { e.stopPropagation(); closeSignout(); } }, true);
 $('#sign-in').onclick = async e => { e.preventDefault(); go('loading'); await wait(1200); go('shelf'); };
 for (const b of document.querySelectorAll('[data-go]')) b.onclick = () => go(b.dataset.go);
 
