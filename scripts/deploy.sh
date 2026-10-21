@@ -94,7 +94,8 @@ unit_node() { sed -n 's/^ExecStart=\([^ ]*\) .*/\1/p' "$1"; }
 # The app's own config check, in a transient unit with the service's EnvironmentFile: systemd
 # decodes the file and config.ts validates the result, as at service start. Only port, the
 # database file (path.join, as storage.ts) and origin host come out; on error only config.ts's
-# message (an uncaught error prints values).
+# message (an uncaught error prints values). RuntimeMaxSec bounds a hang: killing systemd-run
+# would leave the unit running and holding the pipe.
 config_js="try {
   const {loadConfig} = await import('./dist/src/config.js'), {join} = await import('node:path');
   const c = loadConfig(process.env);
@@ -102,7 +103,7 @@ config_js="try {
 } catch (e) { console.error(e.message); process.exitCode = 1; }"
 app_config() { # $1: node, $2: release dir; sets config, port, db, authority
   local cfg
-  config=$(systemd-run --user --pipe --wait --quiet --collect -p EnvironmentFile="$env_file" \
+  config=$(systemd-run --user --pipe --wait --quiet --collect -p RuntimeMaxSec=60 -p EnvironmentFile="$env_file" \
     -p WorkingDirectory="$2/server" "$1" --input-type=module -e "$config_js") ||
     die "the app's config check in ${2##*/} refuses the environment"
   mapfile -t cfg <<<"$config"

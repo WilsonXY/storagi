@@ -15,7 +15,8 @@ const origin = `${base}/origin.git`;
 const secret = 'synthetic-secret-never-printed';
 const env0 = { PATH: process.env.PATH!, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid', npm_config_update_notifier: 'false', npm_config_fund: 'false', npm_config_audit: 'false', ...(process.env.TMPDIR ? { TMPDIR: process.env.TMPDIR } : {}) };
 const pids = new Set<number>();
-const realNpm = spawnSync('bash', ['-c', 'command -v npm'], { encoding: 'utf8' }).stdout.trim();
+const which = (cmd: string) => spawnSync('bash', ['-c', `command -v ${cmd}`], { encoding: 'utf8' }).stdout.trim();
+const realNpm = which('npm');
 const oldUnit = `[Service]\nExecStart=${process.execPath} old\n`;
 let configJs = '';
 
@@ -124,13 +125,16 @@ exec ${JSON.stringify(realNpm)} "$@"
 `, 0o755);
   // Fake transient unit: a clean environment loaded from EnvironmentFile (shell quoting stands in
   // for systemd's, fine for these values), the command run in WorkingDirectory.
+  // $STATE/config-hangs: a check that never finishes. systemd stops it at RuntimeMaxSec and
+  // systemd-run exits 1; unbounded, it stands in for the hang by finishing normally.
   write(`${bin}/systemd-run`, `#!/bin/sh
 echo "$*" >> "$STATE/systemd-run.log"
 while [ $# -gt 0 ]; do case "$1" in
-  -p) case "$2" in EnvironmentFile=*) file=\${2#*=} ;; WorkingDirectory=*) dir=\${2#*=} ;; esac; shift 2 ;;
+  -p) case "$2" in EnvironmentFile=*) file=\${2#*=} ;; WorkingDirectory=*) dir=\${2#*=} ;; RuntimeMaxSec=*) max=\${2#*=} ;; esac; shift 2 ;;
   --*) shift ;;
   *) break ;;
 esac; done
+[ -f "$STATE/config-hangs" ] && [ -n "$max" ] && exit 1
 cd "$dir" && exec env -i sh -c 'set -a; . "$0"; exec "$@"' "$file" "$@"
 `, 0o755);
   write(`${bin}/sleep`, '#!/bin/sh\nexit 0\n', 0o755);
@@ -228,7 +232,7 @@ test('deploys a tag: stamped read-only release, new unit, backup, pruning', { ti
   assert.deepEqual(readdirSync(`${f.root}/backups`).sort(), ['b3', 'b4', name].sort());
   assert.ok(existsSync(`${f.data}/objects/owner-file`));
   // The app's config check ran with the service's environment file in the running release, then the new one.
-  const runs = [...readFileSync(`${f.state}/systemd-run.log`, 'utf8').matchAll(/^--user --pipe --wait --quiet --collect -p EnvironmentFile=(\S+) -p WorkingDirectory=(\S+) (\S+) /gm)].map(m => m.slice(1));
+  const runs = [...readFileSync(`${f.state}/systemd-run.log`, 'utf8').matchAll(/^--user --pipe --wait --quiet --collect -p RuntimeMaxSec=60 -p EnvironmentFile=(\S+) -p WorkingDirectory=(\S+) (\S+) /gm)].map(m => m.slice(1));
   const envFile = `${f.home}/.config/storagi/environment`;
   assert.deepEqual(runs, [[envFile, `${realpathSync(f.root)}/releases/main-old-hand-copied/server`, process.execPath], [envFile, `${realpathSync(release)}/server`, process.execPath]]);
 
@@ -263,6 +267,22 @@ test('deploys a tag: stamped read-only release, new unit, backup, pruning', { ti
   assert.deepEqual(readdirSync(`${f.root}/releases`).sort(), [name, second, 'v0.3.0-old3'].sort());
 });
 
+test('a failing find in the release hash fails verify-release', { timeout: 120000 }, async t => {
+  const f = fixture(), r = f.run('v1.1.0');
+  assert.equal(r.status, 0, r.out);
+  const release = `${f.root}/${readlinkSync(`${f.root}/current`)}`;
+  // A find that lists everything but exits 1 when its arguments contain $FIND_FAILS.
+  const bin = `${f.dir}/find-bin`;
+  write(`${bin}/find`, `#!/bin/sh\n${JSON.stringify(which('find'))} "$@" || exit; case "$*" in *"$FIND_FAILS"*) exit 1 ;; esac\n`, 0o755);
+  for (const call of ['-type l -print0', '-type f -print0', '-printf']) await t.test(call, () => {
+    const env = { ...f.env, PATH: `${bin}:${f.env.PATH}`, FIND_FAILS: call };
+    for (const args of [[], ['--print-hash', release]]) {
+      const v = spawnSync(`${release}/scripts/verify-release.sh`, args, { env, encoding: 'utf8' });
+      assert.notEqual(v.status, 0, `${args.join(' ')}\n${v.stdout}${v.stderr}`);
+    }
+  });
+});
+
 test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t => {
   type Case = [string, (f: ReturnType<typeof fixture>) => void, string[], RegExp];
   const cases: Case[] = [
@@ -294,6 +314,7 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     // Stage58: forms a bash pattern accepted but the app's URL canonicalization rejects.
     ...['https://Example.invalid', 'https://example.invalid:443', 'https://example.invalid:08443', 'https://127.1'].map((o): Case =>
       [`non-canonical PUBLIC_ORIGIN ${o}`, f => setEnv(f, 'PUBLIC_ORIGIN', `"${o}"`), ['v1.1.0'], /PUBLIC_ORIGIN/]),
+    ['config check hangs', f => writeFileSync(`${f.state}/config-hangs`, ''), ['v1.1.0'], /config check/],
     ['previous release without the config check', f => unlinkSync(`${f.root}/releases/main-old-hand-copied/server/dist/src/config.js`), ['v1.1.0'], /config check/],
     ['release name exists', f => { writeFileSync(`${f.state}/date`, '2026-10-21T01:02:03Z\n'); mkdirSync(`${f.root}/releases/v1.1.0-${sh(f.clone, 'git rev-parse --short v1.1.0^{commit}')}-20261021T010203Z`); }, ['v1.1.0'], /exists/],
   ];
