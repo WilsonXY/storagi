@@ -332,8 +332,8 @@ function openSignout() {
   const busy = d => world.tr.items.filter(t => t.dir === d && ['uploading', 'downloading', 'queued', 'paused'].includes(t.state)).length;
   const up = busy('up'), down = busy('down'), parts = [up && `${up} upload${up > 1 ? 's' : ''}`, down && `${down} download${down > 1 ? 's' : ''}`].filter(Boolean);
   $('#signout-note').textContent = parts.length
-    ? `${parts.join(' and ')} will stop. Sign back in and choose the same files to resume uploads.`
-    : 'Your files stay on the shelf. You will need your Google account to open it again.';
+    ? `${parts.join(' and ')} will stop.`
+    : 'Your files stay on the shelf.';
   signPop.hidden = false; $('#sign-out').setAttribute('aria-expanded', 'true'); $('#signout-cancel').focus();
 }
 function closeSignout(refocus = true) {
