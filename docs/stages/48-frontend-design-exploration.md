@@ -58,7 +58,7 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 
 ## Owner decisions (2026-10-21)
 
-- Koi motion: "i want them to swim anyway", with a toggle if not too costly. Implemented as one stored preference in `shared/storagi.js` (`storagi.motion`): `always` (default) swims regardless of `prefers-reduced-motion`; `system` follows it. The pond, stippled mark, loader and variant C's crossing read it and switch live without a reload. Prototypes show it as "Koi: swim / system" in the state bar; in the app it belongs in the account menu. Checked in all four variants with the browser set to reduced motion: moving by default, still on `system`, moving again after switching back. CSS micro-transitions still follow the system setting.
+- Koi motion: "i want them to swim anyway", with a toggle if not too costly. First built as `always`/`system`; superseded the same day by the owner's Settings switch, `storagi.motion` = `swim` (default) or `static`, which never consults `prefers-reduced-motion`. Interface transitions also always play (the shared reduced-motion override was removed).
 - Accent: keep the koi red-orange alongside the grayscale mark.
 
 ## Owner-reported rendering bugs (2026-10-21)
@@ -76,6 +76,10 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 
 Owner: "i want both of these final version! removes others that were untouched. combine the A and this locked screen C". Variant A becomes `design/explorations/final/`, with C's locked screen: a centred card (the dotted koi over a band of static, "Your shelf is locked.", Continue with Google, "Owner only.") over a full-window koi pond, the app shell faint and inert behind it with no shelf data shown. Variants B, C and D, their screenshots, and the helpers only they used (`ticks`, `blocks`, `brailleSpinner`, the state-bar koi toggle) were removed; they remain in Git history. Checked: every final state loads with no console errors, signing in from the locked card returns to the shelf, and the comparison page now presents the final design.
 
+## Final polish (2026-10-21)
+
+Phone and state fixes from the owner's review: menu icon centring, the app name returning to the Inbox, a taller and slightly translucent drop box, more room at the top, toasts stacking above the selection bar with short one-line text, the speed line pinned under the search with a solid flash, the offline banner pinned below the search and an offline-only static speed line, a slimmer offline pill, the last-updated time on phones, the dotted koi filled without holes and following a finger drag, and the static band kept at the owner's request.
+
 ## Handoff
 
-A later stage ports `design/explorations/final/` into `web/` against the real endpoints, with tests.
+The design is final and approved. [`design/explorations/HANDOFF.md`](../../design/explorations/HANDOFF.md) is the implementation brief: what to reuse, how each piece maps onto the real endpoints, the CSP and static-file constraints, the open download decision, and the acceptance list. Stage 49 (port into `web/`) is planned for a different agent; it is not started here, and nothing was deployed.
