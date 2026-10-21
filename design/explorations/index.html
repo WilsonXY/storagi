@@ -14,7 +14,7 @@
     .pond canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
     .pond .head { position: absolute; left: 24px; right: 24px; bottom: 36px; }
     .brand { display: flex; align-items: center; gap: 10px; padding-top: 22px; position: relative; font-weight: 500; font-size: 15px; }
-    .brand canvas { width: 34px; height: 24px; position: static; }
+    .brand canvas { width: 46px; height: 30px; position: static; }
     h1 { font-weight: 300; font-size: clamp(34px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.02em; }
     .lede { margin-top: 14px; max-width: 640px; color: var(--muted); font-size: 16px; }
     section { margin-top: 88px; }
@@ -33,6 +33,15 @@
     .before ul { display: grid; gap: 10px; color: var(--muted); }
     .before li b { color: var(--text); font-weight: 500; }
     .docs { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    .locked { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+    .locked figure { margin: 0; display: grid; gap: 8px; }
+    .locked figcaption { color: var(--muted); font-size: 13px; }
+    .compare { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 14px; }
+    .compare th, .compare td { text-align: left; padding: 12px 16px 12px 0; vertical-align: top; border-bottom: 1px solid var(--rule); }
+    .compare th { color: var(--muted); font-weight: 400; font-size: 13px; }
+    .compare td:first-child { color: var(--text); white-space: nowrap; }
+    .compare td { color: var(--muted); }
+    .table-wrap { overflow-x: auto; }
     footer { margin-top: 96px; color: var(--faint); font-size: 12px; }
     footer a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
     @media (max-width: 760px) {
@@ -41,6 +50,7 @@
       .variant .open { justify-self: start; }
       .variant .phone { max-width: 220px; }
       .before { grid-template-columns: 1fr; }
+      .locked { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .pond { height: 300px; }
     }
   </style>
@@ -59,6 +69,27 @@
     <section aria-labelledby="v-title">
       <h2 id="v-title" class="sr-only">Variants</h2>
       <div id="variants"></div>
+    </section>
+
+    <section aria-labelledby="l-title">
+      <h2 id="l-title">The locked screen, four ways</h2>
+      <p class="lede">Every variant opens on the koi pond when you are signed out: the fish turn away from your cursor and fade where they pass under the sign-in.</p>
+      <div class="locked" id="locked"></div>
+    </section>
+
+    <section aria-labelledby="c-title">
+      <h2 id="c-title">How they differ</h2>
+      <div class="table-wrap">
+        <table class="compare">
+          <thead><tr><th scope="col">Variant</th><th scope="col">Where the koi live</th><th scope="col">Transfers</th><th scope="col">Refresh clock</th><th scope="col">Suits</th></tr></thead>
+          <tbody>
+            <tr><td>A Pond</td><td>Behind the composer at the top of the shelf</td><td>Right panel: both speeds, a 30-second throughput chart, finish times</td><td>Top bar</td><td>Desktop sessions; closest to T3 Code</td></tr>
+            <tr><td>B Ledger</td><td>Only on the locked and empty screens</td><td>Bottom drawer and an always-on status line</td><td>Status line</td><td>Many files, keyboard use, scanning expiry</td></tr>
+            <tr><td>C Handoff</td><td>A channel between Send and Pick up; one swims across when an upload lands</td><td>Cards in the Send lane; downloads inside their row</td><td>Top bar</td><td>Moving one batch from one device to another</td></tr>
+            <tr><td>D Still water</td><td>A stippled koi at the head of the page, the pond when you drag files in</td><td>An "In motion" block that collapses to one line when idle</td><td>The same line</td><td>Quick visits from the phone; the calmest</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section aria-labelledby="b-title">
@@ -95,12 +126,13 @@
       <article class="variant" aria-labelledby="${v.id}-t">
         <div class="text">
           <div><h3 id="${v.id}-t"><span class="num">${String.fromCharCode(65 + i)}</span>${v.name}</h3><p>${v.idea}</p></div>
-          <a class="btn btn-primary open" href="${v.id}/">Open ${v.name}</a>
+          <a class="btn btn-primary open" href="${v.id}/index.html">Open ${v.name}</a>
         </div>
-        <a class="shot" href="${v.id}/"><img src="shots/${v.id}-desktop.webp" alt="${v.name} at desktop width" loading="lazy"></a>
-        <a class="shot phone" href="${v.id}/"><img src="shots/${v.id}-phone.webp" alt="${v.name} on a phone" loading="lazy"></a>
+        <a class="shot" href="${v.id}/index.html"><img src="shots/${v.id}-desktop.webp" alt="${v.name} at desktop width" loading="lazy"></a>
+        <a class="shot phone" href="${v.id}/index.html"><img src="shots/${v.id}-phone.webp" alt="${v.name} on a phone" loading="lazy"></a>
         <ul>${v.takes.map(t => `<li>${t}</li>`).join('')}</ul>
       </article>`).join('');
+    document.getElementById('locked').innerHTML = variants.map((v, i) => `<figure><a class="shot" href="${v.id}/index.html?state=locked"><img src="shots/${v.id}-locked.webp" alt="${v.name} locked screen" loading="lazy"></a><figcaption>${String.fromCharCode(65 + i)} ${v.name}</figcaption></figure>`).join('');
     const pond = document.getElementById('pond');
     new KoiPond(pond, { count: 4, size: [140, 220], opacity: 0.85, avoid: () => { const h = document.querySelector('.head').getBoundingClientRect(), r = pond.getBoundingClientRect(); return [{ x: h.left - r.left, y: h.top - r.top, w: h.width, h: h.height, dim: 0.22 }]; } });
     new KoiMark(document.getElementById('mark'), { density: 3, dot: 1, radius: 14 });

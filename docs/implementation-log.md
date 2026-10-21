@@ -82,7 +82,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 45 | Publish owner operational acceptance notes | Coordinator | Published PR#5; review PASS, current CI watched | [45](stages/45-owner-acceptance-publication.md) |
 | 46 | Independent owner-acceptance documentation review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [46](stages/46-owner-acceptance-review.md) |
 | 47 | Fallback owner-acceptance documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [47](stages/47-owner-acceptance-fallback-review.md) |
-| 48 | Frontend design exploration: dark ASCII koi variants | Coordinator + four delegated variant forks | In progress | [48](stages/48-frontend-design-exploration.md) |
+| 48 | Frontend design exploration: dark ASCII koi variants | Coordinator + four delegated variant forks | Completed; 4 variants, 0 console errors; owner choice pending | [48](stages/48-frontend-design-exploration.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
@@ -251,3 +251,8 @@ Stage46 primary Claude API-limited, no review/verdict or actual execution proof.
 Stage47 fallback documentation review PASS, no findings. Coordinator independently parsed own native OpenAI/gpt-6-astra/high metadata/context lines1/8; parent HEAD/full status/all remote heads and clean child baseline invariant, exact owned worktree/branch removed.67 local targets/privacy114tracked scan and whitespace passed; no new runtime tests. Stage45 publication follows, preserving explicit owner acceptance without pretending a cold-boot observation or detailed file measurements.
 
 Owner-acceptance notes published as [PR#5](https://github.com/WilsonXY/storagi/pull/5) and immediately linked to T3. Documentation-only branch, independent47 PASS/actual Astra-high confirmed, primary46 API limit retained. Main73fc0d6 and running service untouched. Final publication-record commit is watched for current-head CI; final outcome recorded on linked PR/final handoff. No merge, new empirical reboot/file proof or runtime changes.
+
+## Frontend design exploration — 2026-10-21
+
+Owner asked for a dark, ASCII-led redesign on T3 Code's theme with the koi as symbol, live transfer speed with ETA, browser auto-refresh, and several layout variants drawn from listed references. Stage48 records the audit, reference research, shared prototype foundation and four delegated variants under `design/explorations/`. Design only: `web/`, `server/`, the running service and its configuration are unchanged; previews bound to loopback. The owner's koi favicon was not found in the repository; a drawn stand-in is used until it is supplied.
+

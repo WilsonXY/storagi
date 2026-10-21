@@ -3,6 +3,11 @@
 // an existing endpoint (/api/session, /api/files, /api/uploads, /api/files/:id[/download]).
 
 export const NOW = new Date('2026-10-21T16:04:00+08:00');
+// The prototype's clock starts at NOW when the page loads, so finish times agree with the sample data.
+const LOADED = Date.now();
+export const simNow = () => new Date(NOW.getTime() + Date.now() - LOADED);
+// Sample times are in the owner's zone (UTC+8); show them there whatever zone the browser is in.
+export const TZ = 'Asia/Singapore';
 const GiB = 1024 ** 3, MiB = 1024 ** 2, KiB = 1024;
 export const BUDGET = 200 * GiB;
 const DAY = 86_400_000;
@@ -46,17 +51,17 @@ export function duration(s) {
   if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
   return `${Math.floor(s / 3600)}h ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}m`;
 }
-export function clock(date) { return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
-export function finishAt(seconds) { return isFinite(seconds) ? clock(new Date(Date.now() + seconds * 1000)) : '—'; }
+export function clock(date) { return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: TZ }); }
+export function finishAt(seconds) { return isFinite(seconds) ? clock(new Date(simNow().getTime() + seconds * 1000)) : '—'; }
 export function relDay(d, now = NOW) {
-  const a = new Date(d); a.setHours(0, 0, 0, 0); const b = new Date(now); b.setHours(0, 0, 0, 0);
-  const days = Math.round((b - a) / DAY);
+  const day = x => Math.floor((new Date(x).getTime() + 8 * 3_600_000) / DAY); // calendar day in UTC+8
+  const days = day(now) - day(d), a = new Date(d);
   if (days === 0) return 'Today';
   if (days === 1) return 'Yesterday';
-  if (days < 7) return a.toLocaleDateString('en-GB', { weekday: 'long' });
-  return a.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  if (days < 7) return a.toLocaleDateString('en-GB', { weekday: 'long', timeZone: TZ });
+  return a.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ });
 }
-export function daysLeft(file, now = NOW) { return Math.max(0, Math.ceil((file.expiresAt - now) / DAY)); }
+export function daysLeft(file, now = NOW) { return Math.max(0, Math.floor((file.expiresAt - now) / DAY)); }
 export const ext = name => (name.includes('.') ? name.split('.').pop().slice(0, 4).toLowerCase() : 'file');
 export const shortId = id => id.slice(-6);
 export function ago(ms) { const s = Math.round(ms / 1000); return s < 5 ? 'just now' : s < 60 ? `${s}s ago` : `${Math.floor(s / 60)}m ago`; }
@@ -153,7 +158,7 @@ export function createHost() {
     files,
     async list() { await wait(380); if (++refreshes === 2) files.unshift({ id: 'f_' + hex(Date.now()) + 'a1b2c3d4', ...ARRIVAL, uploadedAt: new Date(NOW.getTime() - 60_000), expiresAt: new Date(NOW.getTime() + 30 * DAY - 60_000), fresh: true }); return files; },
     async remove(ids) { await wait(520); for (const id of ids) { const i = files.findIndex(f => f.id === id); if (i >= 0) files.splice(i, 1); } },
-    add(t) { files.unshift({ id: 'f_' + hex(Date.now()) + hex(t.id * 977), name: t.name, size: t.size, uploadedAt: new Date(), expiresAt: new Date(Date.now() + 30 * DAY), fresh: true }); },
+    add(t) { files.unshift({ id: 'f_' + hex(Date.now()) + hex(t.id * 977), name: t.name, size: t.size, uploadedAt: simNow(), expiresAt: new Date(simNow().getTime() + 30 * DAY), fresh: true }); },
   };
 }
 export const wait = ms => new Promise(r => setTimeout(r, ms));

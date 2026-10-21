@@ -158,6 +158,9 @@ ul { list-style: none; margin: 0; padding: 0; }
 .proto button[aria-pressed="true"] { background: var(--active); color: var(--text); }
 @media (max-width: 640px) { .proto { top: auto; bottom: 12px; right: 50%; transform: translateX(50%); } }
 
+/* the font shorthand resets font-variant-numeric; restate tabular figures where shorthands are used */
+.ticks, .kbd, .select-bar .count b, .toast .clock, .proto { font-variant-numeric: tabular-nums; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
 }

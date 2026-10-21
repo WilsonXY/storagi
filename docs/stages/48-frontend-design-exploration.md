@@ -1,7 +1,7 @@
 # 48: Frontend design exploration (dark ASCII koi direction)
 
-- Status: in progress
-- Started: 2026-10-21 16:00 +08:00
+- Status: completed; owner to choose a direction
+- Started: 2026-10-21 16:00 +08:00; completed 2026-10-21
 - Coordinator thread: Claude Code cloud session on branch `claude/nifty-knuth-k90bhs`, starting commit `1fa9cd8`.
 - Agent/task identifiers: coordinator plus four delegated variant builders (forks of the coordinator session), listed under Delegation.
 - Provider/model/effort: the session is configured for Claude Opus 5.5; the serving model per turn is not independently proven here. Forks inherit the coordinator's model.
@@ -28,11 +28,23 @@ Acceptance for each variant: login, session-check loading, shelf, empty and offl
 
 ## Delegation
 
-Filled in as each fork returns.
+Each variant was built by its own fork of the coordinator session, writing only inside its own folder, without committing. The coordinator reviewed every returned report and screenshot, committed each folder, and fixed shared helpers centrally.
+
+| Fork | Variant | Returned | Inspector (`inspect.mjs --app`) at return |
+| --- | --- | --- | --- |
+| A | Pond | All five states, 1440/768/390, no console errors | 1 FAIL kept: contrast of the unfilled ASCII tick tracks |
+| B | Ledger | All five states, keyboard map, no console errors | 1 FAIL kept: same track contrast |
+| C | Handoff | All five states, koi crossing, no console errors | 0 FAIL, 1 WARN: share of text under 13px (ASCII glyphs and 12px figure lines) |
+| D | Still water | All five states, drop pond, no console errors | 1 FAIL kept (track contrast), 1 WARN (mono figures inside the headline sentence) |
+
+The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, about 1.5:1). Those glyphs are `aria-hidden` tracks; the same progress is printed as text beside them. Raising them to 4.5:1 would make empty as loud as full. The owner may overrule.
 
 ## Verification
 
-Filled in at completion.
+- Baseline: the current dashboard in the synthetic preview, `inspect.mjs --app`: 6 FAIL, 2 WARN (recorded in `design/explorations/AUDIT.md`).
+- After the coordinator's shared fixes, every variant was reloaded at `?state=shelf` (1440×900 and 390×844) and `?state=locked` (1440×900) in headless Chromium with the timezone pinned to UTC+8: 12 loads, 0 console or page errors. Those screenshots are in `design/explorations/shots/`.
+- The comparison page `design/explorations/index.html` loads with 0 errors at 1440 and 390.
+- Not exercised: real file picker and OS drag-and-drop in a real browser, real Google sign-in, the real service. All data is sample data from `shared/storagi.js`.
 
 ## Findings and limitations
 
@@ -40,6 +52,8 @@ Filled in at completion.
 - Leon Sans 2.0 has proportional digits and no `tnum` feature, so live figures are set in a monospace.
 - The real service deletes immediately; an undo needs a client-side grace period before the DELETE request.
 - Download progress needs the download to run through `fetch` streaming rather than a plain link; see `REFERENCES.md`.
+- Shared-helper bugs reported by the forks and fixed by the coordinator: koi colour patches clipped outside the slimmed body; `KoiPond`/`KoiMark` throwing on zero-size canvases and never stopping (guards and `destroy()` added); finish times on the real clock instead of the sample clock (`simNow()`); times shown in the browser's zone instead of UTC+8; `daysLeft` rounding up; `font` shorthands dropping tabular figures. Fork-local workarounds remain in place and still work.
+- Remaining weaknesses named by the forks: an empty throughput history for the first seconds (A seeds it), the prototype state bar can cover the last row, truncation of long names at 768px in B, the drawn koi stand-in.
 
 ## Handoff
 

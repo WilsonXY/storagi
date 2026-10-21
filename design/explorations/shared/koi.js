@@ -58,7 +58,7 @@ function paintFish(ctx, f, sx, sy) {
   for (let i = 0; i <= 30; i++) { const s = i / 30 * 0.9; left.push(at(s, halfWidth(s))); right.push(at(s, -halfWidth(s))); }
   ctx.save(); ctx.beginPath(); trace(ctx, [...left, ...right.reverse()]); ctx.closePath();
   ctx.fillStyle = col(f.v.body); ctx.fill(); ctx.clip();
-  for (const [k, s, u, r] of f.v.patches) { const [px, py] = at(s, u); ctx.fillStyle = col(k); ctx.beginPath(); ctx.ellipse(px, py, r * 0.95 * L * sx * 1.3, r * 0.95 * L * sy, 0, 0, 7); ctx.fill(); }
+  for (const [k, s, u, r] of f.v.patches) { const [px, py] = at(s, u * 0.4); ctx.fillStyle = col(k); ctx.beginPath(); ctx.ellipse(px, py, r * 0.95 * L * sx * 1.3, r * 0.95 * L * sy, 0, 0, 7); ctx.fill(); }
   ctx.restore();
 }
 const trace = (ctx, p) => { ctx.moveTo(p[0][0], p[0][1]); for (const q of p.slice(1)) ctx.lineTo(q[0], q[1]); };
@@ -82,8 +82,11 @@ export class KoiPond {
     if (this.still) { for (let i = 0; i < 40; i++) this.step(0.05); this.draw(); }
     else requestAnimationFrame(t => this.loop(t));
   }
+  destroy() { this.dead = true; this.ctx.clearRect(0, 0, this.w || 0, this.h || 0);
+  }
   resize() {
     const dpr = Math.min(2, devicePixelRatio || 1), r = this.c.getBoundingClientRect();
+    if (!r.width || !r.height) { this.w = 0; return; }
     this.w = r.width; this.h = r.height; this.c.width = r.width * dpr; this.c.height = r.height * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.font = `500 ${this.o.font}px "JetBrains Mono", ui-monospace, monospace`; this.ctx.textBaseline = 'top';
@@ -119,7 +122,9 @@ export class KoiPond {
   }
   loop(t) {
     const dt = Math.min(0.05, (t - this.last) / 1000 || 0.016); this.last = t;
-    if (document.visibilityState === 'visible') { this.step(dt); this.draw(); }
+    if (this.dead) return;
+    if (!this.w) this.resize();
+    if (this.w && document.visibilityState === 'visible') { this.step(dt); this.draw(); }
     requestAnimationFrame(n => this.loop(n));
   }
   draw() {
@@ -163,6 +168,7 @@ export class KoiMark {
   }
   build() {
     const r = this.c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+    if (!r.width || !r.height) { this.w = 0; this.dots = []; return; }
     this.w = r.width; this.h = r.height; this.c.width = r.width * dpr; this.c.height = r.height * dpr; this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const off = document.createElement('canvas'); off.width = this.w; off.height = this.h; const o = off.getContext('2d', { willReadFrequently: true });
     const len = Math.min(this.w * 0.86, this.h * 2.6);
@@ -178,7 +184,13 @@ export class KoiMark {
     }
     this.dots = dots;
   }
-  loop() { if (document.visibilityState === 'visible') { this.t += 1 / 60; this.step(); this.draw(); } requestAnimationFrame(() => this.loop()); }
+  loop() {
+    if (this.dead) return;
+    if (!this.w) this.build();
+    if (this.w && document.visibilityState === 'visible') { this.t += 1 / 60; this.step(); this.draw(); }
+    requestAnimationFrame(() => this.loop());
+  }
+  destroy() { this.dead = true; }
   step() {
     const R = this.o.radius, m = this.mouse;
     for (const p of this.dots) {
