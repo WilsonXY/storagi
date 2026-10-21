@@ -16,6 +16,8 @@ const secret = 'synthetic-secret-never-printed';
 const env0 = { PATH: process.env.PATH!, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid', npm_config_update_notifier: 'false', npm_config_fund: 'false', npm_config_audit: 'false', ...(process.env.TMPDIR ? { TMPDIR: process.env.TMPDIR } : {}) };
 const pids = new Set<number>();
 const realNpm = spawnSync('bash', ['-c', 'command -v npm'], { encoding: 'utf8' }).stdout.trim();
+const oldUnit = `[Service]\nExecStart=${process.execPath} old\n`;
+let configJs = '';
 
 function sh(cwd: string, command: string, env: Record<string, string> = env0) {
   const r = spawnSync('bash', ['-ec', command], { cwd, env, encoding: 'utf8' });
@@ -27,17 +29,22 @@ const write = (file: string, text: string, mode = 0o644) => { mkdirSync(path.dir
 // Tiny project: trivial setup/check producing the release layout, plus the real scripts and unit.
 before(() => {
   const src = `${base}/src`;
+  // The real compiled server/src/config.ts, so the deploy's config gate runs the app's own rules.
+  sh(repo, `server/node_modules/.bin/tsc -p server --outDir '${base}/tsc'`);
+  configJs = readFileSync(`${base}/tsc/src/config.js`, 'utf8');
   const pkg = (check: string) => write(`${src}/package.json`, JSON.stringify({ scripts: { setup: 'sh build.sh', check } }));
   pkg('exit 1');
   write(`${src}/build.sh`, [
     'mkdir -p server/dist/src server/node_modules/better-sqlite3 server/node_modules/.bin web/dist web/node_modules/vite',
     'echo "console.log(1)" > server/dist/src/main.js',
+    'cp server/src/config.js server/dist/src/config.js',
     'echo "module.exports = class { prepare() { return { get: () => 1 }; } };" > server/node_modules/better-sqlite3/index.js',
     'ln -sfn ../better-sqlite3/index.js server/node_modules/.bin/fake',
     'echo "<!doctype html>" > web/dist/index.html',
     '[ ! -f "$STATE/external-link" ] || ln -s "$STATE/external-link" server/dist/src/main.js.map',
     'echo dev > web/node_modules/vite/index.js', ''].join('\n'));
-  write(`${src}/server/package.json`, '{"name":"fixture-server"}\n');
+  write(`${src}/server/package.json`, '{"name":"fixture-server","type":"module"}\n');
+  write(`${src}/server/src/config.js`, configJs);
   write(`${src}/server/package-lock.json`, '{"lockfileVersion":3}\n');
   write(`${src}/scripts/deploy.sh`, readFileSync(`${repo}/scripts/deploy.sh`, 'utf8'), 0o755);
   write(`${src}/scripts/verify-release.sh`, readFileSync(`${repo}/scripts/verify-release.sh`, 'utf8'), 0o755);
@@ -61,10 +68,12 @@ function fixture(publicOrigin = 'https://example.invalid') {
   sh(dir, `git clone -q ${origin} clone`);
   // Hand-copied live release being adopted: no manifest or scripts, old unit without ExecStartPre.
   write(`${root}/releases/main-old-hand-copied/server/dist/src/main.js`, 'old\n');
+  write(`${root}/releases/main-old-hand-copied/server/dist/src/config.js`, configJs);
+  write(`${root}/releases/main-old-hand-copied/server/package.json`, '{"type":"module"}\n');
   symlinkSync('releases/main-old-hand-copied', `${root}/current`);
-  write(unit, '[Service]\nExecStart=/usr/bin/node old\n', 0o600);
+  write(unit, oldUnit, 0o600);
   // Double-quoted like the live file; systemd strips one pair of matching quotes.
-  write(`${home}/.config/storagi/environment`, `PUBLIC_ORIGIN="${publicOrigin}"\nGOOGLE_CLIENT_SECRET="${secret}"\nPORT="18787"\nDATA_DIR="${data}"\n`, 0o600);
+  write(`${home}/.config/storagi/environment`, `PUBLIC_ORIGIN="${publicOrigin}"\nGOOGLE_CLIENT_ID="client.example.invalid"\nGOOGLE_CLIENT_SECRET="${secret}"\nOWNER_GOOGLE_SUB="1234567890"\nPORT="18787"\nDATA_DIR="${data}"\n`, 0o600);
   write(`${data}/storagi.sqlite`, 'db bytes\n', 0o600);
   write(`${data}/storagi.sqlite-wal`, 'wal bytes\n', 0o600);
   write(`${data}/objects/owner-file`, 'owner object\n', 0o600);
@@ -109,6 +118,17 @@ case "$*" in *established*) cat "$STATE/busy" 2>/dev/null ;; *) [ -f "$STATE/pid
   write(`${bin}/npm`, `#!/bin/sh
 if [ "$1" = prune ]; then echo "$* in $PWD" >> "$STATE/npm.log"; [ -f "$STATE/busy-late" ] && mv "$STATE/busy-late" "$STATE/busy"; exit 0; fi
 exec ${JSON.stringify(realNpm)} "$@"
+`, 0o755);
+  // Fake transient unit: a clean environment loaded from EnvironmentFile (shell quoting stands in
+  // for systemd's, fine for these values), the command run in WorkingDirectory.
+  write(`${bin}/systemd-run`, `#!/bin/sh
+echo "$*" >> "$STATE/systemd-run.log"
+while [ $# -gt 0 ]; do case "$1" in
+  -p) case "$2" in EnvironmentFile=*) file=\${2#*=} ;; WorkingDirectory=*) dir=\${2#*=} ;; esac; shift 2 ;;
+  --*) shift ;;
+  *) break ;;
+esac; done
+cd "$dir" && exec env -i sh -c 'set -a; . "$0"; exec "$@"' "$file" "$@"
 `, 0o755);
   write(`${bin}/sleep`, '#!/bin/sh\nexit 0\n', 0o755);
   write(`${bin}/date`, '#!/bin/sh\n[ -f "$STATE/date" ] && exec cat "$STATE/date"\nexec /bin/date "$@"\n', 0o755);
@@ -199,11 +219,15 @@ test('deploys a tag: stamped read-only release, new unit, backup, pruning', { ti
     assert.equal(readFileSync(`${backup}/${file}`, 'utf8'), readFileSync(`${f.data}/${file}`, 'utf8'));
     assert.equal(lstatSync(`${backup}/${file}`).mode & 0o777, 0o600);
   }
-  assert.match(readFileSync(`${backup}/storagi-user.service`, 'utf8'), /ExecStart=\/usr\/bin\/node old/);
+  assert.equal(readFileSync(`${backup}/storagi-user.service`, 'utf8'), oldUnit);
   // Pruning: newest three plus previous kept; the read-only oldest removed; three newest backups kept.
   assert.deepEqual(readdirSync(`${f.root}/releases`).sort(), ['main-old-hand-copied', name, 'v0.2.0-old2', 'v0.3.0-old3'].sort());
   assert.deepEqual(readdirSync(`${f.root}/backups`).sort(), ['b3', 'b4', name].sort());
   assert.ok(existsSync(`${f.data}/objects/owner-file`));
+  // The app's config check ran with the service's environment file in the running release, then the new one.
+  const runs = [...readFileSync(`${f.state}/systemd-run.log`, 'utf8').matchAll(/^--user --pipe --wait --quiet --collect -p EnvironmentFile=(\S+) -p WorkingDirectory=(\S+) (\S+) /gm)].map(m => m.slice(1));
+  const envFile = `${f.home}/.config/storagi/environment`;
+  assert.deepEqual(runs, [[envFile, `${realpathSync(f.root)}/releases/main-old-hand-copied/server`, process.execPath], [envFile, `${realpathSync(release)}/server`, process.execPath]]);
 
   // verify-release: passes on the fresh release (default resolves its own release), fails on tampering.
   const ok = f.verify(release);
@@ -237,7 +261,8 @@ test('deploys a tag: stamped read-only release, new unit, backup, pruning', { ti
 });
 
 test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t => {
-  const cases: [string, (f: ReturnType<typeof fixture>) => void, string[], RegExp][] = [
+  type Case = [string, (f: ReturnType<typeof fixture>) => void, string[], RegExp];
+  const cases: Case[] = [
     ['no argument', () => {}, [], /usage/],
     ['non-version tag', () => {}, ['main'], /usage/],
     ['two arguments', () => {}, ['v1.1.0', 'v1.0.0'], /usage/],
@@ -260,10 +285,13 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     ['PUBLIC_ORIGIN with a path', f => setEnv(f, 'PUBLIC_ORIGIN', 'https://example.invalid/'), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['empty PORT', f => setEnv(f, 'PORT', '""'), ['v1.1.0'], /PORT/],
     ['PORT out of range', f => setEnv(f, 'PORT', '"70000"'), ['v1.1.0'], /PORT/],
-    ['backslash in DATA_DIR', f => { write(`${f.data}\\x/storagi.sqlite`, 'other db\n'); setEnv(f, 'DATA_DIR', `"${f.data}\\x"`); }, ['v1.1.0'], /backslash/],
-    ['mismatched quotes in PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid'), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    ['mismatched quotes in PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid'), ['v1.1.0'], /config check/],
     // config.ts compares the untrimmed value with the canonical origin, so padding would stop the app.
     ['space inside quoted PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid "'), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    // Stage58: forms a bash pattern accepted but the app's URL canonicalization rejects.
+    ...['https://Example.invalid', 'https://example.invalid:443', 'https://example.invalid:08443', 'https://127.1'].map((o): Case =>
+      [`non-canonical PUBLIC_ORIGIN ${o}`, f => setEnv(f, 'PUBLIC_ORIGIN', `"${o}"`), ['v1.1.0'], /PUBLIC_ORIGIN/]),
+    ['previous release without the config check', f => unlinkSync(`${f.root}/releases/main-old-hand-copied/server/dist/src/config.js`), ['v1.1.0'], /config check/],
     ['release name exists', f => { writeFileSync(`${f.state}/date`, '2026-10-21T01:02:03Z\n'); mkdirSync(`${f.root}/releases/v1.1.0-${sh(f.clone, 'git rev-parse --short v1.1.0^{commit}')}-20261021T010203Z`); }, ['v1.1.0'], /exists/],
   ];
   for (const [label, arrange, args, reason] of cases) await t.test(label, () => {
@@ -309,14 +337,27 @@ test('a build with a symlink leaving the release refuses before the stop', { tim
   assert.doesNotMatch(f.systemctl(), /stop/);
 });
 
-test('DATA_DIR is trimmed like the app before the backup', { timeout: 60000 }, () => {
+test('the backup uses the DATA_DIR the app resolves', { timeout: 120000 }, async t => {
+  // JavaScript .trim() drops more than spaces: a database also sits in the untrimmed directory.
+  for (const [label, pad] of [['space', ' '], ['NBSP', '\u00a0'], ['CR', '\r']]) await t.test(label, () => {
+    const f = fixture();
+    write(`${f.data}${pad}/storagi.sqlite`, 'wrong db\n', 0o600);
+    setEnv(f, 'DATA_DIR', `"${f.data}${pad}"`);
+    const r = f.run('v1.1.0');
+    assert.equal(r.status, 0, r.out);
+    const backup = `${f.root}/backups/${path.basename(readlinkSync(`${f.root}/current`))}`;
+    assert.equal(readFileSync(`${backup}/storagi.sqlite`, 'utf8'), 'db bytes\n');
+  });
+});
+
+test('a new release resolving different settings refuses before the stop', { timeout: 60000 }, () => {
   const f = fixture();
-  write(`${f.data} /storagi.sqlite`, 'wrong db\n', 0o600);
-  setEnv(f, 'DATA_DIR', `"${f.data} "`);
-  const r = f.run('v1.1.0');
-  assert.equal(r.status, 0, r.out);
-  const backup = `${f.root}/backups/${path.basename(readlinkSync(`${f.root}/current`))}`;
-  assert.equal(readFileSync(`${backup}/storagi.sqlite`, 'utf8'), 'db bytes\n');
+  write(`${f.root}/releases/main-old-hand-copied/server/dist/src/config.js`,
+    `export const loadConfig = () => ({ port: 18787, dataDir: ${JSON.stringify(f.data)}, origin: 'https://other.invalid' });\n`);
+  const before = f.snapshot(), r = f.run('v1.1.0');
+  assert.equal(r.status, 1, r.out); assert.match(r.out, /differ/); assert.match(r.out, /removed releases\//);
+  assert.deepEqual(f.snapshot(), before);
+  assert.doesNotMatch(f.systemctl(), /stop/);
 });
 
 test('unquoted and single-quoted environment values deploy too', { timeout: 60000 }, () => {
@@ -373,7 +414,7 @@ test('a failing listener check counts as not stopped', { timeout: 60000 }, () =>
 
 const rolledBack = (f: ReturnType<typeof fixture>) => {
   assert.equal(readlinkSync(`${f.root}/current`), 'releases/main-old-hand-copied');
-  assert.equal(readFileSync(f.unit, 'utf8'), '[Service]\nExecStart=/usr/bin/node old\n');
+  assert.equal(readFileSync(f.unit, 'utf8'), oldUnit);
   assert.equal(lstatSync(f.unit).mode & 0o777, 0o600);
   assert.equal(readFileSync(`${f.data}/storagi.sqlite`, 'utf8'), 'db bytes\n');
 };

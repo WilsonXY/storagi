@@ -88,35 +88,28 @@ prev=$(readlink -e "$root/current") && [[ ${prev%/*} == "$(readlink -e "$root/re
 prev_target=$(readlink "$root/current")
 [[ -f $unit ]] || die "no installed unit at $unit"
 [[ -f $env_file && $(stat -c %a "$env_file") == 600 ]] || die "environment $env_file missing or not mode 600"
-# Plain-text reads of three keys only: never source the file or print other values.
-# Like systemd, drop one pair of matching surrounding quotes (the live file quotes every value).
-# Backslashes refuse: systemd would decode escapes. With "trim", strip spaces and tabs as
-# config.ts does for PORT and DATA_DIR; PUBLIC_ORIGIN must match exactly, so it is not trimmed.
-env_value() {
-  local v
-  v=$(sed -n "s/^$1=//p" "$env_file" | tail -n 1)
-  [[ $v =~ ^\"(.*)\"$ || $v =~ ^\'(.*)\'$ ]] && v=${BASH_REMATCH[1]}
-  [[ $v != *\\* ]] || die "$1 in the environment contains a backslash"
-  if [[ ${2-} == trim ]]; then
-    v=${v#"${v%%[![:blank:]]*}"}
-    v=${v%"${v##*[![:blank:]]}"}
-  fi
-  printf '%s' "$v"
+unit_node() { sed -n 's/^ExecStart=\([^ ]*\) .*/\1/p' "$1"; }
+# The app's own config check, in a transient unit with the service's EnvironmentFile: systemd
+# decodes the file and config.ts validates the result, as at service start. Only port, DATA_DIR
+# and origin host come out; on error only config.ts's message (an uncaught error prints values).
+config_js="try {
+  const {loadConfig} = await import('./dist/src/config.js'), c = loadConfig(process.env);
+  process.stdout.write([c.port, c.dataDir, new URL(c.origin).host].join('\n'));
+} catch (e) { console.error(e.message); process.exitCode = 1; }"
+app_config() { # $1: node, $2: release dir; sets config, port, data_dir, authority
+  local cfg
+  config=$(systemd-run --user --pipe --wait --quiet --collect -p EnvironmentFile="$env_file" \
+    -p WorkingDirectory="$2/server" "$1" --input-type=module -e "$config_js") ||
+    die "the app's config check in ${2##*/} refuses the environment"
+  mapfile -t cfg <<<"$config"
+  [[ ${#cfg[@]} == 3 && -n ${cfg[0]} && -n ${cfg[1]} && -n ${cfg[2]} ]] ||
+    die "the app's config check in ${2##*/} did not return port, DATA_DIR and host"
+  port=${cfg[0]} data_dir=${cfg[1]} authority=${cfg[2]}
 }
-# Like config.ts: absent PORT is 8787, present must be 1-65535 (empty refuses).
-port=8787
-grep -q '^PORT=' "$env_file" && port=$(env_value PORT trim)
-data_dir=$(env_value DATA_DIR trim)
-public_origin=$(env_value PUBLIC_ORIGIN)
-[[ $port =~ ^[0-9]{1,5}$ ]] || port=0
-port=$((10#$port))
-((port >= 1 && port <= 65535)) || die "PORT in the environment is not 1-65535"
-[[ $public_origin =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || die "PUBLIC_ORIGIN in the environment is not https://host[:port]"
-# Same as WHATWG URL .host: lowercase, default port dropped.
-authority=${public_origin#https://}
-authority=${authority,,}
-authority=${authority%:443}
-[[ $data_dir == /* && -f $data_dir/storagi.sqlite ]] || die "no storagi.sqlite in DATA_DIR from the environment"
+# The running release's own rules decide what is idle and what to back up.
+app_config "$(unit_node "$unit")" "$prev"
+early=$config
+[[ -f $data_dir/storagi.sqlite ]] || die "no storagi.sqlite in DATA_DIR from the environment"
 idle || die "open connections to 127.0.0.1:$port (or ss failed); wait for transfers to finish (idle keep-alives close within minutes)"
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 name=$tag-$(git -C "$repo" rev-parse --short "$commit")-${built_at//[-:]/}
@@ -133,7 +126,7 @@ git -C "$repo" archive "$commit" | tar -x -C "$release"
 (cd "$release/server" && npm prune --omit=dev)
 rm -rf "$release/web/node_modules"
 # The node the unit runs must load the native SQLite binding.
-node=$(sed -n 's/^ExecStart=\([^ ]*\) .*/\1/p' "$release/deploy/storagi-user.service")
+node=$(unit_node "$release/deploy/storagi-user.service")
 (cd "$release/server" && "$node" -e "new (require('better-sqlite3'))(':memory:').prepare('select 1').get()")
 hash=$("$release/scripts/verify-release.sh" --print-hash "$release")
 cat >"$release/BUILD_MANIFEST" <<EOF
@@ -147,6 +140,9 @@ EOF
 chmod -R a-w "$release"
 "$release/scripts/verify-release.sh"
 release=$(readlink -e "$release")
+# No settings migration: the new release must resolve the same port, DATA_DIR and host.
+app_config "$node" "$release"
+[[ $config == "$early" ]] || die "the new release resolves a different port, DATA_DIR or host than the running one"
 # The build takes minutes: check again just before the stop.
 idle || die "connections to 127.0.0.1:$port opened during the build (or ss failed); retry when idle"
 install -d -m 700 "$root/backups" "$backup"
