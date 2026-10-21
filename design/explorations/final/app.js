@@ -154,6 +154,7 @@ let lastCount = 0;
 function renderSelection() {
   const ids = [...world.sel.ids], files = world.host.files.filter(f => ids.includes(f.id)), bar = $('#select-bar');
   bar.classList.toggle('out', !ids.length || !['shelf', 'empty', 'offline'].includes(mode));
+  document.body.classList.toggle('selecting', !bar.classList.contains('out')); // toasts sit above the bar
   if (!ids.length) return;
   const c = $('#sel-count'); c.textContent = ids.length; if (ids.length !== lastCount) { c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump'); } lastCount = ids.length;
   $('#sel-size').textContent = bytes(files.reduce((n, f) => n + f.size, 0));
@@ -163,7 +164,7 @@ $('#sel-clear').onclick = () => world.sel.clear();
 $('#sel-download').onclick = () => {
   const files = world.host.files.filter(f => world.sel.ids.has(f.id) && f.expiresAt > NOW);
   for (const f of files) world.tr.download(f);
-  world.sel.clear(); toast(`Downloading ${files.length} ${files.length === 1 ? 'copy' : 'copies'}. Speed and finish time are in Transfers.`); flashPulse();
+  world.sel.clear(); toast(`Downloading ${files.length} ${files.length === 1 ? 'copy' : 'copies'}`, { action: 'View', onAction: openTransfers }); flashPulse();
 };
 $('#sel-delete').onclick = () => {
   const ids = [...world.sel.ids], w = world;
@@ -323,6 +324,8 @@ document.addEventListener('click', e => {
   const b = e.target.closest('.brand'); if (!b || !['shelf', 'empty', 'offline'].includes(mode)) return;
   e.preventDefault(); closeSheet(); setTab('inbox'); scrollTo({ top: 0, behavior: 'smooth' });
 });
+// Show the transfers: the panel beside the Inbox on wide screens, the Transfers tab on narrow ones.
+function openTransfers() { if (innerWidth >= 1180) { showView('shelf'); togglePanel(true); } else setTab('transfers'); }
 function flashPulse() { const p = $('#pulse-line'); p.animate?.([{ background: 'var(--koi-dim)' }, { background: 'var(--surface)' }], { duration: 900 }); }
 document.addEventListener('click', e => {
   // only real tab controls: #app also carries data-tab (the current tab) and must not count as one
@@ -339,7 +342,7 @@ $('#sheet-close').onclick = closeSheet;
 const picker = $('#picker');
 $('#choose').onclick = () => picker.click();
 picker.onchange = () => { addFiles([...picker.files]); picker.value = ''; };
-function addFiles(files) { for (const f of files) world.tr.upload({ name: f.name, size: f.size || 1 }); if (files.length) { toast(`${files.length} ${files.length === 1 ? 'file' : 'files'} queued. One uploads at a time.`); flashPulse(); } }
+function addFiles(files) { for (const f of files) world.tr.upload({ name: f.name, size: f.size || 1 }); if (files.length) { toast(`${files.length} ${files.length === 1 ? 'file' : 'files'} queued`, { action: 'View', onAction: openTransfers }); flashPulse(); } }
 fileDrop({
   enabled: () => ['shelf', 'empty'].includes(mode),
   on: over => { $('#composer').classList.toggle('dragging', over); $('.composer-text').textContent = over ? 'Let go to put them on the shelf' : 'Drop files to put them on the shelf'; },
