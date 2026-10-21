@@ -1,5 +1,5 @@
 // Variant A — Pond. T3 Code shell; ASCII koi swim behind the composer and pass under it.
-import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref } from '../shared/storagi.js';
+import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref , fileDrop } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader, blocks } from '../shared/koi.js';
 
 const $ = s => document.querySelector(s);
@@ -303,12 +303,11 @@ const picker = $('#picker');
 $('#choose').onclick = () => picker.click();
 picker.onchange = () => { addFiles([...picker.files]); picker.value = ''; };
 function addFiles(files) { for (const f of files) world.tr.upload({ name: f.name, size: f.size || 1 }); if (files.length) { toast(`${files.length} ${files.length === 1 ? 'file' : 'files'} queued. One uploads at a time.`); flashPulse(); } }
-let drag = 0;
-addEventListener('dragenter', e => { if (mode === 'locked') return; e.preventDefault(); drag++; $('#composer').classList.add('dragging'); $('.composer-text').textContent = 'Let go to put them on the shelf'; });
-addEventListener('dragover', e => e.preventDefault());
-addEventListener('dragleave', () => { if (--drag <= 0) undrag(); });
-addEventListener('drop', e => { e.preventDefault(); undrag(); if (['shelf', 'empty'].includes(mode)) addFiles([...(e.dataTransfer?.files || [])]); });
-function undrag() { drag = 0; $('#composer').classList.remove('dragging'); $('.composer-text').textContent = 'Drop files to put them on the shelf'; }
+fileDrop({
+  enabled: () => ['shelf', 'empty'].includes(mode),
+  on: over => { $('#composer').classList.toggle('dragging', over); $('.composer-text').textContent = over ? 'Let go to put them on the shelf' : 'Drop files to put them on the shelf'; },
+  drop: addFiles,
+});
 addEventListener('keydown', e => {
   const typing = e.target.matches('input, textarea');
   if (e.key === '/' && !typing) { e.preventDefault(); $('#search').focus(); }

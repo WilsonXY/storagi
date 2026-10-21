@@ -1,5 +1,5 @@
 // Variant C — Handoff. Two lanes: Send (drop + upload queue) and Pick up (the Inbox), with koi in the channel between.
-import { createHost, Transfers, AutoRefresh, Selection, deferredDelete, toast, bytes, rate, duration, finishAt, clock, NOW, usage, ticks, ext, esc, ago, shortId, reduced } from '../shared/storagi.js';
+import { createHost, Transfers, AutoRefresh, Selection, deferredDelete, toast, bytes, rate, duration, finishAt, clock, NOW, usage, ticks, ext, esc, ago, shortId, reduced , fileDrop } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader, blocks } from '../shared/koi.js';
 
 const GiB = 1024 ** 3, MiB = 1024 ** 2, DAY = 86_400_000;
@@ -366,11 +366,10 @@ function addFiles(list) {
 drop.onclick = () => picker.click();
 drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); } };
 picker.onchange = () => { addFiles([...picker.files]); picker.value = ''; };
-let dragDepth = 0;
-addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; drop.classList.add('over'); drop.querySelector('p').firstChild.textContent = 'Drop to send, or '; });
-addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove('over'); drop.querySelector('p').firstChild.textContent = 'Drag files here or '; } });
-addEventListener('dragover', e => e.preventDefault());
-addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; drop.classList.remove('over'); drop.querySelector('p').firstChild.textContent = 'Drag files here or '; if (e.dataTransfer?.files.length) addFiles([...e.dataTransfer.files]); });
+fileDrop({
+  on: over => { drop.classList.toggle('over', over); drop.querySelector('p').firstChild.textContent = over ? 'Drop to send, or ' : 'Drag files here or '; },
+  drop: files => { if (files.length) addFiles(files); },
+});
 queueEl.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const t = tx.items.find(t => String(t.id) === b.closest('[data-t]').dataset.t);

@@ -1,6 +1,6 @@
 // Variant D — Still water. Every state is built once and shown or hidden; canvases are started on first show.
 import { createHost, Transfers, AutoRefresh, Selection, deferredDelete, toast, usage, bytes, rate, duration, finishAt,
-  shortId, ago, ticks, esc, NOW, wait } from '../shared/storagi.js';
+  shortId, ago, ticks, esc, NOW, wait , fileDrop } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader } from '../shared/koi.js';
 
 const $ = s => document.querySelector(s);
@@ -206,16 +206,15 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && sel.ids.si
 // ---------- upload: the button, or drop anywhere (the page becomes the pond) ----------
 $('#choose').onclick = () => $('#picker').click();
 $('#picker').onchange = () => { for (const f of $('#picker').files) tr.upload(f); $('#picker').value = ''; };
-let depth = 0;
 const drop = $('#drop');
-addEventListener('dragenter', e => {
-  if (state !== 'shelf' || !e.dataTransfer?.types.includes('Files')) return;
-  e.preventDefault(); depth++; drop.classList.add('on');
-  if (!dropPond) dropPond = new KoiPond($('#drop-pond'), { count: 7, size: fishSize(), opacity: 0.9, flee: 0 }); else dropPond.resize();
+fileDrop({
+  enabled: () => state === 'shelf',
+  on: over => {
+    drop.classList.toggle('on', over);
+    if (over) { if (!dropPond) dropPond = new KoiPond($('#drop-pond'), { count: 7, size: fishSize(), opacity: 0.9, flee: 0 }); else dropPond.resize(); }
+  },
+  drop: files => { for (const f of files) tr.upload(f); },
 });
-addEventListener('dragover', e => { if (state === 'shelf') e.preventDefault(); });
-addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; drop.classList.remove('on'); } });
-addEventListener('drop', e => { e.preventDefault(); depth = 0; drop.classList.remove('on'); if (state === 'shelf') for (const f of e.dataTransfer?.files || []) tr.upload(f); });
 
 // ---------- offline: a visible retry countdown ----------
 let retry = 30; setInterval(() => { if (state === 'offline') { retry = retry <= 1 ? 30 : retry - 1; $('#retry-in').textContent = `${retry}s`; } }, 1000);

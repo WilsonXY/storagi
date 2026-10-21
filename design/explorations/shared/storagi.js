@@ -204,6 +204,23 @@ export function toast(message, { action, onAction, ms = 4000, clockFrom } = {}) 
   return { close, el };
 }
 
+// ---------- drag files onto the page ----------
+// Counting dragenter against dragleave goes wrong easily (a drag that leaves the window or is cancelled with Esc may
+// never send its last dragleave, especially inside an iframe), and leaves the drop state stuck on. Instead the drop
+// state follows dragover, which the browser repeats while a drag is over the page: no dragover for 150 ms ends it.
+// Only drags that carry files count.
+export function fileDrop({ enabled = () => true, on, drop }) {
+  let active = false, timer = 0;
+  const files = e => [...(e.dataTransfer?.types || [])].includes('Files');
+  const set = v => { if (v !== active) { active = v; on(v); } };
+  const end = () => { clearTimeout(timer); set(false); };
+  addEventListener('dragenter', e => { if (!files(e) || !enabled()) return; e.preventDefault(); set(true); });
+  addEventListener('dragover', e => { if (!files(e) || !enabled()) return; e.preventDefault(); set(true); clearTimeout(timer); timer = setTimeout(end, 150); });
+  addEventListener('drop', e => { if (!files(e)) return; e.preventDefault(); end(); if (enabled()) drop([...e.dataTransfer.files]); });
+  addEventListener('dragend', end); addEventListener('blur', end);
+  return { end };
+}
+
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 // Koi motion, the owner's switch: 'swim' (default) or 'static' (one still picture). Stored per browser;
 // changes apply live, with no reload, so uploads keep going. The system's reduced-motion setting is not consulted.

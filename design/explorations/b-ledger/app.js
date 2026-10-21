@@ -1,7 +1,7 @@
 // Variant B — Ledger. Keyboard-first: j/k move, x select (shift-x range), d download, # delete, / search,
 // r refresh, u upload, t transfers, ? shortcuts. ASCII lives in the data: expiry countdowns, tick bars,
 // the status line and its throughput history.
-import { NOW, BUDGET, bytes, rate, duration, finishAt, clock, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc } from '../shared/storagi.js';
+import { NOW, BUDGET, bytes, rate, duration, finishAt, clock, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc , fileDrop } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader, blocks } from '../shared/koi.js';
 
 const GiB = 1024 ** 3, MiB = 1024 ** 2, HOUR = 3_600_000, DAY = 86_400_000;
@@ -425,12 +425,14 @@ function addUploads(files) {
   for (const f of files) S.transfers.upload({ name: f.name, size: Math.max(f.size, 1) });
   S.toggleDrawer(true);
 }
-let dragDepth = 0;
-addEventListener('dragenter', e => { if (!S?.transfers) return; e.preventDefault(); if (dragDepth++ === 0) { document.body.classList.add('dropping'); const h = document.createElement('div'); h.className = 'drop-hint'; h.textContent = 'drop to upload · one at a time'; document.body.append(h); } });
-addEventListener('dragover', e => { if (S?.transfers) e.preventDefault(); });
-addEventListener('dragleave', () => { if (--dragDepth <= 0) endDrag(); });
-addEventListener('drop', e => { e.preventDefault(); endDrag(); addUploads([...(e.dataTransfer?.files || [])]); });
-function endDrag() { dragDepth = 0; document.body.classList.remove('dropping'); document.querySelector('.drop-hint')?.remove(); }
+fileDrop({
+  enabled: () => !!S?.transfers,
+  on: over => {
+    document.body.classList.toggle('dropping', over); document.querySelector('.drop-hint')?.remove();
+    if (over) { const h = document.createElement('div'); h.className = 'drop-hint'; h.textContent = 'drop to upload · one at a time'; document.body.append(h); }
+  },
+  drop: addUploads,
+});
 addEventListener('resize', () => { if (S?.files && S.name !== 'offline') renderRows(); syncDock(); });
 
 // Open on the session check, then the shelf — the loader is part of the first impression.
