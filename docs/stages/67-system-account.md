@@ -1,6 +1,6 @@
 # 67: Dedicated `storagi` system account, sandboxed unit and root deploy helper
 
-- Status: completed on branch; independent review in stage68 onward. Nothing migrated, deployed, tagged or merged.
+- Status: completed on branch; review68 FAIL (3 P1, fixed), review69 PASS. Nothing migrated, deployed, tagged or merged.
 - Date: 2026-10-22, Asia/Kuala_Lumpur.
 - Coordinator thread: [deployment safety](t3-thread://v1/6b27b52f-7f18-4dd5-8543-2af3e102c844). This stage: [system account](t3-thread://v1/mcp:58c7c620-37f5-4e62-b396-2997a42059c3), owner of stages 67 onward.
 - Provider/model/effort: Anthropic Claude Opus 5.5 (`claude-opus-5-5`), effort high, from the T3 thread configuration.
