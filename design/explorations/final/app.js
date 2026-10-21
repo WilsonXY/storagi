@@ -318,6 +318,11 @@ $('#koi-switch').addEventListener('click', () => { setMotionPref(motionPref() ==
 // only real view links: #app carries data-view (the current view) too
 document.addEventListener('click', e => { const v = e.target.closest('a[data-view], button[data-view]'); if (!v) return; e.preventDefault(); showView(v.dataset.view); closeSheet(); });
 
+// The app name goes back to the main page: the Inbox, at the top.
+document.addEventListener('click', e => {
+  const b = e.target.closest('.brand'); if (!b || !['shelf', 'empty', 'offline'].includes(mode)) return;
+  e.preventDefault(); closeSheet(); setTab('inbox'); scrollTo({ top: 0, behavior: 'smooth' });
+});
 function flashPulse() { const p = $('#pulse-line'); p.animate?.([{ background: 'var(--koi-dim)' }, { background: 'var(--surface)' }], { duration: 900 }); }
 document.addEventListener('click', e => {
   // only real tab controls: #app also carries data-tab (the current tab) and must not count as one
