@@ -216,4 +216,3 @@ export function motionPref() { try { return localStorage.getItem(MOTION_KEY) ===
 export function setMotionPref(value) { try { localStorage.setItem(MOTION_KEY, value); } catch {} dispatchEvent(new Event('storagi:motion')); }
 export const reduced = () => motionPref() === 'static';
 export function onMotionChange(fn) { addEventListener('storagi:motion', fn); }
-
