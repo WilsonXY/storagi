@@ -176,11 +176,14 @@ if ! systemctl stop "$service" || ! wait_for 60 stopped; then
     manual "could not stop $service, and starting it again did not make it healthy."
   die "could not stop $service; it is healthy again, nothing changed"
 fi
+# Root never opens a path in $data: storagi owns it and could hand it to the caller, who could swap
+# a checked file for a link or FIFO. storagi reads (bounded), root writes the 0600 copy.
+read_as_app() { timeout 300 setpriv --reuid="$app" --regid="$app" --clear-groups -- cat -- "$1" 9<&-; }
 for f in "$db"{,-wal,-shm}; do
   [[ -e $f || -L $f ]] || continue
   [[ -f $f && ! -L $f ]] || die "${f##*/} in $data is not a regular file"
-  install -m 600 "$f" "$backup/"
-  cmp -s "$f" "$backup/${f##*/}" || die "database backup of ${f##*/} does not match"
+  (umask 077 && read_as_app "$f" >"$backup/${f##*/}") || die "could not back up ${f##*/}"
+  read_as_app "$f" | cmp -s - "$backup/${f##*/}" || die "database backup of ${f##*/} does not match"
 done
 ln -sfn "releases/$name" "$opt/current.next"
 mv -T "$opt/current.next" "$opt/current"

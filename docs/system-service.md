@@ -36,7 +36,7 @@ scripts/deploy.sh vX.Y.Z
 2. **Config check.** It does not parse the environment itself. The release's own `loadConfig` runs as `storagi` in a transient sandboxed unit (`systemd-run --uid=storagi`) with the service's `EnvironmentFile`, so systemd decodes the file and the app validates the result exactly as at service start. It prints only the port, the database file (joined as the app's storage does) and the `PUBLIC_ORIGIN` host; on a refusal, only the app's error message. systemd stops a check still running after 60 s (`RuntimeMaxSec`). Because release code prints these values and root uses them, the helper also requires a numeric port, a plain host and exactly `/var/lib/storagi/storagi.sqlite`.
 3. **Copy.** The staging dir is read with the caller's own uid and groups (`setpriv`), piped through `tar`, and written by root with no capabilities, in a sandbox that can write only the new release dir. Links are copied as links and never followed, and a swapped directory can only reach what the caller could already read. The copy is then made read-only and readable, with setuid, setgid and sticky bits cleared. It must contain only root-owned regular files, directories and symlinks, and every symlink must resolve inside the release.
 4. **Release checks.** The copy's own `scripts/verify-release.sh` runs as `storagi`, as at `ExecStartPre`; from here on only root can change the release, so the result still holds at start. The new release's config check must match the running one's (no settings migration). Because the copy takes a moment, it checks for open connections again.
-5. **Cutover.** It stops the service. If it won't stop, it starts it again and exits 1 once the previous release is healthy, or 3 if it isn't. While stopped, it copies `storagi.sqlite` and any `-wal`/`-shm` (regular files only, never objects) to `/var/backups/storagi/<release>/` and compares them. Then it swaps `current` atomically, starts the service and waits up to about 90 s (startup Google discovery may fail and retry after 15 s) for `/` 200, anonymous `/api/session` 401 with the origin host as `Host`, and a main process whose working directory is in the new release. On success it keeps `current`, the previous release and the three newest releases, plus the three newest backups.
+5. **Cutover.** It stops the service. If it won't stop, it starts it again and exits 1 once the previous release is healthy, or 3 if it isn't. While stopped, it copies `storagi.sqlite` and any `-wal`/`-shm` (regular files only, never objects) to `/var/backups/storagi/<release>/` and compares them. The files are read as `storagi` (`setpriv`, bounded by `timeout`), so root never opens a path in `storagi`'s own directory, where a swapped link or FIFO could redirect it. Then it swaps `current` atomically, starts the service and waits up to about 90 s (startup Google discovery may fail and retry after 15 s) for `/` 200, anonymous `/api/session` 401 with the origin host as `Host`, and a main process whose working directory is in the new release. On success it keeps `current`, the previous release and the three newest releases, plus the three newest backups.
 
 Any failure after the stop, including Ctrl-C, TERM or HUP, rolls back: stop, restore the previous `current`, start and check it. Exit 2 means the previous release is healthy again. Exit 3 prints `MANUAL RECOVERY REQUIRED` and any failed step: inspect `systemctl status storagi.service` and `journalctl -u storagi.service` yourself, and never run two app processes on one `DATA_DIR`. The database is never restored automatically, because the new process may already have written to it. Restore a backup only by hand, with the service stopped, and only after deciding that losing later uploads and sessions is acceptable. SIGKILL, a crash or power loss cannot be handled and may leave the service stopped or a partial release behind; check the service and start it or redeploy by hand. Ctrl-C at the terminal during the promote reaches the helper (sudo relays it), and `deploy.sh` then exits with the helper's status.
 
@@ -48,7 +48,7 @@ To roll back by hand, deploy an older tag the same way, for example `scripts/dep
 
 ## Migration from the user service (owner-run)
 
-One session, about 15 minutes, with a few minutes of downtime between steps 5 and 6. Run each step only if the previous one passed. Never print the environment's values. Prerequisites: this change is merged, the checkout is clean at `origin/main`, transfers are idle, and you are at the host's terminal (sudo asks for your password).
+One session, about 15 minutes, with a few minutes of downtime between steps 5 and 6. Run every step in the same bash terminal (later steps use `old`, `rel`, `data` and `old_data_ok` from step 0), and each step only if the previous one passed. Never print the environment's values. Prerequisites: this change is merged, the checkout is clean at `origin/main`, transfers are idle, and you are at the host's terminal (sudo asks for your password).
 
 **0. Preflight.**
 
@@ -59,7 +59,17 @@ rel=$(basename "$(readlink -e "$old/current")") && echo "$rel"            # v1.0
 "$old/current/scripts/verify-release.sh"                                  # verify-release: v1.0.0 … ok
 ss -Htn state established 'sport = :8787'                                 # no output: no open transfers
 id -u storagi 2>&1; ls /opt                                               # no such user; /opt has no storagi
+data=$(sed -n 's/^DATA_DIR="\(.*\)"$/\1/p' "$HOME/.config/storagi/environment")
+# The old data dir: absolute, canonical, not home or above it, holding only Storagi's entries.
+old_data_ok() {
+  [[ $data == /?* && $data == "$(readlink -f -- "$data")" && $data != "$HOME" && $HOME != "$data"/* &&
+    $data != /var/lib/storagi && -f $data/storagi.sqlite &&
+    -z $(ls -A -- "$data" | grep -vxE 'objects|storagi\.sqlite(-wal|-shm)?') ]]
+}
+old_data_ok && echo "old data: $data" || echo "STOP: DATA_DIR missing or not just Storagi data"
 ```
+
+Stop here unless the last line printed `old data: …`. The guards in steps 5 and 9 rely on `old_data_ok`.
 
 **1. Account and directories.**
 
@@ -117,14 +127,12 @@ ss -Htn state established 'sport = :8787'          # no output; otherwise wait a
 systemctl --user stop storagi-user.service
 systemctl --user is-active storagi-user.service    # inactive
 ss -Htln 'sport = :8787'                           # no output: nothing listening
-data=$(sed -n 's/^DATA_DIR="\(.*\)"$/\1/p' "$HOME/.config/storagi/environment") && echo "$data"   # the old absolute data dir
-sudo cp -a "$data/." /var/lib/storagi/
-sudo chown -R storagi:storagi /var/lib/storagi
-sudo chmod 700 /var/lib/storagi
-sudo diff -r "$data" /var/lib/storagi && echo same
+old_data_ok && sudo cp -a "$data/." /var/lib/storagi/ &&
+  sudo chown -R storagi:storagi /var/lib/storagi && sudo chmod 700 /var/lib/storagi &&
+  sudo diff -r "$data" /var/lib/storagi && echo same
 ```
 
-Check: `same`; `sudo find /var/lib/storagi ! -user storagi | head` prints nothing; `sudo stat -c '%U:%G %a' /var/lib/storagi` is `storagi:storagi 700`. If `$data` is empty, stop: the old environment is not in the expected quoted form.
+Check: `same`; `sudo find /var/lib/storagi ! -user storagi | head` prints nothing; `sudo stat -c '%U:%G %a' /var/lib/storagi` is `storagi:storagi 700`.
 
 **6. Switch services.**
 
@@ -169,7 +177,7 @@ rm "$HOME/.config/systemd/user/storagi-user.service"
 systemctl --user daemon-reload
 systemctl --user reset-failed storagi-user.service 2>/dev/null || true
 du -sh "$data" "$HOME/.local/lib/storagi" "$HOME/.config/storagi"    # what goes: old data, old releases, old config
-[[ $data == /* && -d $data && $data != /var/lib/storagi ]] && rm -rf -- "$data"
+old_data_ok && rm -rf -- "$data"
 chmod -R u+w "$HOME/.local/lib/storagi" && rm -rf -- "$HOME/.local/lib/storagi"
 rm -rf -- "$HOME/.config/storagi"
 ```

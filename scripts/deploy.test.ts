@@ -280,7 +280,10 @@ test('deploys a tag: caller build, root promote, stamped read-only release, back
   assert.ok(readFileSync(`${f.state}/npm.log`, 'utf8').split('\n').includes(`prune --omit=dev in ${staging}/server`));
   assert.deepEqual(readdirSync(f.stagingRoot), []);
   assert.equal(f.log('sudo.log'), `/usr/local/sbin/storagi-promote ${staging}\n`);
-  assert.equal(f.log('setpriv.log'), `--reuid=${uid} --regid=${gid} --clear-groups -- tar -C ${staging} -cf - .\n`);
+  // The staging dir is read as the caller; the database files only as storagi (read, then compared).
+  const asStoragi = (file: string) => `--reuid=storagi --regid=storagi --clear-groups -- cat -- ${f.data}/${file}\n`;
+  assert.equal(f.log('setpriv.log'), `--reuid=${uid} --regid=${gid} --clear-groups -- tar -C ${staging} -cf - .\n` +
+    ['storagi.sqlite', 'storagi.sqlite-wal'].map(file => asStoragi(file).repeat(2)).join(''));
   // Owner-owned (root when installed), read-only, readable, no setuid bits; dev dependencies gone.
   assert.equal(lstatSync(release).mode & 0o7777, 0o555);
   assert.equal(lstatSync(`${release}/server/dist/src/main.js`).mode & 0o7777, 0o444);
