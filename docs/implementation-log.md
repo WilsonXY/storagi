@@ -86,7 +86,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 49 | CI hardening, Dependabot and dev-only vitest advisory fix | Coordinator | Completed; checks pass, server timing tests flaky under host load | [49](stages/49-ci-hardening.md) |
 | 50 | Scripted tag deploy, release stamp and start-time verification | Distinct implementation task, actual claude-opus-5-5/high confirmed | Completed on branch; deploy 24/24 incl. coordinator origin-tag gate, nothing deployed | [50](stages/50-scripted-deploy.md) |
 | 51 | Independent CI hardening review | Fresh Codex gpt-6.1-sol/high confirmed | PASS; no findings, invariance/cleanup passed | [51](stages/51-ci-hardening-review.md) |
-| 52 | Independent scripted deploy review | Fresh read-only reviewer | In progress | [52](stages/52-scripted-deploy-review.md) |
+| 52 | Independent scripted deploy review | Fresh Codex gpt-6.1-sol/high confirmed | FAIL; 4 P1 + 1 P2 accepted for53, invariance/cleanup passed | [52](stages/52-scripted-deploy-review.md) |
+| 53 | Fix deploy health Host, fail-closed sockets, late idle check, stop and rollback failures | Distinct fix task | In progress | [53](stages/53-deploy-review-fixes.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

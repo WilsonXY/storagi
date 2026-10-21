@@ -27,3 +27,5 @@ Owner asked for a CI/CD and deployment safety check against Bokli's laptop-era d
 ## Handoff
 
 Stage49 CI hardening, stage50 scripted deploy, reviews51/52. Ruleset application and the dedicated-account decision are owner actions.
+
+Owner applied both rulesets by import (2026-10-21). Agent-account read: `Protect main` active on `~DEFAULT_BRANCH` (deletion, non_fast_forward, pull_request with 0 approvals, required status `check`), `Protect release tags` active on `refs/tags/v*` (creation, deletion, non_fast_forward); `main` reports `protected: true`; `current_user_can_bypass` is `never` for the agent on both. No test tag was pushed (a misconfigured rule would have created a real tag).
