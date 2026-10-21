@@ -13,7 +13,7 @@ npm run setup
 npm run check
 ```
 
-The check runs service/dashboard tests, independent HTTP acceptance and review regressions, both TypeScript checks and builds sequentially. No separate lint is configured. Current stage16 reports: server 31/31, web 19/19, independent API 6/6, independent review-fix HTTP 5/5; coordinator repeated the final combined command successfully (61 reported tests, exit 0); current log/commands are in stage16; stage04 preserves the earlier55-test evidence.
+The check runs service/dashboard tests, independent HTTP acceptance and review regressions, deploy-script tests (stage50), both TypeScript checks and builds sequentially. No separate lint is configured. Current stage16 reports: server 31/31, web 19/19, independent API 6/6, independent review-fix HTTP 5/5; coordinator repeated the final combined command successfully (61 reported tests, exit 0); current log/commands are in stage16; stage04 preserves the earlier55-test evidence.
 
 The independent HTTP suites use isolated storage and a signed synthetic OIDC provider with the actual verifier. They cover anonymous/forged endpoint sweeps, owner restriction, cryptographic/CSRF/Host/Origin boundaries, flooding/tampering/replay/expiry, quota, half-open takeover, restart integrity, ranges/validators, Unicode and deletion/expiry with open descriptors still counted in quota. They add no production authentication bypass.
 

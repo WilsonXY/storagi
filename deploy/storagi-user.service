@@ -8,6 +8,8 @@ StartLimitIntervalSec=0
 Type=exec
 WorkingDirectory=%h/.local/lib/storagi/current/server
 EnvironmentFile=%h/.config/storagi/environment
+# Refuse to start a release that scripts/deploy.sh did not stamp or that changed since.
+ExecStartPre=%h/.local/lib/storagi/current/scripts/verify-release.sh
 ExecStart=/usr/bin/node %h/.local/lib/storagi/current/server/dist/src/main.js
 Restart=on-failure
 RestartSec=15s

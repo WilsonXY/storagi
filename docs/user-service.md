@@ -13,7 +13,9 @@ $HOME/.local/lib/storagi/
   releases/<unique-release>/
     server/package.json, package-lock.json, dist/, node_modules/
     web/dist/
+    BUILD_MANIFEST, scripts/verify-release.sh   (scripted releases only)
   current -> releases/<unique-release>
+  backups/<release>/                     (database copies from scripted deploys)
 $HOME/.config/storagi/environment       (existing private configuration)
 existing absolute DATA_DIR             (separate persistent owner data)
 ```
@@ -59,11 +61,12 @@ This native check validates directives/dependencies and the `/usr/bin/node` exec
 
 Proceed only after independent service review PASS (stage40; fallback43 after its API limit) and with owner transfers idle. Reconfirm the original exact PID still belongs to this app and the expected loopback port; send `kill -TERM "$original_pid"` only to that verified PID, never `pkill`. Wait for its exit and verify no writer or listener remains before starting the unit. If graceful stop fails, pause and investigate; do not force-kill or launch another writer. Keep the original runtime and private startup procedure available for rollback.
 
-After that clean stop, install only the new user unit (the preflight must have established no conflicting destination):
+After that clean stop, install only the new user unit (the preflight must have established no conflicting destination). A hand-copied first release has no `BUILD_MANIFEST`, so the unit's `ExecStartPre` start-time check would refuse it: install the bootstrap unit without that line, then adopt the release with the first scripted deploy (see below).
 
 ```sh
 install -d -m 700 "$HOME/.config/systemd/user"
-install -m 600 deploy/storagi-user.service "$HOME/.config/systemd/user/storagi-user.service"
+grep -v '^ExecStartPre=' deploy/storagi-user.service |
+  install -m 600 /dev/stdin "$HOME/.config/systemd/user/storagi-user.service"
 systemctl --user daemon-reload
 systemctl --user enable --now storagi-user.service
 systemctl --user is-enabled storagi-user.service
@@ -79,8 +82,27 @@ After readiness, only with owner transfers idle, record `MainPID`/`NRestarts`, r
 
 ## Updates and rollback
 
-Build and validate future source changes in a separate checkout using [setup](setup.md), then copy the matching completed server/dependencies/web output into a fresh versioned release and verify it as above. Never rebuild a live release or serve mutable developer `dist`. Preserve the previous release, unit and unchanged private configuration. A source commit alone does not identify rebuilt dependencies/assets; retain build/hash evidence. Schema-changing updates require their own compatibility/backup plan before activation; old code rollback is not automatically safe after a data-format change.
+Updates are tag deploys. The owner creates a `vX.Y.Z` tag on reviewed `main` (only the owner can create `v*` tags). Then the owner or an agent runs, from a clean checkout of `main` with the service owner's Node and npm:
 
-For an ordinary compatible update, with transfers idle, `systemctl --user stop storagi-user.service`; confirm exit, port clearance and store exclusivity. Privately save `readlink "$runtime_root/current"`. Create a fresh sibling symlink (`ln -s "releases/$release_id" "$runtime_root/current.next"`, only if that name is absent), then atomically replace the pointer (`mv -T -- "$runtime_root/current.next" "$runtime_root/current"`). Start the unit and repeat readiness/preservation checks. Stop before changing the pointer so server modules and static files cannot straddle releases. Retain the previous release until acceptance completes.
+```sh
+export TMPDIR="$HOME/.cache/storagi/tmp"
+scripts/deploy.sh vX.Y.Z
+```
 
-If first activation fails, `systemctl --user disable --now storagi-user.service`, confirm its processes/listener have exited, then restore only the original app using its privately recorded exact startup procedure/environment. If an update fails, stop the unit, confirm exclusivity, atomically restore a fresh symlink to the recorded previous release and start/check it. Never run old and new app processes together, change `DATA_DIR`, delete owner objects/sessions, reset networking or remove rollback artifacts to fix startup. A failed stop blocks rollback startup too. Report service/enablement state and remaining failures honestly. Boot autostart is owner-accepted as working with the physical reboot test waived; distinguish that acceptance from an observed reboot result.
+[`scripts/deploy.sh`](../scripts/deploy.sh) derives every path from `$HOME` (runtime above, the private environment and `"$HOME/.config/systemd/user/storagi-user.service"`). It refuses, changing nothing, unless the argument is `vX.Y.Z`; `git status` succeeds and shows no tracked changes in the checkout and, after `git fetch origin --tags`, its HEAD is `origin/main`; the tag's commit is on `origin/main`; no other deploy holds `.deploy.lock`; `current` points into `releases/`; the unit is installed; the environment is mode 0600 and the app accepts it; the app's `DATA_DIR` holds `storagi.sqlite`; and no connection to the loopback port is open (an `ss` failure counts as open). The script does not parse the environment itself. It asks the running release's own config check (`loadConfig` in `server/dist/src/config.js`, run with the installed unit's Node) for the port, the database file (joined exactly as the app's storage does) and the `PUBLIC_ORIGIN` host. The check runs in a transient unit (`systemd-run --user --pipe --wait`) with the service's `EnvironmentFile`, so systemd decodes the file and the app validates the result exactly as at service start. Only those three values are printed; on a refusal, only the app's error message. If the app would refuse to start, the deploy refuses before anything stops. The health checks send that host as the `Host` header, because the app answers 400 to any other host. Tailscale keep-alive connections close a few minutes after the last request, so retry later if it reports open connections.
+
+It builds a fresh `releases/<tag>-<short sha>-<UTC time>` from `git archive` of the tag, runs `npm run setup` and `npm run check` there (the same check as CI), prunes server dev dependencies, removes `web/node_modules`, loads the native SQLite binding with the unit's `/usr/bin/node`, writes `BUILD_MANIFEST` (tag, commit, build time, deployer, Node version, content hash) and makes the release read-only. It then runs the new release's config check the same way. If the new release would resolve a different port, data folder or host, it refuses: settings are never migrated by a deploy. The server only writes `DATA_DIR`. Because the build takes minutes, it checks again for open connections just before the stop. Any failure or refusal up to here removes the new release and exits 1 with production untouched.
+
+Cutover: stop the service. If it won't stop, the script starts it again and exits 1 once the previous release is healthy, or 3 (`MANUAL RECOVERY REQUIRED`) if it isn't. While stopped, it copies `storagi.sqlite` and any `-wal`/`-shm` (never objects) to `backups/<release>/` (0700 directory, 0600 files, compared after copying) next to a copy of the installed unit. Then it installs the release's unit, runs `daemon-reload`, atomically swaps `current` (`current.next` then `mv -T`), starts the service and waits up to about 90 seconds (startup Google discovery may fail and retry after 15 seconds) for `/` 200, anonymous `/api/session` 401 and a main process running from the new release. On success it keeps `current`, the previous release and at most the three newest releases, plus the three newest backups.
+
+Any failure after the stop, including Ctrl-C, TERM or HUP, rolls back (signals are ignored once the restart after a failed stop or the rollback begins). SIGKILL, a crash of the script or power loss cannot be handled and may leave the service stopped or a partial release behind: check `systemctl --user status storagi-user.service` and start or redeploy by hand. The rollback: stop, restore the previous `current` and unit, `daemon-reload`, start and check the previous release. Exit 2 means every restore step succeeded and the previous release is healthy again. Exit 3 prints `MANUAL RECOVERY REQUIRED` and any failed restore step, even if the service answers: inspect the service and journal yourself and never run two app processes on one `DATA_DIR`. The database is never restored automatically, because the new process may already have written to it; the script prints the backup path. Restore a backup only by hand, with the service stopped, and only after deciding that losing later uploads and sessions is acceptable.
+
+**Start-time check.** The unit's `ExecStartPre` runs [`scripts/verify-release.sh`](../scripts/verify-release.sh) from the release `current` points to. It refuses to start unless that release has a complete `BUILD_MANIFEST` written by `scripts/deploy.sh`, its server and web files and symlink targets still match the recorded `CONTENT_SHA256`, and every symlink there resolves inside the release (the deploy refuses a build that makes one leaving it). A link to a file inside the release but outside those server and web paths is checked by target name only, not content. Crash restarts re-run it, so such a release keeps failing every 15 seconds until it is fixed or redeployed. It catches accidental changes, not deliberate ones: anyone who can write the release can also rewrite the manifest, and `scripts/` and `BUILD_MANIFEST` themselves are not hashed. Run it by hand with `"$HOME/.local/lib/storagi/current/scripts/verify-release.sh"`.
+
+**Adopting the running release.** The release active since [stage41](stages/41-service-activation.md) was hand-copied: it has no manifest or scripts, and its installed unit has no `ExecStartPre`. The first scripted deploy is the adoption. It installs the new unit together with its stamped release, so the start-time check never meets the unstamped release. If that deploy rolls back, the old unit and the hand-copied release come back together. Do not install the new unit by hand before then.
+
+**Manual rollback.** Deploy an older tag with the same command from `main`, for example `scripts/deploy.sh v1.2.2`. It goes through the same gates, build, check and backup. Only tags that contain `scripts/verify-release.sh` can be deployed. Database backups stay in `"$HOME/.local/lib/storagi/backups/"`.
+
+Storagi has no schema migrations. A future data-format change needs its own compatibility and backup plan before it is tagged, because running older code on newer data is not automatically safe.
+
+If a first manual activation fails, `systemctl --user disable --now storagi-user.service`, confirm its processes and listener have exited, then restore only the original app using its privately recorded startup procedure. Never change `DATA_DIR`, delete owner objects or sessions, reset networking or remove rollback artifacts to fix startup. Boot autostart is owner-accepted as working with the physical reboot test waived; distinguish that acceptance from an observed reboot result.
