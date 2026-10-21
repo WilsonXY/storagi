@@ -56,6 +56,11 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 - Shared-helper bugs reported by the forks and fixed by the coordinator: koi colour patches clipped outside the slimmed body; `KoiPond`/`KoiMark` throwing on zero-size canvases and never stopping (guards and `destroy()` added); finish times on the real clock instead of the sample clock (`simNow()`); times shown in the browser's zone instead of UTC+8; `daysLeft` rounding up; `font` shorthands dropping tabular figures. Fork-local workarounds remain in place and still work.
 - Remaining weaknesses named by the forks: an empty throughput history for the first seconds (A seeds it), the prototype state bar can cover the last row, truncation of long names at 768px in B, the drawn koi stand-in.
 
+## Owner decisions (2026-10-21)
+
+- Koi motion: "i want them to swim anyway", with a toggle if not too costly. Implemented as one stored preference in `shared/storagi.js` (`storagi.motion`): `always` (default) swims regardless of `prefers-reduced-motion`; `system` follows it. The pond, stippled mark, loader and variant C's crossing read it and switch live without a reload. Prototypes show it as "Koi: swim / system" in the state bar; in the app it belongs in the account menu. Checked in all four variants with the browser set to reduced motion: moving by default, still on `system`, moving again after switching back. CSS micro-transitions still follow the system setting.
+- Accent: keep the koi red-orange alongside the grayscale mark.
+
 ## Handoff
 
 The owner picks a direction (or a mix); a later stage ports it into `web/` with tests.

@@ -3,8 +3,10 @@
 //   KoiMark  — a stippled koi whose dots run from the cursor and spring home (after Emil Kowalski's dithered Linear icon).
 //   orbitLoader — a tick ring with a solid ring passing through it (after Emil Kowalski's loader).
 //   blocks   — a one-line ASCII bar chart for throughput history.
+// Motion follows the owner's koi setting in storagi.js (swim always by default, or follow the system).
+import { reduced, onMotionChange, mountMotionToggle } from './storagi.js';
 // Each fish is painted as flat shapes into a small offscreen canvas, then read back one cell at a time and
-// re-drawn as a character whose density follows the coverage. Reduced motion draws one still frame.
+// re-drawn as a character whose density follows the coverage. When motion is reduced (the owner's setting allows it) the koi are drawn as one still frame.
 
 const RAMP = ' .·:;-=+oxsSX%8@';
 const PALETTE = { white: [236, 232, 225], koi: [255, 91, 53], sumi: [70, 70, 74], gold: [242, 179, 61] };
@@ -77,13 +79,14 @@ export class KoiPond {
     const host = this.o.pointerTarget || window;
     host.addEventListener('pointermove', e => { const r = this.c.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
     host.addEventListener('pointerleave', () => (this.mouse = null));
-    this.still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.still = reduced();
     // A pond made while its screen is hidden has no size yet: seed the fish, and in reduced motion paint the
     // still frame, whenever the canvas gets a size, not only at construction.
     new ResizeObserver(() => { if (this.dead) return; this.resize(); if (this.still) this.paintStill(); }).observe(canvas);
-    if (this.still) this.paintStill();
-    else requestAnimationFrame(t => this.loop(t));
+    onMotionChange(() => { this.still = reduced(); this.still ? this.paintStill() : this.start(); });
+    this.still ? this.paintStill() : this.start();
   }
+  start() { if (this.running || this.dead) return; this.running = true; this.last = 0; requestAnimationFrame(t => this.loop(t)); }
   seed() { if (this.seeded || !this.w) return; this.seeded = true; for (let i = 0; i < this.o.count; i++) this.spawn(i, true); }
   paintStill() { if (!this.w) return; if (!this.seeded) { this.seed(); for (let i = 0; i < 40; i++) this.step(0.05); } this.draw(); }
   destroy() { this.dead = true; this.ctx.clearRect(0, 0, this.w || 0, this.h || 0);
@@ -125,8 +128,8 @@ export class KoiPond {
     for (const t of this.trail) t.age += dt; this.trail = this.trail.filter(t => t.age < 2.4);
   }
   loop(t) {
-    const dt = Math.min(0.05, (t - this.last) / 1000 || 0.016); this.last = t;
-    if (this.dead) return;
+    const dt = this.last ? Math.min(0.05, (t - this.last) / 1000) : 0.016; this.last = t;
+    if (this.dead || this.still) { this.running = false; return; }
     if (!this.w) this.resize();
     this.seed();
     if (this.w && document.visibilityState === 'visible') { this.step(dt); this.draw(); }
@@ -186,9 +189,12 @@ export class KoiMark {
     this.mouse = null; this.t = 0;
     canvas.addEventListener('pointermove', e => { const r = canvas.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
     canvas.addEventListener('pointerleave', () => (this.mouse = null));
-    this.still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.still = reduced();
     this.build(); new ResizeObserver(() => { if (!this.dead) { this.build(); if (this.still) this.draw(); } }).observe(canvas);
-    if (this.still) this.draw(); else requestAnimationFrame(() => this.loop());
+    onMotionChange(() => { this.still = reduced(); this.still ? this.draw() : this.start(); });
+    this.still ? this.draw() : this.start();
+  }
+  start() { if (this.running || this.dead) return; this.running = true; requestAnimationFrame(() => this.loop());
   }
   build() {
     const r = this.c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
@@ -217,7 +223,7 @@ export class KoiMark {
     this.dots = dots;
   }
   loop() {
-    if (this.dead) return;
+    if (this.dead || this.still) { this.running = false; return; }
     if (!this.w) this.build();
     if (this.w && document.visibilityState === 'visible') { this.t += 1 / 60; this.step(); this.draw(); }
     requestAnimationFrame(() => this.loop());
@@ -249,7 +255,7 @@ export function orbitLoader(size = 40, { color = 'var(--koi)' } = {}) {
     svg.append(l); ticks.push([a, l]);
   }
   const ring = document.createElementNS(ns, 'circle'); ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', 'currentColor'); ring.setAttribute('stroke-width', 5.5); svg.append(ring);
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches; let t0 = performance.now();
+  const still = reduced(); let t0 = performance.now();
   function frame(now) {
     if (!svg.isConnected && now - t0 > 2000) return;
     const t = ((now - t0) / 1500) % 1, e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
@@ -268,3 +274,5 @@ export function blocks(values, width, max) {
 }
 // A braille spinner for inline "working" states.
 export function brailleSpinner(el) { const g = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'; let i = 0; const t = setInterval(() => { if (!el.isConnected) return clearInterval(t); el.textContent = g[i++ % g.length]; }, 80); }
+
+mountMotionToggle();

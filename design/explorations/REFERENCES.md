@@ -24,4 +24,6 @@ Each post was read through its video frames, not its caption. Frames and notes s
 
 **Auto-refresh.** Poll `GET /api/files` every 60 s while the tab is visible, at once when the tab becomes visible again after more than 10 s, and after each finished upload; never while hidden. Keep the old list on screen during a refresh and show "Updated 12s ago · next in 48s" with a manual refresh. A later step could replace polling with server-sent events from the service.
 
-**Favicon.** The koi favicon was not found in the repository on any branch, so the prototypes use the drawn `KoiMark` as a stand-in. Put the owner's file at `web/public/favicon.svg` (and send it for the prototypes) to replace it.
+**Koi motion.** The koi swim by default even when the OS asks for reduced motion (owner's choice). A per-browser setting, "Follow system setting", restores the reduced-motion behaviour; it applies live so uploads are not interrupted.
+
+**Favicon.** The owner's grayscale kohaku curl is in `shared/brand/` and `web/public/favicon.svg`. The `.ico`, PNG and touch icons need `server/src/static.ts` to allow them before production serves them.

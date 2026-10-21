@@ -203,4 +203,23 @@ export function toast(message, { action, onAction, ms = 4000, clockFrom } = {}) 
 }
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-export const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Koi motion. The owner's default is 'always': the koi swim even when the OS asks for reduced motion.
+// 'system' follows prefers-reduced-motion. Stored per browser; changes apply live (no reload, so uploads keep going).
+const MOTION_KEY = 'storagi.motion';
+const systemReduced = matchMedia('(prefers-reduced-motion: reduce)');
+export function motionPref() { try { return localStorage.getItem(MOTION_KEY) === 'system' ? 'system' : 'always'; } catch { return 'always'; } }
+export function setMotionPref(value) { try { localStorage.setItem(MOTION_KEY, value); } catch {} dispatchEvent(new Event('storagi:motion')); }
+export const reduced = () => motionPref() === 'system' && systemReduced.matches;
+export function onMotionChange(fn) { addEventListener('storagi:motion', fn); systemReduced.addEventListener('change', fn); }
+
+// Prototype only: a "Koi" switch appended to each variant's state bar. In the app it is a row in the account menu.
+export function mountMotionToggle() {
+  const add = () => document.querySelectorAll('.proto').forEach(bar => {
+    if (bar.querySelector('[data-motion]')) return;
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.motion = '';
+    const paint = () => { const always = motionPref() === 'always'; b.textContent = always ? 'Koi: swim' : 'Koi: system'; b.title = always ? 'Koi always swim. Click to follow the system reduced-motion setting.' : 'Following the system reduced-motion setting. Click to always swim.'; };
+    b.addEventListener('click', () => { setMotionPref(motionPref() === 'always' ? 'system' : 'always'); });
+    addEventListener('storagi:motion', paint); paint(); bar.append(b);
+  });
+  add(); new MutationObserver(add).observe(document.body, { childList: true, subtree: true });
+}
