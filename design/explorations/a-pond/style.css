@@ -263,7 +263,7 @@
   .lede { font-size: 22px; }
   .composer { padding: 14px 10px 10px 14px; }
   .composer-text { padding-bottom: 14px; font-size: 14px; }
-  .composer-hint, .composer .kbd { display: none; }
+  .composer-hint { display: none; }
   .composer-row { justify-content: stretch; }
   .composer .btn { flex: 1; height: 44px; font-size: 14px; }
   .tabs button { flex: 1; height: 44px; }

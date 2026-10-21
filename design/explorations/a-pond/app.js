@@ -197,7 +197,9 @@ function renderTransfers() {
   const mu = Math.max(1, ...pts.map(p => p.up)), md = Math.max(1, ...pts.map(p => p.down));
   pre.textContent = columns(pick('up'), width, mu, 3, false); $('#chart-down').textContent = columns(pick('down'), width, md, 2, true);
   $('#chart-base').textContent = '─'.repeat(width);
-  $('#chart-max').textContent = pts.length ? `peak ↑ ${rate(mu)} · ↓ ${rate(md)}` : '';
+  // a direction with no traffic in the window shows a dash, not the 1 B/s scale floor
+  const peak = k => pts.some(p => p[k] > 0) ? rate(k === 'up' ? mu : md) : '—';
+  $('#chart-max').textContent = pts.length ? `peak ↑ ${peak('up')} · ↓ ${peak('down')}` : '';
   const qe = tr.queueEta('up'), de = tr.queueEta('down'), queued = tr.items.filter(t => t.dir === 'up' && t.state === 'queued').length;
   const rowsEta = [];
   if (tr.items.some(t => t.dir === 'up' && ['queued', 'uploading'].includes(t.state))) rowsEta.push(['Uploads, est.', isFinite(qe) ? `<b>${finishAt(qe)}</b> · ${duration(qe)}` : 'measuring…', queued ? `${queued} more queued` : '']);
