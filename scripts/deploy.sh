@@ -70,7 +70,8 @@ trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
 [[ $# -eq 1 && $1 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "usage: scripts/deploy.sh vX.Y.Z"
 tag=$1
 repo=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-[[ -z $(git -C "$repo" status --porcelain --untracked-files=no) ]] || die "checkout has tracked changes"
+status=$(git -C "$repo" status --porcelain --untracked-files=no) || die "git status failed in the checkout"
+[[ -z $status ]] || die "checkout has tracked changes"
 git -C "$repo" fetch --quiet origin --tags
 [[ $(git -C "$repo" rev-parse HEAD) == $(git -C "$repo" rev-parse origin/main) ]] || die "checkout HEAD is not origin/main"
 commit=$(git -C "$repo" rev-parse --verify --quiet "refs/tags/$tag^{commit}") || die "tag $tag not found"
@@ -88,24 +89,30 @@ prev_target=$(readlink "$root/current")
 [[ -f $unit ]] || die "no installed unit at $unit"
 [[ -f $env_file && $(stat -c %a "$env_file") == 600 ]] || die "environment $env_file missing or not mode 600"
 # Plain-text reads of three keys only: never source the file or print other values.
-# Like systemd, drop one pair of matching surrounding quotes (the live file quotes every value).
+# Like systemd, drop one pair of matching surrounding quotes (the live file quotes every value),
+# then trim spaces and tabs like config.ts. Backslashes refuse: systemd would decode escapes.
 env_value() {
   local v
   v=$(sed -n "s/^$1=//p" "$env_file" | tail -n 1)
   [[ $v =~ ^\"(.*)\"$ || $v =~ ^\'(.*)\'$ ]] && v=${BASH_REMATCH[1]}
-  printf '%s' "$v"
+  [[ $v != *\\* ]] || die "$1 in the environment contains a backslash"
+  v=${v#"${v%%[![:blank:]]*}"}
+  printf '%s' "${v%"${v##*[![:blank:]]}"}"
 }
-port=$(env_value PORT)
-port=${port:-8787}
+# Like config.ts: absent PORT is 8787, present must be 1-65535 (empty refuses).
+port=8787
+grep -q '^PORT=' "$env_file" && port=$(env_value PORT)
 data_dir=$(env_value DATA_DIR)
 public_origin=$(env_value PUBLIC_ORIGIN)
-[[ $port =~ ^[0-9]+$ ]] || die "PORT in the environment is not a number"
+[[ $port =~ ^[0-9]{1,5}$ ]] || port=0
+port=$((10#$port))
+((port >= 1 && port <= 65535)) || die "PORT in the environment is not 1-65535"
 [[ $public_origin =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || die "PUBLIC_ORIGIN in the environment is not https://host[:port]"
 # Same as WHATWG URL .host: lowercase, default port dropped.
 authority=${public_origin#https://}
 authority=${authority,,}
 authority=${authority%:443}
-[[ -f $data_dir/storagi.sqlite ]] || die "no storagi.sqlite in DATA_DIR from the environment"
+[[ $data_dir == /* && -f $data_dir/storagi.sqlite ]] || die "no storagi.sqlite in DATA_DIR from the environment"
 idle || die "open connections to 127.0.0.1:$port (or ss failed); wait for transfers to finish (idle keep-alives close within minutes)"
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 name=$tag-$(git -C "$repo" rev-parse --short "$commit")-${built_at//[-:]/}
@@ -124,13 +131,14 @@ rm -rf "$release/web/node_modules"
 # The node the unit runs must load the native SQLite binding.
 node=$(sed -n 's/^ExecStart=\([^ ]*\) .*/\1/p' "$release/deploy/storagi-user.service")
 (cd "$release/server" && "$node" -e "new (require('better-sqlite3'))(':memory:').prepare('select 1').get()")
+hash=$("$release/scripts/verify-release.sh" --print-hash "$release")
 cat >"$release/BUILD_MANIFEST" <<EOF
 TAG=$tag
 COMMIT=$commit
 BUILT_AT=$built_at
 DEPLOYED_BY=scripts/deploy.sh
 NODE=$("$node" --version)
-CONTENT_SHA256=$("$release/scripts/verify-release.sh" --print-hash "$release")
+CONTENT_SHA256=$hash
 EOF
 chmod -R a-w "$release"
 "$release/scripts/verify-release.sh"
@@ -144,8 +152,8 @@ install -m 600 "$unit" "$backup/storagi-user.service"
 echo "deploy: stopping $service"
 phase=cutover
 if ! systemctl --user stop "$service" || ! wait_for 60 stopped; then
-  phase=
   trap '' HUP INT TERM
+  phase=
   { systemctl --user start "$service" && wait_for 90 healthy "$prev"; } ||
     manual "could not stop $service, and starting it again did not make it healthy."
   die "could not stop $service; it is healthy again, nothing changed"

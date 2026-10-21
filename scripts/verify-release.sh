@@ -6,9 +6,14 @@ set -euo pipefail
 die() { echo "verify-release: $*" >&2; exit 1; }
 
 # One sha256 over sorted relative paths with file hashes, and symlinks by target.
+# Every symlink must resolve inside the release: content behind an outside or dangling link is not hashed.
 content_hash() {
-  local paths=(server/dist server/node_modules server/package.json server/package-lock.json web/dist) p
+  local paths=(server/dist server/node_modules server/package.json server/package-lock.json web/dist) p top
   for p in "${paths[@]}"; do [[ -e $p ]] || die "missing $p"; done
+  top=$(pwd -P)
+  while IFS= read -r -d '' p; do
+    [[ $(readlink -e -- "$p") == "$top"/* ]] || die "symlink $p points outside the release or is dangling"
+  done < <(find "${paths[@]}" -type l -print0)
   {
     find "${paths[@]}" -type f -print0 | LC_ALL=C sort -z | xargs -0r sha256sum --
     find "${paths[@]}" -type l -printf '%p -> %l\n' | LC_ALL=C sort

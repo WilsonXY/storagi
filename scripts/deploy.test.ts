@@ -35,6 +35,7 @@ before(() => {
     'echo "module.exports = class { prepare() { return { get: () => 1 }; } };" > server/node_modules/better-sqlite3/index.js',
     'ln -sfn ../better-sqlite3/index.js server/node_modules/.bin/fake',
     'echo "<!doctype html>" > web/dist/index.html',
+    '[ ! -f "$STATE/external-link" ] || ln -s "$STATE/external-link" server/dist/src/main.js.map',
     'echo dev > web/node_modules/vite/index.js', ''].join('\n'));
   write(`${src}/server/package.json`, '{"name":"fixture-server"}\n');
   write(`${src}/server/package-lock.json`, '{"lockfileVersion":3}\n');
@@ -120,7 +121,7 @@ exec ${JSON.stringify(realNpm)} "$@"
     return { status: r.status, out };
   };
   return {
-    dir, home, state, clone, root, unit, data,
+    dir, home, state, clone, root, unit, data, env,
     run: (...args: string[]) => { const r = spawnSync(`${clone}/scripts/deploy.sh`, args, { env, encoding: 'utf8' }); if (r.error) throw r.error; return finish(r); },
     runAsync: (...args: string[]) => new Promise<{ status: number | null; out: string }>(resolve => {
       const child = spawn(`${clone}/scripts/deploy.sh`, args, { env });
@@ -210,8 +211,17 @@ test('deploys a tag: stamped read-only release, new unit, backup, pruning', { ti
   const copy = (label: string) => { const c = `${f.dir}/${label}`; cpSync(release, c, { recursive: true, verbatimSymlinks: true }); sh(f.dir, `chmod -R u+w '${c}'`); return c; };
   const tampered = copy('tampered'); writeFileSync(`${tampered}/server/dist/src/main.js`, 'evil\n');
   let bad = f.verify(tampered); assert.notEqual(bad.status, 0); assert.match(bad.stderr, /CONTENT_SHA256/);
-  const relinked = copy('relinked'); unlinkSync(`${relinked}/server/node_modules/.bin/fake`); symlinkSync('/etc/passwd', `${relinked}/server/node_modules/.bin/fake`);
+  const relink = (label: string, target: string) => { const c = copy(label); unlinkSync(`${c}/server/node_modules/.bin/fake`); symlinkSync(target, `${c}/server/node_modules/.bin/fake`); return c; };
+  const relinked = relink('relinked', '../better-sqlite3/../better-sqlite3/index.js');
   bad = f.verify(release, relinked); assert.notEqual(bad.status, 0); assert.match(bad.stderr, /CONTENT_SHA256/);
+  // A link leaving the release, or dangling, fails even when the manifest was stamped with it.
+  for (const target of [`${f.dir}/outside`, 'missing']) {
+    writeFileSync(`${f.dir}/outside`, 'outside\n');
+    const linked = relink(`link-${target.length}`, target);
+    const hash = f.verify(release, '--print-hash', linked).stdout.trim();
+    if (hash) writeFileSync(`${linked}/BUILD_MANIFEST`, readFileSync(`${linked}/BUILD_MANIFEST`, 'utf8').replace(/^CONTENT_SHA256=.*$/m, `CONTENT_SHA256=${hash}`));
+    bad = f.verify(release, linked); assert.notEqual(bad.status, 0, target); assert.match(bad.stderr, /outside the release/);
+  }
   const unstamped = copy('unstamped'); unlinkSync(`${unstamped}/BUILD_MANIFEST`);
   bad = f.verify(release, unstamped); assert.notEqual(bad.status, 0); assert.match(bad.stderr, /BUILD_MANIFEST/);
   const foreign = copy('foreign'); writeFileSync(`${foreign}/BUILD_MANIFEST`, readFileSync(`${foreign}/BUILD_MANIFEST`, 'utf8').replace('DEPLOYED_BY=scripts/deploy.sh', 'DEPLOYED_BY=manual'));
@@ -232,6 +242,7 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     ['non-version tag', () => {}, ['main'], /usage/],
     ['two arguments', () => {}, ['v1.1.0', 'v1.0.0'], /usage/],
     ['tracked change', f => writeFileSync(`${f.clone}/notes.txt`, 'changed'), ['v1.1.0'], /tracked changes/],
+    ['git status fails', f => { sh(f.clone, 'git config fetch.recurseSubmodules false'); writeFileSync(`${f.clone}/.git/index`, 'corrupt'); writeFileSync(`${f.clone}/notes.txt`, 'changed'); }, ['v1.1.0'], /git status/],
     ['HEAD is not origin/main', f => sh(f.clone, 'git checkout -q HEAD~1'), ['v1.0.0'], /origin\/main/],
     ['missing tag', () => {}, ['v7.7.7'], /tag v7\.7\.7/],
     ['tag not on main', () => {}, ['v9.9.9'], /not on origin\/main/],
@@ -247,6 +258,9 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     ['missing PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', null), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['http PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', 'http://example.invalid'), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['PUBLIC_ORIGIN with a path', f => setEnv(f, 'PUBLIC_ORIGIN', 'https://example.invalid/'), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    ['empty PORT', f => setEnv(f, 'PORT', '""'), ['v1.1.0'], /PORT/],
+    ['PORT out of range', f => setEnv(f, 'PORT', '"70000"'), ['v1.1.0'], /PORT/],
+    ['backslash in DATA_DIR', f => { write(`${f.data}\\x/storagi.sqlite`, 'other db\n'); setEnv(f, 'DATA_DIR', `"${f.data}\\x"`); }, ['v1.1.0'], /backslash/],
     ['mismatched quotes in PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid'), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['release name exists', f => { writeFileSync(`${f.state}/date`, '2026-10-21T01:02:03Z\n'); mkdirSync(`${f.root}/releases/v1.1.0-${sh(f.clone, 'git rev-parse --short v1.1.0^{commit}')}-20261021T010203Z`); }, ['v1.1.0'], /exists/],
   ];
@@ -285,6 +299,24 @@ test('a connection opened during the build refuses before the stop', { timeout: 
   assert.doesNotMatch(f.systemctl(), /stop/);
 });
 
+test('a build with a symlink leaving the release refuses before the stop', { timeout: 60000 }, () => {
+  const f = fixture(); writeFileSync(`${f.state}/external-link`, 'outside\n');
+  const before = f.snapshot(), r = f.run('v1.1.0');
+  assert.equal(r.status, 1, r.out); assert.match(r.out, /outside the release/); assert.match(r.out, /removed releases\//);
+  assert.deepEqual(f.snapshot(), before);
+  assert.doesNotMatch(f.systemctl(), /stop/);
+});
+
+test('DATA_DIR is trimmed like the app before the backup', { timeout: 60000 }, () => {
+  const f = fixture();
+  write(`${f.data} /storagi.sqlite`, 'wrong db\n', 0o600);
+  setEnv(f, 'DATA_DIR', `"${f.data} "`);
+  const r = f.run('v1.1.0');
+  assert.equal(r.status, 0, r.out);
+  const backup = `${f.root}/backups/${path.basename(readlinkSync(`${f.root}/current`))}`;
+  assert.equal(readFileSync(`${backup}/storagi.sqlite`, 'utf8'), 'db bytes\n');
+});
+
 test('unquoted and single-quoted environment values deploy too', { timeout: 60000 }, () => {
   const f = fixture();
   setEnv(f, 'PORT', '18787'); setEnv(f, 'PUBLIC_ORIGIN', "'https://example.invalid'");
@@ -307,6 +339,18 @@ test('a failed stop restarts the service and changes nothing', { timeout: 60000 
   for (const [p, v] of Object.entries(before)) assert.equal(now[p], v, p);
   assert.match(f.systemctl(), /stop storagi-user\.service\n--user start storagi-user\.service\n(--user show .*\n)+$/);
   assert.equal(readlinkSync(`${f.root}/current`), 'releases/main-old-hand-copied');
+});
+
+test('a signal after a failed stop does not skip the restart', { timeout: 60000 }, () => {
+  // The stop kills the service but reports failure; a DEBUG hook then sends TERM
+  // before every top-level command once phase has left cutover.
+  const f = fixture(); for (const m of ['stop-fails', 'stop-kills']) writeFileSync(`${f.state}/${m}`, '');
+  write(`${f.state}/bash-env`, `trap '[[ \${phase-} == cutover ]] && armed_=1; [[ \${armed_-} && -z \${phase-x} ]] && kill -TERM $$' DEBUG\n`);
+  f.env.BASH_ENV = `${f.state}/bash-env`;
+  const r = f.run('v1.1.0');
+  assert.equal(r.status, 1, r.out); assert.match(r.out, /could not stop.*healthy again/);
+  assert.match(f.systemctl(), /stop storagi-user\.service\n--user start storagi-user\.service/);
+  assert.equal(f.serviceCwd(), `${realpathSync(f.root)}/releases/main-old-hand-copied/server`);
 });
 
 test('a failed stop with a failed restart requires manual recovery (exit 3)', { timeout: 60000 }, () => {
