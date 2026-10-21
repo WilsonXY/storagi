@@ -68,6 +68,11 @@
 
       <div class="body">
         <section class="center" aria-labelledby="page-title">
+          <div class="offline-banner" id="offline" role="alert" hidden>
+            <svg class="i warn" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2 14.3 13H1.7z"/><path d="M8 6.5v3M8 11.2v.1"/></svg>
+            <p class="ob-text"><b>Can't reach the host.</b> <span>Last good <span class="mono" id="last-good">16:03</span> · <span class="mono" id="retry-in">retrying in 10s</span></span></p>
+            <button type="button" class="btn btn-sm ob-retry" id="retry">Retry now</button>
+          </div>
           <div class="pond-zone" id="pond-zone">
             <canvas class="pond" id="pond" aria-hidden="true"></canvas>
             <p class="lede">Drop it here. Pick it up anywhere.</p>
@@ -88,11 +93,6 @@
           <button type="button" class="pulse-line" id="pulse-line" data-tab="transfers" hidden></button>
 
           <section class="inbox" id="inbox" aria-label="Inbox">
-            <div class="offline-block" id="offline" hidden>
-              <h2>Couldn't reach the host.</h2>
-              <p class="muted">Your shelf was last good at <span class="mono" id="last-good">16:03</span>. Check this device's connection, then retry. Transfers resume from where they stopped.</p>
-              <button type="button" class="btn btn-outline" id="retry">Retry</button>
-            </div>
             <div class="list-head">
               <label class="all"><input type="checkbox" class="check" id="select-all" aria-label="Select all files"></label>
               <span>Name</span><span class="r">Size</span><span class="r">Expires</span><span></span>

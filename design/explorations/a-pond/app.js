@@ -1,5 +1,5 @@
 // Variant A — Pond. T3 Code shell; ASCII koi swim behind the composer and pass under it.
-import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref , fileDrop } from '../shared/storagi.js';
+import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref , fileDrop , reduced } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader, blocks } from '../shared/koi.js';
 
 const $ = s => document.querySelector(s);
@@ -27,12 +27,12 @@ function makeWorld(seeded) {
   return w;
 }
 const worlds = { shelf: makeWorld(true), empty: makeWorld(false) };
-let world = worlds.shelf, mode = 'shelf', lastGood = new Date(NOW.getTime() - 60_000);
+let world = worlds.shelf, mode = 'shelf', lastGood = new Date(NOW.getTime() - 60_000); // on the sample clock
 
 // ---------- auto-refresh ----------
 const ar = new AutoRefresh(async () => {
   if (mode === 'offline') { await wait(450); throw new Error('offline'); }
-  await world.host.list(); lastGood = new Date(); renderInbox(); renderUsage();
+  await world.host.list(); lastGood = simNow(); renderInbox(); renderUsage();
 });
 ar.addEventListener('change', renderFresh);
 
@@ -52,6 +52,28 @@ function go(next) {
     if (next === 'offline') { for (const t of world.tr.items) if (['uploading', 'downloading', 'queued'].includes(t.state)) { world.tr.pause(t); t.held = true; } ar.now(); }
     else releaseHeld();
   }
+  setOffline(next === 'offline');
+}
+
+// ---------- offline: a pinned banner, a red status, a grey and still pond, a dimmed list, and the tab title ----------
+let retryAt = 0, retryTimer = 0;
+function setOffline(on) {
+  $('#app').classList.toggle('is-offline', on);
+  document.title = on ? 'Offline · Storagi' : 'Storagi · Pond';
+  if (pond) { if (on) { pond.still = true; pond.paintStill(); } else { pond.still = reduced(); if (!pond.still) pond.start(); } }
+  clearInterval(retryTimer);
+  if (!on) return;
+  retryAt = Date.now() + 10_000; tickRetry();
+  retryTimer = setInterval(tickRetry, 1000);
+}
+// Offline, the shelf asks the host again every 10 s; each try is shown, and Retry now asks at once.
+async function tickRetry() {
+  if (mode !== 'offline') return clearInterval(retryTimer);
+  const left = Math.ceil((retryAt - Date.now()) / 1000);
+  if (left > 0) { $('#retry-in').textContent = `retrying in ${left}s`; return; }
+  $('#retry-in').textContent = 'retrying…'; retryAt = Infinity;
+  await ar.now();
+  if (mode === 'offline') { retryAt = Date.now() + 10_000; tickRetry(); }
 }
 function releaseHeld() { for (const t of worlds.shelf.tr.items) if (t.held) { t.held = false; worlds.shelf.tr.resume(t); } }
 function rel(el, canvas, dim) { const a = el.getBoundingClientRect(), b = canvas.getBoundingClientRect(); return { x: a.left - b.left, y: a.top - b.top, w: a.width, h: a.height, dim }; }
@@ -73,7 +95,7 @@ function renderInbox() {
   const empty = !all.length, offline = mode === 'offline';
   $('#empty').hidden = !empty || offline; $('.list-head').hidden = empty;
   $('#no-match').hidden = empty || files.length > 0; $('#no-match').textContent = `No filenames match “${q}”. Press Esc to clear the search.`;
-  $('#offline').hidden = !offline; $('#last-good').textContent = lastGood.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  $('#offline').hidden = !offline; $('#last-good').textContent = clock(lastGood);
   if (empty && !offline) { mark ||= new KoiMark($('#koi-mark'), { radius: 40 }); requestAnimationFrame(() => mark.build()); }
   $('#inbox').classList.toggle('selecting', world.sel.ids.size > 0);
   const sa = $('#select-all'), n = files.filter(f => world.sel.ids.has(f.id)).length;
@@ -251,12 +273,12 @@ function renderFresh() {
   const f = $('#fresh'), t = $('#fresh-text');
   f.classList.toggle('busy', ar.busy); f.classList.toggle('off', mode === 'offline' && !ar.busy);
   if (ar.busy) t.innerHTML = '<span class="fresh-long">Refreshing</span>…';
-  else if (mode === 'offline') t.innerHTML = `<span class="fresh-long">Offline · last good </span>${lastGood.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+  else if (mode === 'offline') t.innerHTML = `Offline<span class="fresh-long"> · last good ${clock(lastGood)}</span>`;
   else t.innerHTML = `<span class="fresh-long">Updated ${clock(new Date(simNow().getTime() - (Date.now() - ar.last)))} · next in </span>${ar.remaining}s`;
   $('#refresh').setAttribute('aria-label', `Refresh now (auto-refresh in ${ar.remaining} seconds)`);
 }
 $('#refresh').onclick = () => ar.now();
-$('#retry').onclick = async () => { mode = 'shelf'; releaseHeld(); for (const b of document.querySelectorAll('[data-go]')) b.setAttribute('aria-pressed', String(b.dataset.go === 'shelf')); await ar.now(); renderAll(); };
+$('#retry').onclick = async () => { go('shelf'); await ar.now(); renderAll(); };
 
 // ---------- tabs and sheet ----------
 function setTab(tab) {
