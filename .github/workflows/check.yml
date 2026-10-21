@@ -1,14 +1,29 @@
 name: Check
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly (Monday 03:00 MYT) so runner, Node or npm drift shows up without PRs.
+    - cron: '0 19 * * 0'
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            web/package-lock.json
       - run: npm run setup
       - run: npm run check
