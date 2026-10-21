@@ -169,7 +169,7 @@ function renderTransfers() {
     li.querySelector('.amt').textContent = t.state === 'done' ? (t.dir === 'up' ? 'On your shelf' : 'Saved to this device') : `${bytes(t.sent)} of ${bytes(t.size)}`;
     const eta = tr.eta(t);
     li.querySelector('.speed').textContent = live ? rate(t.speed) : { queued: t.dir === 'up' ? 'Waiting its turn' : 'Starting', paused: t.held ? 'Waiting for the host' : 'Paused', cancelled: 'Cancelled', done: '', error: 'Interrupted' }[t.state] || '';
-    li.querySelector('.left').textContent = live ? (isFinite(eta) ? `${duration(eta)} left · ${finishAt(eta)}` : 'measuring…') : '';
+    li.querySelector('.left').textContent = live ? (isFinite(eta) ? `${duration(eta)} left` : 'measuring…') : '';
     const acts = li.querySelector('.tr-acts');
     if (acts.dataset.state !== t.state) {
       acts.dataset.state = t.state;
@@ -196,7 +196,7 @@ function renderTransfers() {
   $('#chart-max').textContent = pts.length ? `peak ↑ ${rate(mu)} · ↓ ${rate(md)}` : '';
   const qe = tr.queueEta('up'), de = tr.queueEta('down'), queued = tr.items.filter(t => t.dir === 'up' && t.state === 'queued').length;
   const rowsEta = [];
-  if (tr.items.some(t => t.dir === 'up' && ['queued', 'uploading'].includes(t.state))) rowsEta.push(['Uploads, est.', isFinite(qe) ? `<b>${finishAt(qe)}</b> · ${duration(qe)}` : 'measuring…', queued ? `${queued} more queued, one at a time` : '']);
+  if (tr.items.some(t => t.dir === 'up' && ['queued', 'uploading'].includes(t.state))) rowsEta.push(['Uploads, est.', isFinite(qe) ? `<b>${finishAt(qe)}</b> · ${duration(qe)}` : 'measuring…', queued ? `${queued} more queued` : '']);
   if (tr.active('down').length) rowsEta.push(['Downloads, est.', isFinite(de) ? `<b>${finishAt(de)}</b> · ${duration(de)}` : 'measuring…', '']);
   $('#eta').innerHTML = rowsEta.map(([k, v, n]) => `<div><dt>${k}</dt><dd class="mono">${v}</dd>${n ? `<dd class="note">${n}</dd>` : ''}</div>`).join('') || '';
   $('#eta').hidden = !rowsEta.length;
