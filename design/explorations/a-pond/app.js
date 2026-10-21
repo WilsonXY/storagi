@@ -1,5 +1,5 @@
 // Variant A — Pond. T3 Code shell; ASCII koi swim behind the composer and pass under it.
-import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait } from '../shared/storagi.js';
+import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, ticks, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader, blocks } from '../shared/koi.js';
 
 const $ = s => document.querySelector(s);
@@ -105,7 +105,8 @@ $('#groups').addEventListener('click', e => {
   const t = e.target, r = t.closest('.row'); if (!r) return; const id = r.dataset.id, f = world.host.files.find(x => x.id === id);
   if (t.closest('.lead')) { e.preventDefault(); world.sel.toggle(id, order, e.shiftKey); return; }
   const b = t.closest('[data-dl],[data-del],[data-cancel],[data-confirm],[data-undo]'); if (!b) return; e.preventDefault();
-  if (b.dataset.dl) { world.tr.download(f); setTab('inbox'); flashPulse(); return; }
+  if (b.dataset.dl) { world.tr.download(f); setTab('inbox');
+togglePanel(true); flashPulse(); return; }
   if (b.dataset.del) { world.morph.set(id, { s: 'confirm' }); renderInbox(); document.querySelector(`[data-key="k-${id}"]`)?.focus(); return; }
   if (b.dataset.cancel) { world.morph.delete(id); renderInbox(); document.querySelector(`[data-key="x-${id}"]`)?.focus(); return; }
   if (b.dataset.confirm) {
@@ -164,7 +165,7 @@ function renderTransfers() {
     const r = t.sent / t.size, live = t.state === 'uploading' || t.state === 'downloading';
     li.className = `tr ${t.state}`;
     li.querySelector('.tr-pct').textContent = t.state === 'done' ? '✓' : `${Math.floor(r * 100)}%`;
-    const tk = li.querySelector('.ticks'); tk.classList.toggle('done', t.state === 'done'); ticks(tk, r);
+    const tk = li.querySelector('.ticks'); tk.classList.toggle('done', t.state === 'done'); ticks(tk, r, { glyph: '▌', off: '▌' });
     li.querySelector('.amt').textContent = t.state === 'done' ? (t.dir === 'up' ? 'On your shelf' : 'Saved to this device') : `${bytes(t.sent)} of ${bytes(t.size)}`;
     const eta = tr.eta(t);
     li.querySelector('.speed').textContent = live ? rate(t.speed) : { queued: t.dir === 'up' ? 'Waiting its turn' : 'Starting', paused: t.held ? 'Waiting for the host' : 'Paused', cancelled: 'Cancelled', done: '', error: 'Interrupted' }[t.state] || '';
@@ -195,13 +196,13 @@ function renderTransfers() {
   $('#chart-max').textContent = pts.length ? `peak ↑ ${rate(mu)} · ↓ ${rate(md)}` : '';
   const qe = tr.queueEta('up'), de = tr.queueEta('down'), queued = tr.items.filter(t => t.dir === 'up' && t.state === 'queued').length;
   const rowsEta = [];
-  if (tr.items.some(t => t.dir === 'up' && ['queued', 'uploading'].includes(t.state))) rowsEta.push(['Uploads done', isFinite(qe) ? `<b>${finishAt(qe)}</b> · ${duration(qe)}` : 'measuring…', queued ? `${queued} more queued, one at a time` : '']);
-  if (tr.active('down').length) rowsEta.push(['Downloads done', isFinite(de) ? `<b>${finishAt(de)}</b> · ${duration(de)}` : 'measuring…', '']);
+  if (tr.items.some(t => t.dir === 'up' && ['queued', 'uploading'].includes(t.state))) rowsEta.push(['Uploads, est.', isFinite(qe) ? `<b>${finishAt(qe)}</b> · ${duration(qe)}` : 'measuring…', queued ? `${queued} more queued, one at a time` : '']);
+  if (tr.active('down').length) rowsEta.push(['Downloads, est.', isFinite(de) ? `<b>${finishAt(de)}</b> · ${duration(de)}` : 'measuring…', '']);
   $('#eta').innerHTML = rowsEta.map(([k, v, n]) => `<div><dt>${k}</dt><dd class="mono">${v}</dd>${n ? `<dd class="note">${n}</dd>` : ''}</div>`).join('') || '';
   $('#eta').hidden = !rowsEta.length;
   // folded summary line above the inbox on narrow screens
   const p = $('#pulse-line'); p.hidden = !open.length;
-  if (open.length) p.innerHTML = `<span class="up">↑ ${tr.active('up').length ? rate(up) : '—'}</span><span>↓ ${tr.active('down').length ? rate(dn) : '—'}</span><span>${isFinite(qe) ? `done ${finishAt(qe)}` : `${open.length} open`} · View</span>`;
+  if (open.length) p.innerHTML = `<span class="up">↑ ${tr.active('up').length ? rate(up) : '—'}</span><span>↓ ${tr.active('down').length ? rate(dn) : '—'}</span><span>${isFinite(qe) ? `est. ${finishAt(qe)}` : `${open.length} open`} · View</span>`;
   renderUsage();
 }
 // Multi-row ASCII columns. Upward rows use eighth blocks; the downward half uses upper-half blocks.
@@ -228,12 +229,12 @@ $('#clear-done').onclick = () => world.tr.clearDone();
 function renderUsage() {
   const u = usage(world.host.files.filter(f => !world.hidden.has(f.id)), world.tr.items), m = $('#meter');
   $('#used').textContent = bytes(u.used);
-  const cw = m._cw ||= measureCh(m), n = Math.max(10, Math.floor(m.clientWidth / cw));
+  const cs = getComputedStyle(m), cw = (document.fonts?.status === 'loaded' && m._cw) || (m._cw = measureCh(m)), n = Math.max(10, Math.floor((m.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / cw));
   const a = u.used ? Math.max(1, Math.round(u.used / u.budget * n)) : 0, b = u.reserved ? Math.max(1, Math.round(u.reserved / u.budget * n)) : 0;
-  m.innerHTML = `<span class="u">${'|'.repeat(a)}</span><span class="r">${'|'.repeat(b)}</span><span class="f">${'|'.repeat(Math.max(0, n - a - b))}</span>`;
+  m.innerHTML = `<span class="u">${'▌'.repeat(a)}</span><span class="r">${'▌'.repeat(b)}</span><span class="f">${'▌'.repeat(Math.max(0, n - a - b))}</span>`;
   $('#reserved').innerHTML = u.reserved ? `${bytes(u.free)} free<br>${bytes(u.reserved)} held for uploads` : `${bytes(u.free)} free`;
 }
-function measureCh(el) { const s = document.createElement('span'); s.textContent = '||||||||||'; s.style.visibility = 'hidden'; el.append(s); const w = s.getBoundingClientRect().width / 10; s.remove(); return w || 6; }
+function measureCh(el) { const s = document.createElement('span'); s.textContent = '▌▌▌▌▌▌▌▌▌▌'; s.style.visibility = 'hidden'; el.append(s); const w = s.getBoundingClientRect().width / 10; s.remove(); return w || 6; }
 
 // ---------- freshness ----------
 function renderFresh() {
@@ -241,7 +242,7 @@ function renderFresh() {
   f.classList.toggle('busy', ar.busy); f.classList.toggle('off', mode === 'offline' && !ar.busy);
   if (ar.busy) t.innerHTML = '<span class="fresh-long">Refreshing</span>…';
   else if (mode === 'offline') t.innerHTML = `<span class="fresh-long">Offline · last good </span>${lastGood.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
-  else t.innerHTML = `<span class="fresh-long">Updated ${ago(Date.now() - ar.last)} · next in </span>${ar.remaining}s`;
+  else t.innerHTML = `<span class="fresh-long">Updated ${clock(new Date(simNow().getTime() - (Date.now() - ar.last)))} · next in </span>${ar.remaining}s`;
   $('#refresh').setAttribute('aria-label', `Refresh now (auto-refresh in ${ar.remaining} seconds)`);
 }
 $('#refresh').onclick = () => ar.now();
@@ -253,10 +254,16 @@ function setTab(tab) {
   $('#page-title').textContent = tab === 'transfers' && innerWidth < 1180 ? 'Transfers' : 'Inbox';
   for (const b of document.querySelectorAll('.tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
 }
+// At desktop width the Transfers panel sits beside the Inbox; the sidebar's Transfers item opens and closes it.
+function togglePanel(open = $('#app').classList.contains('panel-closed')) {
+  $('#app').classList.toggle('panel-closed', !open);
+  $('#nav-transfers').classList.toggle('is-active', open); $('#nav-transfers').setAttribute('aria-expanded', String(open));
+  if (open) $('#details').animate?.([{ opacity: 0, transform: 'translateX(12px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+}
 function flashPulse() { const p = $('#pulse-line'); p.animate?.([{ background: 'var(--koi-dim)' }, { background: 'var(--surface)' }], { duration: 900 }); }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-tab]'); if (!t) return; e.preventDefault();
-  if (t.classList.contains('nav-item') && t.dataset.tab === 'transfers' && innerWidth >= 1180) return;
+  if (t.dataset.tab === 'transfers' && innerWidth >= 1180) { togglePanel(t.classList.contains('nav-item') ? undefined : true); closeSheet(); return; }
   setTab(t.dataset.tab); closeSheet();
 });
 const side = $('#side');
@@ -297,6 +304,7 @@ function renderAll() { renderInbox(); renderTransfers(); renderSelection(); rend
 // ---------- boot ----------
 $('#loader').prepend(orbitLoader(56));
 setTab('inbox');
+togglePanel(true);
 const start = new URLSearchParams(location.search).get('state');
 if (start) { await worlds.shelf.host.list(); go(start); }
 else { go('loading'); await world.host.list(); await wait(700); go('shelf'); }

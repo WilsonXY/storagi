@@ -76,8 +76,10 @@ export function usage(files, transfers = []) {
 
 // ---------- ASCII tick bar (Kevser's segmented progress, as text) ----------
 export function ticks(el, ratio, { glyph = '|', off = '|' } = {}) {
-  const ch = el._ch || (el._ch = measureCh(el));
-  const n = Math.max(8, Math.floor(el.clientWidth / ch));
+  // measure the glyph width again until the web fonts have loaded, then keep it
+  const ch = (document.fonts?.status === 'loaded' && el._ch) || (el._ch = measureCh(el));
+  const cs = getComputedStyle(el), inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const n = Math.max(8, Math.floor(inner / ch));
   const on = Math.round(Math.max(0, Math.min(1, ratio)) * n);
   if (el._n === n && el._on === on) return;
   el._n = n; el._on = on;
