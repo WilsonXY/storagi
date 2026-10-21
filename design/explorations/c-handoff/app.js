@@ -439,7 +439,7 @@ function setState(next) {
     sel.clear();
     requestAnimationFrame(() => {
       lockPond ||= new KoiPond($('lockpond'), { count: 6, size: [150, 240], opacity: 0.85, avoid: () => { const r = $('lockcard').getBoundingClientRect(); return [{ x: r.left, y: r.top - 52, w: r.width, h: r.height, dim: 0.12 }]; } });
-      lockMark ||= new KoiMark($('lockmark'), { radius: 40 });
+      lockMark ||= new KoiMark($('lockmark'), { radius: 40, static: true });
       lockPond.resize();
     });
   }

@@ -166,6 +166,7 @@ export class KoiPond {
 
 // ---------------------------------------------------------------------------------------------
 // The owner's mark: a kohaku curl in grayscale glyph cells, baked into brand/mark.js. KoiMark samples it by default.
+const staticGrey = () => 22 + (Math.random() * 70 | 0);
 let markBytes;
 const markData = () => (markBytes ||= Uint8Array.from(atob(MARK.gray), c => c.charCodeAt(0)));
 
@@ -212,16 +213,18 @@ export class KoiMark {
   // add random noise to canvas readback as a privacy measure, which turned the mark into static.
   sampleMark() {
     const g = markData(), s = Math.min(this.w * 0.92 / MARK.w, this.h * 0.92 / MARK.h);
-    const ox = (this.w - MARK.w * s) / 2, oy = (this.h - MARK.h * s) / 2, dots = [];
+    const ox = (this.w - MARK.w * s) / 2, oy = (this.h - MARK.h * s) / 2, dots = [], statics = [];
     const tries = this.w * this.h * 0.3 * this.o.density;
     for (let i = 0; i < tries; i++) {
       const x = Math.random() * this.w, y = Math.random() * this.h, bx = Math.floor((x - ox) / s), by = Math.floor((y - oy) / s);
+      // `static`: the owner kept the look of a readback bug, a dim flickering field of grey dots across the canvas
+      if (this.o.static && Math.random() < 0.55) { const n = staticGrey(); statics.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${n},${n},${n})`, noise: true }); }
       if (bx < 0 || by < 0 || bx >= MARK.w || by >= MARK.h) continue;
       const v = g[by * MARK.w + bx], lum = v / 255;
       if (lum < 0.12 || Math.random() > 0.55 + lum * 0.45) continue;
       dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${v},${v},${v})` });
     }
-    this.dots = dots;
+    this.dots = statics.concat(dots); // static first, so the koi draws on top
   }
   loop() {
     if (this.dead || this.still) { this.running = false; return; }
@@ -239,7 +242,13 @@ export class KoiMark {
       p.vx = (p.vx + ax) * 0.82; p.vy = (p.vy + ay) * 0.82; p.x += p.vx; p.y += p.vy;
     }
   }
-  draw() { const { ctx } = this, s = this.o.dot; ctx.clearRect(0, 0, this.w, this.h); for (const p of this.dots) { ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, s, s); } }
+  draw() {
+    const { ctx } = this, s = this.o.dot; ctx.clearRect(0, 0, this.w, this.h);
+    for (const p of this.dots) {
+      if (p.noise && !this.still && Math.random() < 0.04) { const n = staticGrey(); p.c = `rgb(${n},${n},${n})`; } // flicker
+      ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, s, s);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
