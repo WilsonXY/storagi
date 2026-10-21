@@ -258,13 +258,25 @@ export function orbitLoader(size = 40, { color = 'var(--koi)' } = {}) {
   const still = reduced(); let t0 = performance.now();
   function frame(now) {
     if (!svg.isConnected && now - t0 > 2000) return;
-    const t = ((now - t0) / 1500) % 1, e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-    const x = 44 - e * 88, y = -44 + e * 88, r = 4 + Math.sin(e * Math.PI) * 13;
+    const [x, y, r] = orbitAt(((now - t0) / 2600) % 1);
     ring.setAttribute('cx', x); ring.setAttribute('cy', y); ring.setAttribute('r', r);
     for (const [a, l] of ticks) { const d = Math.hypot(Math.cos(a) * 33 - x, Math.sin(a) * 33 - y); l.style.opacity = d < r + 8 ? 0 : 0.5; }
     if (!still) requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame); return svg;
+}
+
+// The loader's path, one loop with no jump: the small ring crosses the tick ring through its centre (swelling as it
+// passes), then glides back around the outside to where it started. t in [0, 1); returns [x, y, radius].
+const ease = t => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+export function orbitAt(t) {
+  const R = 50, a0 = -Math.PI / 4, a1 = Math.PI * 3 / 4; // top right, bottom left
+  if (t < 0.6) {
+    const e = ease(t / 0.6);
+    return [R * Math.cos(a0) + e * R * (Math.cos(a1) - Math.cos(a0)), R * Math.sin(a0) + e * R * (Math.sin(a1) - Math.sin(a0)), 4 + Math.sin(e * Math.PI) * 13];
+  }
+  const a = a1 - ease((t - 0.6) / 0.4) * Math.PI; // back round through the bottom and the right
+  return [R * Math.cos(a), R * Math.sin(a), 4];
 }
 
 // One line of block characters, newest on the right, scaled to `max`.
