@@ -185,7 +185,7 @@
 
 /* the prototype switcher sits bottom-right here so the top bar's freshness stays visible */
 .proto { top: auto; bottom: 12px; right: 12px; }
-@media (max-width: 640px) { .proto { position: static; transform: none; margin: 8px auto; width: max-content; max-width: calc(100% - 16px); flex-wrap: wrap; justify-content: center; } }
+@media (max-width: 640px) { .proto { position: relative; transform: none; margin: 8px auto; width: max-content; max-width: calc(100% - 16px); flex-wrap: wrap; justify-content: center; } }
 
 /* ---------- menu sheet (phone) ---------- */
 .sheet { position: fixed; inset: 0; z-index: 40; background: var(--ground); }
