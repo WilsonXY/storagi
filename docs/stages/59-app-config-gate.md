@@ -69,3 +69,7 @@ Limitations:
 ## Handoff
 
 One commit on `fix/deploy-config-59` (from 98b2d6a). Next: a fresh independent review of this change against stage58. The first real `scripts/deploy.sh vX.Y.Z` is still an owner-approved step.
+
+## Coordinator verification after handoff
+
+Coordinator confirmed the agent's own session log (`claude-opus-5-5`, `"effort":"high"` on all 75 assistant entries), the live runtime/unit/PID/restart count unchanged, and the script diff. The script's exact `unit_node`/`config_js`/`app_config` definitions, extracted from the committed file, were run read-only against the live release and private environment (no values printed): `app_config` succeeded with port 8787; the returned DATA_DIR holds `storagi.sqlite`; health with the returned host gives `/` → 200 and anonymous `/api/session` → 401; the `ss` idle query succeeds. This is the real-systemd evidence the test shim cannot provide.
