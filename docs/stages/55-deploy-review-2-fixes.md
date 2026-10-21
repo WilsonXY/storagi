@@ -69,3 +69,7 @@ Limitations:
 ## Handoff
 
 Commit on `fix/deploy-review-55` (from 6bd02ad). Stage56: a fresh independent review receives both rounds' findings and these responses. The first real `scripts/deploy.sh vX.Y.Z` is still an owner-approved step.
+
+## Coordinator verification after handoff
+
+Coordinator confirmed the agent's own session log (`claude-opus-5-5`, `"effort":"high"` on all 68 assistant entries), the live runtime/unit unchanged and the script diff against each finding. Read-only live probe with the new parsing (no values printed, no `systemctl` writes): PORT, PUBLIC_ORIGIN and DATA_DIR gates pass on the quoted live file; with the derived Host, live `/` → 200 and anonymous `/api/session` → 401. The new symlink rule run over the live hand-copied release's hashed paths exits 0, so its real npm dependency links all resolve inside the release.
