@@ -11,7 +11,9 @@ unit=$HOME/.config/systemd/user/storagi-user.service
 service=storagi-user.service
 
 die() { echo "deploy: $*" >&2; exit 1; }
-wait_for() { local i; for ((i = 0; i < $1; i++)); do "${@:2}" && return; sleep 1; done; return 1; }
+# Explicit "return 0": in bash <= 5.2 a bare return during the EXIT trap (rollback) reuses the
+# status from before the trap, so a successful wait would read as failed.
+wait_for() { local i; for ((i = 0; i < $1; i++)); do "${@:2}" && return 0; sleep 1; done; return 1; }
 # A failing or missing ss counts as busy / still listening.
 idle() { local out; out=$(ss -Htn state established "sport = :$port") && [[ -z $out ]]; }
 stopped() {

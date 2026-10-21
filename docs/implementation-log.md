@@ -97,7 +97,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 60 | Independent review of the loadConfig deploy gate | Fresh Codex gpt-6.1-sol/high confirmed | FAIL; no P1, redesign closes divergence class, 1 P2 accepted for61 | [60](stages/60-config-gate-review.md) |
 | 61 | Back up the database file the app opens | Coordinator | Completed; RED→GREEN, deploy 52/52, check PASS, live probe 200/401 | [61](stages/61-database-path-fix.md) |
 | 62 | Focused independent review of stage61 | Fresh Codex gpt-6.1-sol/high confirmed | PASS; no findings, invariance/cleanup passed | [62](stages/62-database-path-review.md) |
-| 63 | Deploy test shim treats zombie processes as stopped (PR#7 CI) | Coordinator | Completed; 52/52 locally and under non-reaping parent | [63](stages/63-ci-zombie-shim-fix.md) |
+| 63 | bash 5.2 rollback fix found by PR#7 CI (bare `return` in EXIT trap) | Coordinator | Completed; reproduced with bash 5.2, deploy 52/52 on 5.2 and 5.3, check PASS | [63](stages/63-bash52-rollback-fix.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
