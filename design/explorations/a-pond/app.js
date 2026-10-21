@@ -85,12 +85,11 @@ function row(f, dup) {
   const exp = gone ? 'Expired' : `${left} d left`, expCls = gone ? 'gone' : left <= 3 ? 'soon' : '';
   if (f.fresh) f.freshAt ||= Date.now();
   const fresh = f.fresh && Date.now() - f.freshAt < 2400;
-  const time = new Date(f.uploadedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   return `<div class="row${sel ? ' selected' : ''}${fresh ? ' arrived' : ''}${m?.s === 'deleted' || m?.s === 'deleting' ? ' ghost' : ''}" data-id="${f.id}"${fresh ? ` style="animation-delay:-${Date.now() - f.freshAt}ms"` : ''}>
     <label class="lead"><span class="ext">${esc(ext(f.name))}</span><input type="checkbox" class="check" data-key="c-${f.id}" aria-label="Select ${esc(f.name)}"${sel ? ' checked' : ''}></label>
     <div class="name"><strong title="${esc(f.name)}">${esc(f.name)}</strong>${dup ? `<span class="copy">copy ${shortId(f.id)}</span>` : ''}${fresh ? '<span class="new">new</span>' : ''}</div>
-    <span class="cell size">${bytes(f.size)}</span><span class="cell">${time}</span><span class="cell ${expCls}">${exp}</span>
-    <span class="meta-phone"><span class="size">${bytes(f.size)}</span><span>${time}</span><span class="${expCls}">${exp}</span></span>
+    <span class="cell size">${bytes(f.size)}</span><span class="cell ${expCls}">${exp}</span>
+    <span class="meta-phone"><span class="size">${bytes(f.size)}</span><span class="${expCls}">${exp}</span></span>
     <div class="acts${m ? ' engaged' : ''}">${acts(f, gone, m)}</div></div>`;
 }
 function acts(f, gone, m) {
@@ -163,7 +162,12 @@ function renderTransfers() {
       rows.set(key, li); list.append(li);
     }
     const r = t.sent / t.size, live = t.state === 'uploading' || t.state === 'downloading';
-    li.className = `tr ${t.state}`;
+    // finished and cancelled transfers show their outcome for a moment, then leave the list by themselves
+    if (['done', 'cancelled'].includes(t.state)) {
+      t.endedAt ||= Date.now();
+      if (!t.leaving && Date.now() - t.endedAt > 4000) { t.leaving = true; setTimeout(() => { world.tr.items = world.tr.items.filter(x => x !== t); renderTransfers(); }, 360); }
+    }
+    li.className = `tr ${t.state}${t.leaving ? ' leaving' : ''}`;
     li.querySelector('.tr-pct').textContent = t.state === 'done' ? '✓' : `${Math.floor(r * 100)}%`;
     const tk = li.querySelector('.blocks'); tk.classList.toggle('done', t.state === 'done'); const n = blockCount(tk), on = Math.round(Math.max(0, Math.min(1, r)) * n); blockBar(tk, [[on, 'on'], [n - on, 'off']]);
     li.querySelector('.amt').textContent = t.state === 'done' ? (t.dir === 'up' ? 'On your shelf' : 'Saved to this device') : `${bytes(t.sent)} of ${bytes(t.size)}`;
@@ -223,7 +227,6 @@ $('#tr-list').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const id = +b.closest('.tr').dataset.tid, t = world.tr.items.find(x => x.id === id);
   ({ Pause: () => world.tr.pause(t), Resume: () => world.tr.resume(t), Cancel: () => world.tr.cancel(t) })[b.dataset.act]();
 });
-$('#clear-done').onclick = () => world.tr.clearDone();
 
 // ---------- storage ----------
 function renderUsage() {

@@ -121,7 +121,7 @@
 }
 
 /* ---------- inbox ---------- */
-.list-head, .row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 84px 56px 80px 72px; gap: 12px; align-items: center; }
+.list-head, .row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 84px 80px 72px; gap: 12px; align-items: center; }
 .list-head { height: 36px; padding: 0 10px; font-size: 12px; color: var(--faint); }
 .list-head .all { display: grid; place-items: center; }
 .list-head .check { opacity: 1; }
@@ -195,7 +195,8 @@
 .eta dd b { font-weight: 500; color: var(--text); font-size: 13px; }
 .eta dd.note { grid-column: 1 / -1; text-align: left; font: 12px var(--font); color: var(--faint); }
 .tr-list { display: grid; gap: 4px; margin: 0 -8px; }
-.tr { padding: 10px 8px; border-radius: var(--radius-control); display: grid; gap: 7px; transition: background .15s; }
+.tr { padding: 10px 8px; border-radius: var(--radius-control); display: grid; gap: 7px; max-height: 200px; overflow: hidden; transition: background .15s, opacity .3s ease, max-height .35s var(--ease), padding .35s var(--ease), transform .3s ease; }
+.tr.leaving { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; transform: translateX(8px); }
 .tr:hover, .tr:focus-within { background: var(--surface); }
 .tr-top { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 20px; }
 .tr-top .arrow { flex: none; }
