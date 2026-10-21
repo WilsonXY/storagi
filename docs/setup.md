@@ -13,7 +13,7 @@ npm run setup
 npm run check
 ```
 
-The root check runs behavior/security and independent HTTP acceptance tests, TypeScript checks and both builds sequentially. There is no separate lint configuration. Tests use temporary synthetic objects and a signed test OIDC provider; they never require owner files or real Google credentials. Browser mock checks are separate and are not proof of real Google login.
+The root check runs behavior/security and independent HTTP acceptance tests, deploy-script tests, TypeScript checks and both builds sequentially. There is no separate lint configuration. Tests use temporary synthetic objects and a signed test OIDC provider; they never require owner files or real Google credentials. Browser mock checks are separate and are not proof of real Google login.
 
 ## Required Google configuration
 

@@ -84,6 +84,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 47 | Fallback owner-acceptance documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [47](stages/47-owner-acceptance-fallback-review.md) |
 | 48 | Deployment/CI safety audit, coordination and leftover preview shutdown | Coordinator | Completed; preview stopped, ruleset files prepared for owner | [48](stages/48-deployment-safety-coordination.md) |
 | 49 | CI hardening, Dependabot and dev-only vitest advisory fix | Coordinator | Completed; checks pass, server timing tests flaky under host load | [49](stages/49-ci-hardening.md) |
+| 50 | Scripted tag deploy, release stamp and start-time verification | Distinct implementation task | Completed on branch; deploy 23/23, check PASS, not deployed; review52 pending | [50](stages/50-scripted-deploy.md) |
 | 51 | Independent CI hardening review | Fresh Codex gpt-6.1-sol/high confirmed | PASS; no findings, invariance/cleanup passed | [51](stages/51-ci-hardening-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.

@@ -30,7 +30,7 @@ npm run setup
 npm run check
 ```
 
-The check runs package tests, independent HTTP acceptance, TypeScript checks and production builds. The app reuses openid-client for Google OIDC and the tus Node server/client for disk-backed resumable transfers; SQLite keeps metadata, sessions and quota reservations. One process owns the data directory.
+The check runs package tests, independent HTTP acceptance, deploy-script tests, TypeScript checks and production builds. The app reuses openid-client for Google OIDC and the tus Node server/client for disk-backed resumable transfers; SQLite keeps metadata, sessions and quota reservations. One process owns the data directory.
 
 See [setup and deployment preparation](docs/setup.md), [repeatable verification and its limits](docs/verification.md), and the [implementation stage index](docs/implementation-log.md). The system-service example remains inactive; the reviewed [user-service deployment](docs/user-service.md) is active with existing linger and verified automatic recovery ([stage41](docs/stages/41-service-activation.md)). The owner-approved private startup and subsequent Funnel activation are recorded in stages29–31; unrelated host services, mappings and power settings were preserved.
 
