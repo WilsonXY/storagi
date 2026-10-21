@@ -166,16 +166,8 @@ export class KoiPond {
 
 // ---------------------------------------------------------------------------------------------
 // The owner's mark: a kohaku curl in grayscale glyph cells, baked into brand/mark.js. KoiMark samples it by default.
-let markCanvas;
-function markImage() {
-  if (!markCanvas) {
-    const bytes = Uint8Array.from(atob(MARK.gray), c => c.charCodeAt(0)), img = new ImageData(MARK.w, MARK.h);
-    for (let i = 0; i < bytes.length; i++) { const v = bytes[i]; img.data.set([v, v, v, 255], i * 4); }
-    markCanvas = document.createElement('canvas'); markCanvas.width = MARK.w; markCanvas.height = MARK.h;
-    markCanvas.getContext('2d').putImageData(img, 0, 0);
-  }
-  return markCanvas;
-}
+let markBytes;
+const markData = () => (markBytes ||= Uint8Array.from(atob(MARK.gray), c => c.charCodeAt(0)));
 
 export class KoiMark {
   // A koi in stippled dots. Dots run from the pointer and spring home; the fish keeps a slow swimming wave.
@@ -198,10 +190,8 @@ export class KoiMark {
     if (!r.width || !r.height) { this.w = 0; this.dots = []; return; }
     this.w = r.width; this.h = r.height; this.c.width = r.width * dpr; this.c.height = r.height * dpr; this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const off = document.createElement('canvas'); off.width = this.w; off.height = this.h; const o = off.getContext('2d', { willReadFrequently: true });
-    if (this.o.src) {
-      const m = markImage(), s = Math.min(this.w * 0.92 / m.width, this.h * 0.92 / m.height);
-      o.imageSmoothingEnabled = true; o.drawImage(m, (this.w - m.width * s) / 2, (this.h - m.height * s) / 2, m.width * s, m.height * s);
-    } else {
+    if (this.o.src) return this.sampleMark();
+    {
       const len = Math.min(this.w * 0.86, this.h * 2.6);
       paintFish(o, { x: this.w / 2 - len * 0.5, y: this.h / 2 + len * 0.04, a: Math.PI - 0.12, len, v: this.o.variety || VARIETIES[0], phase: 1.2, amp: 1.4, turn: -0.5 }, 1, 1);
     }
@@ -215,6 +205,21 @@ export class KoiMark {
       const keep = d[k + 3] < 200 ? 0.35 : 0.55 + lum * 0.45;
       if (Math.random() > keep) continue;
       dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${d[k]},${d[k + 1]},${d[k + 2]})` });
+    }
+    this.dots = dots;
+  }
+  // Dots straight from the baked bitmap. Reading pixels back from a canvas is avoided on purpose: some browsers
+  // add random noise to canvas readback as a privacy measure, which turned the mark into static.
+  sampleMark() {
+    const g = markData(), s = Math.min(this.w * 0.92 / MARK.w, this.h * 0.92 / MARK.h);
+    const ox = (this.w - MARK.w * s) / 2, oy = (this.h - MARK.h * s) / 2, dots = [];
+    const tries = this.w * this.h * 0.3 * this.o.density;
+    for (let i = 0; i < tries; i++) {
+      const x = Math.random() * this.w, y = Math.random() * this.h, bx = Math.floor((x - ox) / s), by = Math.floor((y - oy) / s);
+      if (bx < 0 || by < 0 || bx >= MARK.w || by >= MARK.h) continue;
+      const v = g[by * MARK.w + bx], lum = v / 255;
+      if (lum < 0.12 || Math.random() > 0.55 + lum * 0.45) continue;
+      dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${v},${v},${v})` });
     }
     this.dots = dots;
   }

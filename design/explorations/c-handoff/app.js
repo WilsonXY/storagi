@@ -88,9 +88,8 @@ app.innerHTML = `
 <div class="lockcard" id="lockcard" role="dialog" aria-labelledby="lock-title" hidden>
   <canvas id="lockmark" aria-hidden="true"></canvas>
   <h2 id="lock-title">Your shelf is locked.</h2>
-  <p>Sign in with the owner's Google account. Interrupted uploads continue when you choose the same file again.</p>
   <button type="button" class="btn btn-primary" id="signin"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22zM6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9zM12 6c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.8 9.4 6 12 6z"/></svg>Continue with Google</button>
-  <small>Only the owner's account can open this shelf.</small>
+  <small>Owner only.</small>
 </div>
 <div class="proto" role="group" aria-label="Prototype state"><span>state</span>${['Locked', 'Loading', 'Shelf', 'Empty', 'Offline'].map(s => `<button type="button" data-state="${s.toLowerCase()}">${s}</button>`).join('')}</div>
 <div class="select-bar out" id="selbar" role="toolbar" aria-label="Selected files">
