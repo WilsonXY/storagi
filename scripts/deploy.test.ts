@@ -62,7 +62,8 @@ function fixture(publicOrigin = 'https://example.invalid') {
   write(`${root}/releases/main-old-hand-copied/server/dist/src/main.js`, 'old\n');
   symlinkSync('releases/main-old-hand-copied', `${root}/current`);
   write(unit, '[Service]\nExecStart=/usr/bin/node old\n', 0o600);
-  write(`${home}/.config/storagi/environment`, `PUBLIC_ORIGIN=${publicOrigin}\nGOOGLE_CLIENT_SECRET=${secret}\nPORT=18787\nDATA_DIR=${data}\n`, 0o600);
+  // Double-quoted like the live file; systemd strips one pair of matching quotes.
+  write(`${home}/.config/storagi/environment`, `PUBLIC_ORIGIN="${publicOrigin}"\nGOOGLE_CLIENT_SECRET="${secret}"\nPORT="18787"\nDATA_DIR="${data}"\n`, 0o600);
   write(`${data}/storagi.sqlite`, 'db bytes\n', 0o600);
   write(`${data}/storagi.sqlite-wal`, 'wal bytes\n', 0o600);
   write(`${data}/objects/owner-file`, 'owner object\n', 0o600);
@@ -246,7 +247,7 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     ['missing PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', null), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['http PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', 'http://example.invalid'), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['PUBLIC_ORIGIN with a path', f => setEnv(f, 'PUBLIC_ORIGIN', 'https://example.invalid/'), ['v1.1.0'], /PUBLIC_ORIGIN/],
-    ['quoted PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid"'), ['v1.1.0'], /PUBLIC_ORIGIN/],
+    ['mismatched quotes in PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', '"https://example.invalid'), ['v1.1.0'], /PUBLIC_ORIGIN/],
     ['release name exists', f => { writeFileSync(`${f.state}/date`, '2026-10-21T01:02:03Z\n'); mkdirSync(`${f.root}/releases/v1.1.0-${sh(f.clone, 'git rev-parse --short v1.1.0^{commit}')}-20261021T010203Z`); }, ['v1.1.0'], /exists/],
   ];
   for (const [label, arrange, args, reason] of cases) await t.test(label, () => {
@@ -282,6 +283,14 @@ test('a connection opened during the build refuses before the stop', { timeout: 
   assert.ok(existsSync(`${f.state}/busy`), 'the build must have run');
   assert.deepEqual(f.snapshot(), before);
   assert.doesNotMatch(f.systemctl(), /stop/);
+});
+
+test('unquoted and single-quoted environment values deploy too', { timeout: 60000 }, () => {
+  const f = fixture();
+  setEnv(f, 'PORT', '18787'); setEnv(f, 'PUBLIC_ORIGIN', "'https://example.invalid'");
+  const r = f.run('v1.1.0');
+  assert.equal(r.status, 0, r.out);
+  assert.match(readlinkSync(`${f.root}/current`), /^releases\/v1\.1\.0-/);
 });
 
 test('a non-default PUBLIC_ORIGIN port is sent in the health Host header', { timeout: 60000 }, () => {

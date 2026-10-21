@@ -67,3 +67,11 @@ Limitations:
 ## Handoff
 
 Commit on `fix/deploy-review-53` (from 6c67a79). Stage54: a fresh independent review receives the original stage50 brief, the stage52 findings and these responses. After that the coordinator publishes. The first real `scripts/deploy.sh vX.Y.Z` is still an owner-approved step.
+
+## Coordinator integration after handoff
+
+Coordinator verified the agent's own session log (`claude-opus-5-5`, `"effort":"high"` on all 63 assistant entries), the live runtime/unit unchanged, and the diff against each finding. A read-only probe then ran the script's environment parsing and health logic against the live service (no `systemctl` writes, no values printed). It refused at the first gate: the live private environment double-quotes every value (valid systemd syntax; systemd strips the quotes), while the script read them literally, so PORT, PUBLIC_ORIGIN and DATA_DIR all failed. Fail-safe (exit 1, nothing changed) but the script could never deploy on this host; the stage53 test `quoted PUBLIC_ORIGIN` had asserted the opposite of the live format.
+
+Fix: `env_value()` drops one pair of matching surrounding double or single quotes, as systemd does; regex/file gates still reject anything else. The test fixture now writes double-quoted values like the live file; `quoted PUBLIC_ORIGIN` became `mismatched quotes in PUBLIC_ORIGIN` (refused); new test `unquoted and single-quoted environment values deploy too`. RED: 21 failing (14 pass) with the old parsing; GREEN: `npm run test:deploy` 35/35; shellcheck v0.11.0 clean.
+
+Live read-only probe after the fix: PORT, PUBLIC_ORIGIN and DATA_DIR gates pass; with the derived Host, live `/` → 200 and anonymous `/api/session` → 401; `ss` established/listener queries succeed (0 established, 1 listener). This is the first real-app confirmation of the health contract by the coordinator; real systemd stop/start remains unexercised until the first owner-approved deploy.

@@ -88,10 +88,17 @@ prev_target=$(readlink "$root/current")
 [[ -f $unit ]] || die "no installed unit at $unit"
 [[ -f $env_file && $(stat -c %a "$env_file") == 600 ]] || die "environment $env_file missing or not mode 600"
 # Plain-text reads of three keys only: never source the file or print other values.
-port=$(sed -n 's/^PORT=//p' "$env_file" | tail -n 1)
+# Like systemd, drop one pair of matching surrounding quotes (the live file quotes every value).
+env_value() {
+  local v
+  v=$(sed -n "s/^$1=//p" "$env_file" | tail -n 1)
+  [[ $v =~ ^\"(.*)\"$ || $v =~ ^\'(.*)\'$ ]] && v=${BASH_REMATCH[1]}
+  printf '%s' "$v"
+}
+port=$(env_value PORT)
 port=${port:-8787}
-data_dir=$(sed -n 's/^DATA_DIR=//p' "$env_file" | tail -n 1)
-public_origin=$(sed -n 's/^PUBLIC_ORIGIN=//p' "$env_file" | tail -n 1)
+data_dir=$(env_value DATA_DIR)
+public_origin=$(env_value PUBLIC_ORIGIN)
 [[ $port =~ ^[0-9]+$ ]] || die "PORT in the environment is not a number"
 [[ $public_origin =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || die "PUBLIC_ORIGIN in the environment is not https://host[:port]"
 # Same as WHATWG URL .host: lowercase, default port dropped.
