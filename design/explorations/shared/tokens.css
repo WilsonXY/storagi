@@ -166,6 +166,5 @@ ul { list-style: none; margin: 0; padding: 0; }
 /* the font shorthand resets font-variant-numeric; restate tabular figures where shorthands are used */
 .ticks, .kbd, .select-bar .count b, .toast .clock, .proto { font-variant-numeric: tabular-nums; }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
-}
+/* Motion is the owner's choice, not the OS's: interface transitions always play, and the koi follow the
+   Swimming koi switch (shared/storagi.js). There is deliberately no prefers-reduced-motion override here. */
