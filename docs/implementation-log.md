@@ -92,7 +92,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 55 | Fix signal window, checkout status, external symlinks, environment normalization | Distinct fix task, actual claude-opus-5-5/high confirmed | Completed on branch; 4 findings fixed RED→GREEN, deploy 42/42, check passed, nothing deployed | [55](stages/55-deploy-review-2-fixes.md) |
 | 56 | Independent scripted deploy review round 3 | Fresh Codex gpt-6.1-sol/high confirmed | FAIL; round-2 resolved, 1 P1 accepted for57, 2 P3 recorded | [56](stages/56-scripted-deploy-review-3.md) |
 | 57 | Stop trimming PUBLIC_ORIGIN | Coordinator | Completed; RED→GREEN, deploy 43/43 | [57](stages/57-origin-trim-fix.md) |
-| 58 | Focused independent review of stage57 | Fresh read-only reviewer | In progress | [58](stages/58-origin-trim-review.md) |
+| 58 | Focused independent review of stage57 | Fresh Codex gpt-6.1-sol/high confirmed | FAIL; 1 P1 + 1 P2 (config-rule divergence) accepted for59 | [58](stages/58-origin-trim-review.md) |
+| 59 | Use the app's own loadConfig via systemd for deploy settings | Distinct fix task | In progress | [59](stages/59-app-config-gate.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
