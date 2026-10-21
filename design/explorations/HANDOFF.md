@@ -33,7 +33,7 @@ The bar at the bottom of the page switches between states: Locked, Loading, Shel
 | Prototype | Real |
 | --- | --- |
 | Session check (orbit loader) | `GET /api/session` → `{ authenticated, csrfToken }`; 401 shows the locked screen. |
-| Locked screen | Same as the prototype, but the faint app behind the card shows **no shelf data** (no names, counts or storage), and the app is `inert`. "Continue with Google" → `/auth/login`. |
+| Locked screen | Same as the prototype: the card over the koi pond, with a faint static **decoy** shelf behind it (`.locked-decoy`, the old Send / Pick up layout with made-up rows). The real app stays hidden until signed in, so no shelf data ever shows. "Continue with Google" → `/auth/login`. |
 | Inbox list, counts, storage meter | `GET /api/files` → files plus `usedBytes`, `reservedBytes`, `budgetBytes`. Group rows by the day in the browser's local time zone. |
 | Uploads | The existing tus queue in `web/src/transfers.ts`: one at a time, pause/resume/cancel, resume by choosing the same file again, CSRF on mutations. Add speed and ETA from `onProgress`. |
 | Downloads with speed | **Open decision** (see `REFERENCES.md`). Plain links leave progress to the browser. In-page progress needs a `fetch` stream plus `showSaveFilePicker`, which only Chromium has; Firefox-based browsers (possibly the owner's "Zen" on Linux) fall back to a plain link. Ask the owner before choosing. |

@@ -74,7 +74,7 @@ The kept contrast FAIL is the unfilled half of tick bars and meters (`#2c2c2e`, 
 
 ## Final design (2026-10-21)
 
-Owner: "i want both of these final version! removes others that were untouched. combine the A and this locked screen C". Variant A becomes `design/explorations/final/`, with C's locked screen: a centred card (the dotted koi over a band of static, "Your shelf is locked.", Continue with Google, "Owner only.") over a full-window koi pond, the app shell faint and inert behind it with no shelf data shown. Variants B, C and D, their screenshots, and the helpers only they used (`ticks`, `blocks`, `brailleSpinner`, the state-bar koi toggle) were removed; they remain in Git history. Checked: every final state loads with no console errors, signing in from the locked card returns to the shelf, and the comparison page now presents the final design.
+Owner: "i want both of these final version! removes others that were untouched. combine the A and this locked screen C". Variant A becomes `design/explorations/final/`, with C's locked screen: a centred card (the dotted koi over a band of static, "Your shelf is locked.", Continue with Google, "Owner only.") over a full-window koi pond. Behind them sits a faint static decoy of a shelf (the old Send / Pick up layout with made-up rows, owner's request); the real app stays hidden until sign-in. Variants B, C and D, their screenshots, and the helpers only they used (`ticks`, `blocks`, `brailleSpinner`, the state-bar koi toggle) were removed; they remain in Git history. Checked: every final state loads with no console errors, signing in from the locked card returns to the shelf, and the comparison page now presents the final design.
 
 ## Final polish (2026-10-21)
 

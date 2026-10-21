@@ -41,8 +41,7 @@ let pond, lockedPond, lockMark, mark;
 function go(next) {
   mode = next;
   for (const b of document.querySelectorAll('[data-go]')) b.setAttribute('aria-pressed', String(b.dataset.go === next));
-  $('#locked').hidden = next !== 'locked'; $('#loading').hidden = next !== 'loading'; $('#app').hidden = !['shelf', 'empty', 'offline', 'locked'].includes(next);
-  $('#app').classList.toggle('is-locked', next === 'locked'); $('#app').inert = next === 'locked';
+  $('#locked').hidden = next !== 'locked'; $('#loading').hidden = next !== 'loading'; $('#app').hidden = !['shelf', 'empty', 'offline'].includes(next);
   $('.select-bar').classList.add('out');
   if (next === 'locked') {
     lockedPond ||= new KoiPond($('#locked-pond'), { count: innerWidth < 640 ? 4 : 6, size: innerWidth < 640 ? [110, 180] : [150, 240], opacity: 0.85, flee: 160, avoid: () => [rel($('#locked-card'), $('#locked-pond'), 0.12)] });

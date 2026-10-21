@@ -20,9 +20,25 @@
 .locked-card .btn { margin-top: -4px; height: 40px; padding: 0 16px; font-size: 14px; }
 .locked-card small { margin-top: 26px; color: var(--faint); font-size: 12px; }
 .g { width: 16px; height: 16px; }
-/* signed out: the app shows faintly behind the card, with nothing from the shelf in it */
-.app.is-locked { opacity: .14; filter: grayscale(1); pointer-events: none; }
-.app.is-locked :is(#groups, .list-head, .details, .tabs, .pulse-line, #pond, .nav-item b, .storage, #fresh, .offline-banner) { visibility: hidden; }
+/* signed out: a faint decoy of a shelf sits behind the pond and the card; it holds no real data */
+.locked-decoy { position: absolute; inset: 0; opacity: .16; filter: grayscale(1); pointer-events: none; user-select: none; color: var(--muted); font-size: 13px; }
+.fk-top { height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 24px; border-bottom: 1px solid var(--rule); color: var(--text); }
+.fk-top b { font-weight: 500; font-size: 16px; }
+.fk-top span { padding-left: 10px; border-left: 1px solid var(--border); color: var(--faint); }
+.fk-lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 96px; padding: 32px; }
+.fk-lane { display: grid; gap: 14px; align-content: start; }
+.fk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.fk-head b { font-weight: 400; font-size: 22px; color: var(--text); }
+.fk-head span, .fk-card span { font-family: var(--mono); font-size: 12px; }
+.fk-drop { height: 170px; border-radius: 14px; background: var(--raised); display: grid; place-items: center; align-content: center; gap: 12px; }
+.fk-drop svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.fk-label { margin-top: 14px; }
+.fk-card { display: grid; grid-template-columns: 40px 1fr; gap: 6px 12px; align-items: center; padding: 14px; border-radius: 12px; background: var(--raised); }
+.fk-card b { display: block; font-weight: 400; color: var(--text); }
+.fk-ext { width: 40px; height: 40px; border-radius: 8px; background: var(--active); display: grid; place-items: center; font: 11px var(--mono); }
+.fk-track { grid-column: 1 / -1; height: 10px; border-radius: 3px; background: var(--active); }
+.fk-search { height: 34px; padding: 0 14px; border-radius: 8px; background: var(--raised); display: flex; align-items: center; }
+@media (max-width: 860px) { .fk-lanes { grid-template-columns: 1fr; padding: 20px 16px; } .fk-pick { display: none; } }
 
 /* ---------- loading ---------- */
 .loading { position: fixed; inset: 0; display: grid; place-items: center; }
