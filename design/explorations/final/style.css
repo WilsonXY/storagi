@@ -13,7 +13,7 @@
 /* ---------- locked ---------- */
 .locked { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; }
 .locked-pond { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.locked-card { position: relative; width: min(400px, calc(100vw - 32px)); padding: 28px; border-radius: 16px; background: var(--raised);
+.locked-card { position: relative; width: min(400px, calc(100vw - 32px)); padding: 28px; border-radius: 16px; background: rgb(17 18 20 / 62%); /* the koi show faintly through */
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
 .locked-mark { width: 100%; height: 132px; display: block; margin: -6px 0 20px; cursor: crosshair; }
 .locked-card h1 { font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
