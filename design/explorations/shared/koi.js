@@ -168,7 +168,17 @@ export class KoiPond {
 // The owner's mark: a kohaku curl in grayscale glyph cells, baked into brand/mark.js. KoiMark samples it by default.
 const staticGrey = () => 26 + (Math.random() * 44 | 0); // fine, dark grain, as the readback bug looked
 let markBytes;
-const markData = () => (markBytes ||= Uint8Array.from(atob(MARK.gray), c => c.charCodeAt(0)));
+// The mark is drawn in glyph cells, so its letters and cell gaps read as dark holes. Blur it (a 5×5 box) so the
+// body is solid: dots follow the blurred value, and the static stays outside the fish.
+const markData = () => markBytes ||= (() => {
+  const raw = Uint8Array.from(atob(MARK.gray), c => c.charCodeAt(0)), out = new Uint8Array(raw.length), R = 2;
+  for (let y = 0; y < MARK.h; y++) for (let x = 0; x < MARK.w; x++) {
+    let sum = 0, n = 0;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const yy = y + dy, xx = x + dx; if (yy >= 0 && xx >= 0 && yy < MARK.h && xx < MARK.w) { sum += raw[yy * MARK.w + xx]; n++; } }
+    out[y * MARK.w + x] = sum / n;
+  }
+  return out;
+})();
 
 export class KoiMark {
   // A koi in stippled dots. Dots run from the pointer and spring home; the fish keeps a slow swimming wave.
@@ -222,8 +232,9 @@ export class KoiMark {
       const inside = bx >= 0 && by >= 0 && bx < MARK.w && by < MARK.h, v = inside ? g[by * MARK.w + bx] : 0, lum = v / 255;
       if (this.o.static && lum < 0.12 && Math.random() < 0.7) { const n = staticGrey(); statics.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${n},${n},${n})`, noise: true }); }
       if (!inside) continue;
-      if (lum < 0.12 || Math.random() > 0.55 + lum * 0.45) continue;
-      dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${v},${v},${v})` });
+      if (lum < 0.12 || Math.random() > 0.7 + lum * 0.3) continue;
+      const c = Math.min(255, v * 1.25 | 0); // the blur dims the body a little; lift it back
+      dots.push({ hx: x, hy: y, x, y, vx: 0, vy: 0, c: `rgb(${c},${c},${c})` });
     }
     this.dots = statics.concat(dots); // static first, so the koi draws on top
   }

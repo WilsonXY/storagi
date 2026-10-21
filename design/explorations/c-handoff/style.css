@@ -160,8 +160,8 @@ body { min-height: 100vh; overflow-x: hidden; }
 .lockcard canvas { width: 100%; height: 132px; display: block; margin: -6px 0 6px; cursor: crosshair; }
 .lockcard h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
 .lockcard p { color: var(--muted); font-size: 14px; }
-.lockcard .btn { margin-top: 10px; height: 40px; padding: 0 16px; font-size: 14px; }
-.lockcard small { color: var(--faint); font-size: 12px; }
+.lockcard .btn { margin-top: 2px; height: 40px; padding: 0 16px; font-size: 14px; }
+.lockcard small { margin-top: 8px; color: var(--faint); font-size: 12px; }
 .g { width: 16px; height: 16px; }
 
 /* ---------- phone and tablet ---------- */
