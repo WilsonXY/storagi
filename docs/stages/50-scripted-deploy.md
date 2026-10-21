@@ -3,8 +3,8 @@
 - Status: completed on branch; review52 pending. Nothing deployed.
 - Started / completed: 2026-10-21, Asia/Kuala_Lumpur (completed about 14:40+08:00).
 - Coordinator thread: [deployment safety](t3-thread://v1/6b27b52f-7f18-4dd5-8543-2af3e102c844).
-- Agent/task: distinct delegated implementation agent; its own task/thread id was not visible to the agent.
-- Provider/model/effort: Anthropic Claude Opus 5.5 (`claude-opus-5-5`) from the agent's runtime; effort not independently proven.
+- Agent/task: distinct delegated implementation agent, task `node:delegated-task:command%3Amcp%3Aaa1cf953-f6fd-4c46-8cda-656192ed3b8e%3Adelegate-task%3Astoragi-stage50-scripted-deploy-v1` (id recorded by the coordinator).
+- Provider/model/effort: Anthropic `claude-opus-5-5`, effort high, confirmed by the coordinator from the agent's own session log `"$HOME/.claude/projects/<worktree>/73ccae9d-1e6a-45d6-94b7-a63b71552aac.jsonl"` (assistant message model and recorded effort).
 - Workspace/branch: fresh T3 worktree, `feat/scripted-deploy` from 198bc2f (stage49).
 - Scope and acceptance criteria: replace the agent-executed prose update procedure with a tag-gated `scripts/deploy.sh <tag>`, a stamped read-only release checked at start by `scripts/verify-release.sh` (`ExecStartPre`), node:test coverage in `npm run check`, and updated operator docs. No push, PR, tag, merge or deploy. No reads of private environment values, no `systemctl --user` on the real service and no writes to the real runtime, config or unit directories.
 
@@ -34,7 +34,7 @@ All commands ran in the worktree with `TMPDIR="$HOME/.cache/storagi/tmp"` after 
 - RED: the tests ran against empty scripts first: 0/23 pass. GREEN: `npm run test:deploy`: 23/23 pass (7 top-level tests, 16 refusal subtests), about 21s.
 - Coverage:
   - Success: `current` swapped; manifest fields; release 0500 with read-only files; `web/node_modules` removed and prune run in `server/`; the fake service runs from the new release after the installed unit's `ExecStartPre` passed; the unit is installed 0600 and identical to the release's; stop → daemon-reload → start order; the backup holds DB and WAL only (no objects, 0700/0600, identical bytes); release and backup pruning, including a read-only old release; a second deploy keeps the first as previous.
-  - Refusals, each leaving a full snapshot of runtime, unit, config and data identical, with no stop or reload: no argument, non-version tag, two arguments, tracked change, HEAD not `origin/main`, missing tag, tag not on main, missing or out-of-tree `current`, missing unit, missing environment, mode 0640, missing database, established connection, existing release name, lock held.
+  - Refusals, each leaving a full snapshot of runtime, unit, config and data identical, with no stop or reload: no argument, non-version tag, two arguments, tracked change, HEAD not `origin/main`, missing tag, tag not on main, tag only in this checkout (coordinator addition), missing or out-of-tree `current`, missing unit, missing environment, mode 0640, missing database, established connection, existing release name, lock held.
   - Failures: a failing check (exit 1, untouched, no stop); a failed stop (exit 1, started again, nothing changed); an unhealthy new release (exit 2, previous `current` and unit restored, service back on the old release); SIGTERM during cutover (exit 2, restored); an unhealthy rollback (exit 3, `MANUAL RECOVERY REQUIRED`, backup path printed). Every run asserts a synthetic environment secret never appears in the output.
   - verify-release: passes on a fresh release through its default self-resolution. It fails on a tampered file, a retargeted symlink, a missing manifest, wrong `DEPLOYED_BY` and an empty `NODE`.
 - Mutation checks: each of six one-line sabotages made the suite fail. The six: rollback unit restore removed, read-only chmod removed, idle gate disabled, HEAD gate disabled, TERM trap removed, `web/node_modules` removal skipped.
@@ -48,7 +48,7 @@ All commands ran in the worktree with `TMPDIR="$HOME/.cache/storagi/tmp"` after 
 ## Findings and limitations
 
 - No real systemd, Tailscale or production run happened. Systemd, curl and ss were PATH shims, and the "service" was a sleep process. Real `Type=exec` start timing, journal output, `ExecStartPre` under the user manager and the 90-second Google-discovery window are untested until the owner's first real deploy.
-- The tag gate checks the local tag after `git fetch origin --tags`. It does not separately confirm that the tag exists on origin. The commit must still be on `origin/main`, so only reviewed code can be deployed.
+- Coordinator integration (after the agent handed off): the agent reported that a tag existing only in the deploying checkout was accepted. Because tag creation is the owner's release decision, the coordinator added a gate requiring `git ls-remote origin` to show the tag at the same commit (peeled for annotated tags) and a refusal test `tag only in this checkout`. RED: that subtest failed without the gate (22 pass/2 fail); GREEN: `npm run test:deploy` 24/24. Coordinator `npm run check` then passed: server 31/31, web 19/19, HTTP 11/11, deploy 24/24, typechecks and builds.
 - `npm run check` inside a real release includes the server timing tests that stage49 found flaky under load. Such a failure aborts the deploy with production untouched; rerun it.
 - Tailscale keep-alive connections to the loopback port make the idle gate refuse until they close.
 - Only tags that contain `scripts/verify-release.sh` can be deployed, so tags from before this stage cannot be.

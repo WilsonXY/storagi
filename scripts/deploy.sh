@@ -63,6 +63,9 @@ git -C "$repo" fetch --quiet origin --tags
 [[ $(git -C "$repo" rev-parse HEAD) == $(git -C "$repo" rev-parse origin/main) ]] || die "checkout HEAD is not origin/main"
 commit=$(git -C "$repo" rev-parse --verify --quiet "refs/tags/$tag^{commit}") || die "tag $tag not found"
 git -C "$repo" merge-base --is-ancestor "$commit" origin/main || die "tag $tag is not on origin/main"
+# Only owner-pushed tags ship: a tag made in this checkout alone is refused.
+[[ $(git -C "$repo" ls-remote origin "refs/tags/$tag" "refs/tags/$tag^{}" | tail -n 1 | cut -f1) == "$commit" ]] ||
+  die "tag $tag is not pushed to origin"
 
 [[ -d $root/releases ]] || die "no runtime at $root; first installation is manual (docs/user-service.md)"
 exec 9>"$root/.deploy.lock"

@@ -218,6 +218,7 @@ test('refusal gates leave the runtime untouched', { timeout: 120000 }, async t =
     ['HEAD is not origin/main', f => sh(f.clone, 'git checkout -q HEAD~1'), ['v1.0.0'], /origin\/main/],
     ['missing tag', () => {}, ['v7.7.7'], /tag v7\.7\.7/],
     ['tag not on main', () => {}, ['v9.9.9'], /not on origin\/main/],
+    ['tag only in this checkout', f => sh(f.clone, 'git tag v5.0.0'), ['v5.0.0'], /not pushed to origin/],
     ['no current release', f => unlinkSync(`${f.root}/current`), ['v1.1.0'], /current/],
     ['current outside releases', f => { mkdirSync(`${f.root}/elsewhere`); unlinkSync(`${f.root}/current`); symlinkSync('elsewhere', `${f.root}/current`); }, ['v1.1.0'], /current/],
     ['missing unit', f => unlinkSync(f.unit), ['v1.1.0'], /unit/],
