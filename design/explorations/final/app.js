@@ -326,7 +326,8 @@ document.addEventListener('click', e => {
 });
 // Show the transfers: the panel beside the Inbox on wide screens, the Transfers tab on narrow ones.
 function openTransfers() { if (innerWidth >= 1180) { showView('shelf'); togglePanel(true); } else setTab('transfers'); }
-function flashPulse() { const p = $('#pulse-line'); p.animate?.([{ background: 'var(--koi-dim)' }, { background: 'var(--surface)' }], { duration: 900 }); }
+// the flash is solid: koi red mixed into the surface, so nothing shows through the pinned line
+function flashPulse() { const p = $('#pulse-line'); p.animate?.([{ background: '#311711' }, { background: 'var(--surface)' }], { duration: 900 }); }
 document.addEventListener('click', e => {
   // only real tab controls: #app also carries data-tab (the current tab) and must not count as one
   const t = e.target.closest('a[data-tab], button[data-tab]'); if (!t) return; e.preventDefault();
