@@ -61,7 +61,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const app = $('#shelf-app'), sel = new Selection(), hidden = new Set<string>();
   let shelf: Shelf = { files: [], usedBytes: 0, reservedBytes: 0, budgetBytes: 0 }, sort: Sort = null, order: string[] = [], emptyMark = false;
   const morph = new Map<string, { state: 'confirm' | 'deleted'; op?: ReturnType<typeof deferredDelete>; left?: number }>();
-  const pending = new Set<ReturnType<typeof deferredDelete>>(), downloads = new Set<() => void>();
+  const pending = new Set<ReturnType<typeof deferredDelete>>(), bulkOps = new Map<ReturnType<typeof deferredDelete>, number>(), downloads = new Set<() => void>();
   cleanups.push(() => { for (const op of pending) op.destroy(); for (const cancel of downloads) cancel(); });
   // A frozen or cached page would otherwise send its DELETEs the moment it wakes, with no Undo left.
   listen(window, 'pagehide', () => { for (const op of [...pending]) op.undo(); });
@@ -91,15 +91,15 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     if (response.status === 401 || response.status === 403) { locked(true); throw new Error('Your session expired. Sign in again.'); }
     if (!response.ok) {
       const body = await response.json().catch(() => ({})); if (response.status >= 500) setOffline(true);
-      throw new Error(response.status === 404 || response.status === 410 ? 'This copy has expired or was removed. Refresh your Inbox.' : body.error || 'The host could not complete that request. Please try again.');
+      throw Object.assign(new Error(response.status === 404 || response.status === 410 ? 'This copy has expired or was removed. Refresh your Inbox.' : body.error || 'The host could not complete that request. Please try again.'), { status: response.status });
     }
     setOffline(false); return response;
   }
   function renderFresh() {
     if (!active) return;
     $('#fresh').classList.toggle('busy', auto.busy); $('#fresh').classList.toggle('off', offline && !auto.busy);
-    $('#fresh-text').innerHTML = auto.busy ? '<span class="fresh-long">Refreshing</span>…' : offline ? `Offline<span class="fresh-long"> · last good ${clock(auto.last)}</span>` : `<span class="fresh-long">Updated </span>${clock(auto.last)}<span class="fresh-long"> · next in ${auto.remaining}s</span>`;
-    $('#last-good').textContent = clock(auto.last); $('#retry-in').textContent = retry.busy ? 'retrying…' : `retrying in ${retry.remaining}s`;
+    $('#fresh-text').innerHTML = auto.busy ? '<span class="fresh-long">Refreshing</span>…' : offline ? `Offline<span class="fresh-long"> · last good ${auto.last ? clock(auto.last) : '—'}</span>` : `<span class="fresh-long">Updated </span>${clock(auto.last)}<span class="fresh-long"> · next in ${auto.remaining}s</span>`;
+    $('#last-good').textContent = auto.last ? clock(auto.last) : '—'; $('#retry-in').textContent = retry.busy ? 'retrying…' : `retrying in ${retry.remaining}s`;
     $('#refresh').setAttribute('aria-label', `Refresh now (auto-refresh in ${auto.remaining} seconds)`);
   }
   listen(auto, 'change', renderFresh); listen(retry, 'change', renderFresh);
@@ -147,16 +147,27 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     $('#full-shelf').hidden = shelf.usedBytes + shelf.reservedBytes < shelf.budgetBytes;
   }
   function deleteFiles(ids: string[], bulk = false) {
-    const restore = () => { pending.delete(op); for (const id of ids) { hidden.delete(id); morph.delete(id); } if (active) { renderInbox(); renderSelection(); } };
+    const restore = () => { pending.delete(op); bulkOps.delete(op); for (const id of ids) { hidden.delete(id); morph.delete(id); } if (active) { renderInbox(); renderSelection(); } };
     if (bulk) for (const id of ids) hidden.add(id);
-    const op = deferredDelete(async () => { for (const id of ids) { if (!active) return; await request(`/api/files/${encodeURIComponent(id)}`, 'DELETE'); shelf.files = shelf.files.filter(f => f.id !== id); } }, {
+    const op = deferredDelete(async () => {
+      let failed: unknown;
+      for (const id of ids) {
+        if (!active) return;
+        try { await request(`/api/files/${encodeURIComponent(id)}`, 'DELETE'); }
+        catch (error) { if (![404, 410].includes((error as { status?: number }).status!)) { failed ??= error; continue; } }
+        shelf.files = shelf.files.filter(f => f.id !== id);
+      }
+      if (failed) throw failed;
+    }, {
       onTick: seconds => { for (const id of ids) { const state = morph.get(id); if (state) state.left = seconds; const c = Array.from(root.querySelectorAll<HTMLElement>('[data-clock]')).find(el => el.dataset.clock === id); if (c) c.textContent = `${seconds}s`; } },
-      onUndo: restore, onCommit: () => { restore(); if (active) void auto.now(); }, onError: error => { restore(); if (active) toast((error as Error).message); },
+      onUndo: restore, onCommit: () => { restore(); if (active) void auto.now(); }, onError: error => { restore(); if (active) { toast((error as Error).message); void auto.now(); } },
     });
     pending.add(op);
     if (!bulk) for (const id of ids) morph.set(id, { state: 'deleted', left: 6, op });
     for (const id of ids) sel.ids.delete(id); renderInbox(); renderSelection();
-    if (bulk) toast(`${ids.length} ${ids.length === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: op.undo, ms: 6000, clockFrom: 6 });
+    if (!bulk) return;
+    bulkOps.set(op, ids.length); const total = [...bulkOps.values()].reduce((n, c) => n + c, 0);
+    toast(`${total} ${total === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: () => { for (const o of [...bulkOps.keys()]) o.undo(); }, ms: 6000, clockFrom: 6 });
   }
   const gestures = rowGestures($('#groups'), sel, () => order, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
   listen(sel, 'change', () => { syncRows(); renderSelection(); });

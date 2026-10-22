@@ -1,9 +1,9 @@
 export class AutoRefresh extends EventTarget {
-  last = Date.now();
+  last = 0; // time of the last successful fetch; 0 until the first one
   busy = false;
   error: unknown = null;
-  private next = this.last + 60_000;
-  private hiddenAt: number | null = document.visibilityState === 'visible' ? null : this.last;
+  private next = Date.now() + 60_000;
+  private hiddenAt: number | null = document.visibilityState === 'visible' ? null : Date.now();
   private pending?: Promise<void>;
   private dead = false;
   private readonly timer = setInterval(() => {

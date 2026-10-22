@@ -196,13 +196,15 @@ test('an Undo toast is not pushed away by a later notice; the notice waits', asy
   click('.toast button'); expect(rows()).toHaveLength(2); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
 });
 test('expired copies get the friendly message, and duplicate rows name their copy for screen readers', async () => {
-  vi.useFakeTimers(); const api = service();
-  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => options?.method === 'DELETE' ? new Response(JSON.stringify({ error: 'Not found' }), { status: 410 }) : api.fetcher(url));
+  Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: vi.fn().mockResolvedValue({ createWritable: async () => ({ write: vi.fn(), close: vi.fn(), abort: vi.fn().mockResolvedValue(undefined) }) }) });
+  const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => String(url).endsWith('/download') ? new Response(JSON.stringify({ error: 'Not found' }), { status: 410 }) : api.fetcher(url));
   await mount(fetcher as typeof api.fetcher);
   const labels = [...document.querySelectorAll('[data-del]')].map(b => b.getAttribute('aria-label'));
   expect(labels).toEqual(['Delete archive.zip · copy new-id', 'Delete archive.zip · copy old-id']);
-  click('[data-del="new-id"]'); click('[data-confirm="new-id"]'); await vi.advanceTimersByTimeAsync(6500);
-  expect(document.querySelector('#notice span')?.textContent).toBe('This copy has expired or was removed. Refresh your Inbox.');
+  click('[data-dl="new-id"]'); await tick();
+  expect(document.querySelector('.tr.error .tr-error')?.textContent).toBe('This copy has expired or was removed. Refresh your Inbox.');
+  delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
 });
 test('a failed disk write aborts the download request', async () => {
   const abort = vi.fn().mockResolvedValue(undefined), write = vi.fn().mockRejectedValue(new Error('Disk full'));
@@ -219,4 +221,33 @@ test('a touchpad sideways swipe deletes through the same six-second Undo', async
   await vi.advanceTimersByTimeAsync(400); expect(document.querySelector('[data-undo="new-id"]')).not.toBeNull();
   click('[data-undo="new-id"]'); await vi.advanceTimersByTimeAsync(7000);
   expect(api.fetcher.mock.calls.filter(c => String(c[0]).includes('/new-id'))).toHaveLength(0);
+});
+test('a second bulk delete inside the grace keeps Undo for both batches', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  click('[data-id="new-id"] .lead'); click('#sel-delete'); click('[data-id="old-id"] .lead'); click('#sel-delete');
+  expect(document.querySelector('#notice span')?.textContent).toBe('2 copies deleted');
+  click('.toast button'); expect(rows()).toHaveLength(2); await vi.advanceTimersByTimeAsync(7000);
+  expect(api.fetcher.mock.calls.filter(c => ((c as unknown[])[1] as RequestInit | undefined)?.method === 'DELETE')).toHaveLength(0);
+});
+test('a bulk delete treats an already-removed copy as deleted and still deletes the rest', async () => {
+  vi.useFakeTimers(); const api = service(); const deleted: string[] = [];
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => {
+    if (options?.method !== 'DELETE') return api.fetcher(url);
+    deleted.push(String(url)); return String(url).endsWith('/new-id') ? new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }) : new Response(null, { status: 204 });
+  });
+  await mount(fetcher as typeof api.fetcher); click('#select-all'); click('#sel-delete'); await vi.advanceTimersByTimeAsync(6500);
+  expect(deleted).toEqual(['/api/files/new-id', '/api/files/old-id']); expect(document.querySelector('#notice span')?.textContent ?? '').not.toContain('expired');
+});
+test('notices raised during an Undo all show afterwards, in order', async () => {
+  vi.useFakeTimers(); await mount(); click('#select-all'); click('#sel-delete');
+  const picker = document.querySelector<HTMLInputElement>('#picker')!;
+  for (const name of ['a.zip', 'b.zip']) { Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['x'], name)] }); picker.dispatchEvent(new Event('change')); }
+  Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['x'], 'a.zip')] }); picker.dispatchEvent(new Event('change'));
+  click('.toast button'); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
+  await vi.advanceTimersByTimeAsync(4000); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
+  await vi.advanceTimersByTimeAsync(4000); expect(document.querySelector('#notice span')?.textContent).toBe('a.zip is already in your transfer queue.');
+});
+test('a first load that fails does not claim an earlier good update', async () => {
+  vi.useFakeTimers(); const api = service(); api.fail(503); await mount(api.fetcher);
+  expect(document.querySelector('#last-good')?.textContent).toBe('—'); expect(document.querySelector('#fresh-text')?.textContent).toBe('Offline · last good —');
 });
