@@ -69,18 +69,24 @@ const poly = (ctx, p) => { ctx.beginPath(); trace(ctx, p); ctx.closePath(); ctx.
 // ---------------------------------------------------------------------------------------------
 export class KoiPond {
   // opts: count, size [min,max] px, font px, cells (tinted squares behind glyphs), avoid() -> rects the fish pass under,
-  //       opacity, ripples, flee (cursor radius, 0 to disable)
+  //       opacity, ripples, flee (cursor radius, 0 to disable),
+  //       splashTarget (element whose clicks drop rings into the water), canSplash(event) -> false to ignore a click
   constructor(canvas, opts = {}) {
     this.c = canvas; this.ctx = canvas.getContext('2d');
     this.o = { count: 5, size: [150, 260], font: 11, cells: true, opacity: 1, ripples: true, flee: 150, speed: 1, avoid: () => [], ...opts };
     this.buf = document.createElement('canvas'); this.bctx = this.buf.getContext('2d', { willReadFrequently: true });
-    this.fish = []; this.trail = []; this.mouse = null; this.last = 0;
+    this.fish = []; this.trail = []; this.waves = []; this.mouse = null; this.last = 0;
     this.resize(); addEventListener('resize', () => this.resize());
     const host = this.o.pointerTarget || window;
     host.addEventListener('pointermove', e => { const r = this.c.getBoundingClientRect(); this.mouse = [e.clientX - r.left, e.clientY - r.top]; });
     host.addEventListener('pointerleave', () => (this.mouse = null));
     // a finger has no hover: once it lifts, the fish stop fleeing the spot it left
     for (const t of ['pointerup', 'pointercancel']) host.addEventListener(t, e => { if (e.pointerType !== 'mouse') this.mouse = null; });
+    // A click on the water drops rings of ASCII waves that spread out slowly; the koi they reach dart away.
+    this.o.splashTarget?.addEventListener('click', e => {
+      if (this.o.canSplash?.(e) === false) return;
+      const r = this.c.getBoundingClientRect(); this.splash(e.clientX - r.left, e.clientY - r.top);
+    });
     this.still = reduced();
     // A pond made while its screen is hidden has no size yet: seed the fish, and in reduced motion paint the
     // still frame, whenever the canvas gets a size, not only at construction.
@@ -90,6 +96,14 @@ export class KoiPond {
     onMotionChange(() => { this.still = reduced(); this.still ? this.paintStill() : this.start(); });
     this.still ? this.paintStill() : this.start();
   }
+  splash(x, y) {
+    if (!this.w) return;
+    this.waves.push({ x, y, t: 0, hit: new Set() });
+    // the drop itself startles any koi close by
+    if (!this.still) for (const f of this.fish) { const d = Math.hypot(f.x - x, f.y - y); if (d < 110) this.scare(f, x, y, 1 - d / 220); }
+    this.start();
+  }
+  scare(f, x, y, k) { f.fear = Math.max(f.fear || 0, k); f.fearAt = Math.atan2(f.y - y, f.x - x); }
   start() { if (this.running || this.dead) return; this.running = true; this.last = 0; requestAnimationFrame(t => this.loop(t)); }
   seed() { if (this.seeded || !this.w) return; this.seeded = true; for (let i = 0; i < this.o.count; i++) this.spawn(i, true); }
   paintStill() { if (!this.w) return; if (!this.seeded) { this.seed(); for (let i = 0; i < 40; i++) this.step(0.05); } this.draw(); }
@@ -121,6 +135,8 @@ export class KoiPond {
         const dx = f.x - this.mouse[0], dy = f.y - this.mouse[1], d = Math.hypot(dx, dy);
         if (d < this.o.flee) { const away = Math.atan2(dy, dx); want += Math.sin(away - f.a) * 3; f.boost = Math.min(1, f.boost + dt * 4); }
       }
+      // frightened by a wave: turn away from where it came from and dart off, calming over a second or so
+      if (f.fear > 0) { want += Math.sin(f.fearAt - f.a) * 4 * f.fear; f.boost = Math.min(1, f.boost + dt * 6 * f.fear); f.fear = Math.max(0, f.fear - dt * 0.9); }
       f.boost = Math.max(0, f.boost - dt * 0.6);
       f.turn += (want - f.turn) * Math.min(1, dt * 2); f.a += f.turn * dt;
       const v = f.speed * (1 + f.boost * 2.2);
@@ -131,12 +147,26 @@ export class KoiPond {
     }
     for (const t of this.trail) t.age += dt; this.trail = this.trail.filter(t => t.age < 2.4);
   }
+  // Each splash sends three rings out at WAVE.speed px/s; a ring frightens a koi once, when its crest passes the koi's head.
+  stepWaves(dt) {
+    for (const w of this.waves) {
+      w.t += dt;
+      if (this.still) continue;
+      WAVE.rings.forEach((delay, i) => {
+        const r = (w.t - delay) * WAVE.speed, k = waveStrength(w.t - delay, r);
+        if (r <= 0 || k < 0.12) return;
+        this.fish.forEach((f, j) => { const key = i * 64 + j; if (w.hit.has(key)) return; if (Math.abs(Math.hypot(f.x - w.x, f.y - w.y) - r) < 26) { w.hit.add(key); this.scare(f, w.x, w.y, Math.min(1, k * 1.3)); } });
+      });
+    }
+    this.waves = this.waves.filter(w => w.t < WAVE.life + WAVE.rings.at(-1));
+  }
   loop(t) {
     const dt = this.last ? Math.min(0.05, (t - this.last) / 1000) : 0.016; this.last = t;
-    if (this.dead || this.still) { this.running = false; return; }
+    // a still pond runs only while click waves are spreading, then settles back to its still picture
+    if (this.dead || (this.still && !this.waves.length)) { this.running = false; if (this.still && !this.dead) this.draw(); return; }
     if (!this.w) this.resize();
     this.seed();
-    if (this.w && document.visibilityState === 'visible') { this.step(dt); this.draw(); }
+    if (this.w && document.visibilityState === 'visible') { if (!this.still) this.step(dt); this.stepWaves(dt); this.draw(); }
     requestAnimationFrame(n => this.loop(n));
   }
   draw() {
@@ -148,6 +178,7 @@ export class KoiPond {
     for (const f of this.fish) paintFish(bctx, f, 2 / cw, 2 / chh);
     const img = bctx.getImageData(0, 0, this.buf.width, this.buf.height).data, W = this.buf.width;
     const under = o.avoid();
+    this.drawWaves(under, img, W);
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
       let A = 0, R = 0, G = 0, B = 0;
       for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) { const k = ((r * 2 + dy) * W + c * 2 + dx) * 4, a = img[k + 3]; A += a; R += img[k] * a; G += img[k + 1] * a; B += img[k + 2] * a; }
@@ -164,6 +195,42 @@ export class KoiPond {
     }
   }
 }
+
+// Click waves: thin rings drawn in glyphs, '~' across the top and bottom, '( )' at the sides and '/ \' between, with a
+// faint '·' wake inside each. Each ring is one cell thick whichever way it faces; the koi swim over them.
+const WAVE = { speed: 60, life: 3.8, rings: [0, 0.7, 1.4] };
+const waveStrength = (age, r) => (age <= 0 || age >= WAVE.life ? 0 : (1 - age / WAVE.life) ** 1.3 * Math.min(1, r / 14));
+function crest(dx, dy) {
+  const a = Math.atan2(dy, dx), c = Math.cos(a), sn = Math.sin(a);
+  if (Math.abs(sn) > 0.8) return '~';
+  if (Math.abs(c) > 0.86) return c > 0 ? ')' : '(';
+  return c * sn > 0 ? '\\' : '/';
+}
+KoiPond.prototype.drawWaves = function (under, img, W) {
+  const { ctx, cw, chh } = this;
+  for (const w of this.waves) {
+    const reach = w.t * WAVE.speed + chh * 2;
+    const c0 = Math.max(0, Math.floor((w.x - reach) / cw)), c1 = Math.min(this.cols - 1, Math.ceil((w.x + reach) / cw));
+    const r0 = Math.max(0, Math.floor((w.y - reach) / chh)), r1 = Math.min(this.rows - 1, Math.ceil((w.y + reach) / chh));
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+      const x = c * cw, y = r * chh, dx = x + cw / 2 - w.x, dy = y + chh / 2 - w.y, d = Math.hypot(dx, dy) || 1;
+      const cell = (Math.abs(dx) * cw + Math.abs(dy) * chh) / d; // the cell's extent across the ring
+      let best = 0, ch = '';
+      for (const delay of WAVE.rings) {
+        const age = w.t - delay, k = waveStrength(age, age * WAVE.speed); if (!k) continue;
+        const off = d - age * WAVE.speed; // > 0 ahead of the crest, < 0 behind it
+        const [v, g] = Math.abs(off) <= cell * 0.5 ? [k, crest(dx, dy)] : off < 0 && off > -cell * 1.5 ? [k * 0.4, '·'] : [0, ''];
+        if (v > best) { best = v; ch = g; }
+      }
+      if (best < 0.04) continue;
+      let A = 0; for (const [ex, ey] of [[0, 0], [1, 0], [0, 1], [1, 1]]) A += img[((r * 2 + ey) * W + c * 2 + ex) * 4 + 3];
+      if (A >= 60) continue; // a koi is here
+      let alpha = best * this.o.opacity;
+      for (const q of under) if (x + cw > q.x && x < q.x + q.w && y + chh > q.y && y < q.y + q.h) { alpha *= q.dim ?? 0.18; break; }
+      ctx.fillStyle = `rgba(200,206,214,${alpha * 0.85})`; ctx.fillText(ch, x, y);
+    }
+  }
+};
 
 // ---------------------------------------------------------------------------------------------
 // The owner's mark: a kohaku curl in grayscale glyph cells, baked into brand/mark.js. KoiMark samples it by default.

@@ -95,7 +95,10 @@
           <section class="inbox" id="inbox" aria-label="Inbox">
             <div class="list-head">
               <label class="all"><input type="checkbox" class="check" id="select-all" aria-label="Select all files"></label>
-              <span>Name</span><span class="r">Size</span><span class="r">Expires</span><span></span>
+              <button type="button" class="sort" data-sort="name">Name<span class="dir mono" aria-hidden="true"></span></button>
+              <button type="button" class="sort r" data-sort="size"><span class="dir mono" aria-hidden="true"></span>Size</button>
+              <button type="button" class="sort r" data-sort="expires"><span class="dir mono" aria-hidden="true"></span>Expires</button>
+              <button type="button" class="icon-btn sort-clear" id="sort-clear" aria-label="Clear sorting" title="Clear sorting" hidden><svg class="i" viewBox="0 0 16 16"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"/></svg></button>
             </div>
             <div id="groups"></div>
             <div class="empty" id="empty" hidden>
@@ -117,6 +120,14 @@
           </div>
           <div class="set-preview"><canvas id="set-pond" aria-hidden="true"></canvas></div>
           <p class="set-saved mono" id="koi-saved" aria-live="polite"></p>
+          <div class="set-row">
+            <div class="set-text">
+              <h2 id="gesture-label">Swipe gestures</h2>
+              <p class="muted" id="gesture-desc">Drag across files to select them. Swipe a file left to delete it.</p>
+            </div>
+            <button type="button" class="switch" id="gesture-switch" role="switch" aria-checked="true" aria-labelledby="gesture-label" aria-describedby="gesture-desc"><span class="knob"></span></button>
+          </div>
+          <p class="set-saved mono" id="gesture-saved" aria-live="polite"></p>
         </section>
 
         <aside class="details" id="details" aria-labelledby="details-title">

@@ -1,5 +1,5 @@
 // Variant A — Pond. T3 Code shell; ASCII koi swim behind the composer and pass under it.
-import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref , fileDrop , reduced } from '../shared/storagi.js';
+import { NOW, bytes, rate, duration, finishAt, relDay, daysLeft, ext, shortId, ago, usage, Transfers, AutoRefresh, createHost, Selection, deferredDelete, toast, esc, wait , clock, simNow , motionPref, setMotionPref , fileDrop , reduced , gesturePref, setGesturePref } from '../shared/storagi.js';
 import { KoiPond, KoiMark, orbitLoader } from '../shared/koi.js';
 
 const $ = s => document.querySelector(s);
@@ -23,7 +23,8 @@ function makeWorld(seeded) {
   tr.addEventListener('done', e => { if (e.detail.dir === 'up') { host.add(e.detail); if (world === w) renderInbox(); } });
   tr.addEventListener('change', () => { if (world === w) renderTransfers(); });
   const w = { host, tr, sel: new Selection(), hidden: new Set(), morph: new Map() };
-  w.sel.addEventListener('change', () => { if (world === w) { renderInbox(); renderSelection(); } });
+  // mid-gesture the rows stay in place (a re-render would pull them out from under the pointer); only their ticks change
+  w.sel.addEventListener('change', () => { if (world === w) { gesture ? syncRows() : renderInbox(); renderSelection(); } });
   return w;
 }
 const worlds = { shelf: makeWorld(true), empty: makeWorld(false) };
@@ -44,14 +45,16 @@ function go(next) {
   $('#locked').hidden = next !== 'locked'; $('#loading').hidden = next !== 'loading'; $('#app').hidden = !['shelf', 'empty', 'offline'].includes(next);
   $('.select-bar').classList.add('out');
   if (next === 'locked') {
-    lockedPond ||= new KoiPond($('#locked-pond'), { count: innerWidth < 640 ? 4 : 6, size: innerWidth < 640 ? [110, 180] : [150, 240], opacity: 0.85, flee: 160, avoid: () => [rel($('#locked-card'), $('#locked-pond'), 0.55)] });
+    lockedPond ||= new KoiPond($('#locked-pond'), { count: innerWidth < 640 ? 4 : 6, size: innerWidth < 640 ? [110, 180] : [150, 240], opacity: 0.85, flee: 160, avoid: () => [rel($('#locked-card'), $('#locked-pond'), 0.55)],
+      splashTarget: $('#locked'), canSplash: e => !e.target.closest('#locked-card') });
     lockMark ||= new KoiMark($('#locked-mark'), { radius: 40, static: true });
     lockedPond.resize();
   }
   if (['shelf', 'empty', 'offline'].includes(next)) {
     world = next === 'empty' ? worlds.empty : worlds.shelf;
     const narrow = innerWidth < 640;
-    pond ||= new KoiPond($('#pond'), { count: narrow ? 2 : 4, size: narrow ? [80, 130] : [110, 190], font: 11, flee: 130, avoid: () => [rel($('#composer'), $('#pond'), 0.32), rel($('.lede'), $('#pond'), 0.1), rel($('.search'), $('#pond'), 0.1)] });
+    pond ||= new KoiPond($('#pond'), { count: narrow ? 2 : 4, size: narrow ? [80, 130] : [110, 190], font: 11, flee: 130, avoid: () => [rel($('#composer'), $('#pond'), 0.32), rel($('.lede'), $('#pond'), 0.1), rel($('.search'), $('#pond'), 0.1)],
+      splashTarget: $('#pond-zone'), canSplash: e => !e.target.closest('#composer, button, a, input') });
     pond.resize(); renderAll();
     if (next === 'offline') { for (const t of world.tr.items) if (['uploading', 'downloading', 'queued'].includes(t.state)) { world.tr.pause(t); t.held = true; } ar.now(); }
     else releaseHeld();
@@ -83,28 +86,59 @@ function releaseHeld() { for (const t of worlds.shelf.tr.items) if (t.held) { t.
 function rel(el, canvas, dim) { const a = el.getBoundingClientRect(), b = canvas.getBoundingClientRect(); return { x: a.left - b.left, y: a.top - b.top, w: a.width, h: a.height, dim }; }
 
 // ---------- inbox ----------
+// Sorting: a column header sorts by it, ascending first, then flips on each click. Unsorted, the list is newest first in day groups.
+let sort = null; // { key: 'name' | 'size' | 'expires', dir: 1 | -1 }
+const SORTS = { name: (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }), size: (a, b) => a.size - b.size, expires: (a, b) => a.expiresAt - b.expiresAt };
 function visibleFiles() {
   const q = $('#search').value.trim().toLowerCase();
-  return world.host.files.filter(f => !world.hidden.has(f.id) && f.name.toLowerCase().includes(q)).sort((a, b) => b.uploadedAt - a.uploadedAt);
+  const files = world.host.files.filter(f => !world.hidden.has(f.id) && f.name.toLowerCase().includes(q)).sort((a, b) => b.uploadedAt - a.uploadedAt);
+  return sort ? files.sort((a, b) => SORTS[sort.key](a, b) * sort.dir || b.uploadedAt - a.uploadedAt) : files;
 }
+function renderSortHead() {
+  const words = { name: ['A to Z', 'Z to A'], size: ['smallest first', 'largest first'], expires: ['soonest first', 'latest first'] };
+  for (const b of document.querySelectorAll('.sort')) {
+    const on = sort?.key === b.dataset.sort, label = (b.dataset.label ||= b.textContent.trim());
+    b.classList.toggle('on', on); b.querySelector('.dir').textContent = on ? (sort.dir > 0 ? '↑' : '↓') : '';
+    b.setAttribute('aria-label', on ? `${label}, sorted ${words[b.dataset.sort][sort.dir > 0 ? 0 : 1]}` : `Sort by ${label.toLowerCase()}`);
+  }
+  $('#sort-clear').hidden = !sort;
+}
+$('.list-head').addEventListener('click', e => {
+  const b = e.target.closest('.sort'); if (!b) return;
+  sort = sort?.key === b.dataset.sort ? { key: sort.key, dir: -sort.dir } : { key: b.dataset.sort, dir: 1 };
+  renderInbox();
+});
+$('#sort-clear').addEventListener('click', () => { sort = null; renderInbox(); $('.sort[data-sort="name"]').focus(); });
 let order = [];
 function renderInbox() {
+  if (gesture && gesture.mode !== 'pending') return syncRows(); // the rows stay put under a drag or swipe; endGesture renders
   const files = visibleFiles(), all = world.host.files.filter(f => !world.hidden.has(f.id)), q = $('#search').value.trim();
   order = files.map(f => f.id);
   const names = {}; for (const f of world.host.files) names[f.name] = (names[f.name] || 0) + 1;
-  const groups = new Map(); for (const f of files) { const k = relDay(f.uploadedAt); groups.has(k) || groups.set(k, []); groups.get(k).push(f); }
+  const groups = new Map(); for (const f of files) { const k = sort ? '' : relDay(f.uploadedAt); groups.has(k) || groups.set(k, []); groups.get(k).push(f); }
   const focusKey = document.activeElement?.dataset?.key;
-  $('#groups').innerHTML = [...groups].map(([day, list]) => `<div class="group"><h3>${day}</h3>${list.map(f => row(f, names[f.name] > 1)).join('')}</div>`).join('');
+  // sorted, the list is one run with no day headings
+  $('#groups').innerHTML = [...groups].map(([day, list]) => `<div class="group${sort ? ' flat' : ''}">${day ? `<h3>${day}</h3>` : ''}${list.map(f => row(f, names[f.name] > 1)).join('')}</div>`).join('');
+  renderSortHead();
   if (focusKey) document.querySelector(`[data-key="${focusKey}"]`)?.focus();
   const empty = !all.length, offline = mode === 'offline';
   $('#empty').hidden = !empty || offline; $('.list-head').hidden = empty;
   $('#no-match').hidden = empty || files.length > 0; $('#no-match').textContent = `No filenames match “${q}”. Press Esc to clear the search.`;
   $('#offline').hidden = !offline; $('#last-good').textContent = clock(lastGood);
   if (empty && !offline) { mark ||= new KoiMark($('#koi-mark'), { radius: 40 }); requestAnimationFrame(() => mark.build()); }
+  syncHead(files);
+  for (const id of ['#nav-files', '#tab-files']) $(id).textContent = all.length;
+}
+// The header box: ticked when every shown file is selected, a dash when some are.
+function syncHead(files = visibleFiles()) {
   $('#inbox').classList.toggle('selecting', world.sel.ids.size > 0);
   const sa = $('#select-all'), n = files.filter(f => world.sel.ids.has(f.id)).length;
   sa.checked = n > 0 && n === files.length; sa.indeterminate = n > 0 && n < files.length;
-  for (const id of ['#nav-files', '#tab-files']) $(id).textContent = all.length;
+}
+// Selection changes in place, without rebuilding the rows.
+function syncRows() {
+  for (const r of document.querySelectorAll('#groups .row')) { const on = world.sel.ids.has(r.dataset.id); r.classList.toggle('selected', on); r.querySelector('.lead .check').checked = on; }
+  syncHead();
 }
 function row(f, dup) {
   const sel = world.sel.ids.has(f.id), left = daysLeft(f), gone = f.expiresAt <= NOW, m = world.morph.get(f.id);
@@ -120,7 +154,7 @@ function row(f, dup) {
 }
 function acts(f, gone, m) {
   const n = esc(f.name);
-  if (!m) return `${gone ? '' : `<a class="icon-btn" href="#" data-dl="${f.id}" data-key="d-${f.id}" aria-label="Download ${n}" title="Download">${ICON.down}</a>`}<button type="button" class="icon-btn" data-del="${f.id}" data-key="x-${f.id}" aria-label="Delete ${n}" title="Delete this copy">${ICON.trash}</button>`;
+  if (!m) return `${gone ? '' : `<a class="icon-btn" href="#" draggable="false" data-dl="${f.id}" data-key="d-${f.id}" aria-label="Download ${n}" title="Download">${ICON.down}</a>`}<button type="button" class="icon-btn" data-del="${f.id}" data-key="x-${f.id}" aria-label="Delete ${n}" title="Delete this copy">${ICON.trash}</button>`;
   if (m.s === 'confirm') return `<div class="morph"><span class="m-ask">Delete copy?</span><button type="button" class="m-btn" data-cancel="${f.id}" data-key="k-${f.id}">Cancel</button><button type="button" class="m-confirm" data-confirm="${f.id}" data-key="y-${f.id}">Delete</button></div>`;
   if (m.s === 'deleted') return `<div class="morph"><span class="m-ok">✓ Deleted</span><button type="button" data-undo="${f.id}" data-key="u-${f.id}">Undo</button><span class="m-clock" data-clock="${f.id}">${m.left}s</span></div>`;
   return `<div class="morph"><span class="m-quiet"><i class="spin"></i>Deleting</span></div>`;
@@ -134,19 +168,123 @@ $('#groups').addEventListener('click', e => {
 togglePanel(true); flashPulse(); return; }
   if (b.dataset.del) { world.morph.set(id, { s: 'confirm' }); renderInbox(); document.querySelector(`[data-key="k-${id}"]`)?.focus(); return; }
   if (b.dataset.cancel) { world.morph.delete(id); renderInbox(); document.querySelector(`[data-key="x-${id}"]`)?.focus(); return; }
-  if (b.dataset.confirm) {
-    const m = { s: 'deleted', left: 6 };
-    m.op = deferredDelete(world.host, [id], {
-      grace: 6000,
-      onTick: s => { m.left = Math.max(0, s); const c = document.querySelector(`[data-clock="${id}"]`); if (c) c.textContent = `${m.left}s`; if (s <= 0 && m.s !== 'deleting') { m.s = 'deleting'; renderInbox(); } },
-      onCommit: () => { world.morph.delete(id); world.sel.ids.delete(id); renderAll(); },
-    });
-    world.morph.set(id, m); renderInbox(); document.querySelector(`[data-key="u-${id}"]`)?.focus(); return;
-  }
+  if (b.dataset.confirm) { deleteNow(id); document.querySelector(`[data-key="u-${id}"]`)?.focus(); return; }
   if (b.dataset.undo) { world.morph.get(id)?.op.undo(); world.morph.delete(id); renderInbox(); document.querySelector(`[data-key="x-${id}"]`)?.focus(); }
 });
-$('#select-all').addEventListener('click', e => { e.preventDefault(); const ids = visibleFiles().map(f => f.id); world.sel.set(ids.every(id => world.sel.ids.has(id)) ? [] : ids); });
+// Delete a copy now, with the row showing Undo for the 6 s grace (from the inline confirm, or a swipe).
+function deleteNow(id) {
+  const m = { s: 'deleted', left: 6 };
+  m.op = deferredDelete(world.host, [id], {
+    grace: 6000,
+    onTick: s => { m.left = Math.max(0, s); const c = document.querySelector(`[data-clock="${id}"]`); if (c) c.textContent = `${m.left}s`; if (s <= 0 && m.s !== 'deleting') { m.s = 'deleting'; renderInbox(); } },
+    onCommit: () => { world.morph.delete(id); world.sel.ids.delete(id); renderAll(); },
+  });
+  world.morph.set(id, m); renderInbox();
+}
+// The box toggles itself as usual (no preventDefault, which would undo the tick after the handler ran); the render then
+// sets the true state: everything selected, or nothing. A dash (some selected) selects the rest.
+$('#select-all').addEventListener('click', () => { const ids = visibleFiles().map(f => f.id); world.sel.set(ids.every(id => world.sel.ids.has(id)) ? [] : ids); });
 $('#search').addEventListener('input', renderInbox);
+
+// ---------- gestures (Settings → Swipe gestures) ----------
+// Drag down (or up) across rows to select them; the first row decides whether the drag selects or clears. Swipe a row
+// left to delete it, with the usual Undo. Mouse and touchpad: press and drag anywhere on a row; a touchpad's
+// two-finger sideways swipe also slides the row. Touch: drag down the checkbox column, or press and hold a row first,
+// because a plain vertical drag on a phone scrolls the page.
+let gesture = null, eatClick = false, wheelSwipe = null;
+const groupsEl = $('#groups'), gesturesOn = () => gesturePref() === 'on';
+const rowById = id => groupsEl.querySelector(`.row[data-id="${id}"]`);
+groupsEl.addEventListener('pointerdown', e => {
+  if (!gesturesOn() || e.button !== 0 || gesture) return;
+  // the row's own buttons count too: on a phone they fill its right end, where a swipe naturally starts
+  const r = e.target.closest('.row'); if (!r || world.morph.has(r.dataset.id)) return;
+  gesture = { id: r.dataset.id, pid: e.pointerId, touch: e.pointerType === 'touch', lead: !!e.target.closest('.lead'), x0: e.clientX, y0: e.clientY, mode: 'pending' };
+  // touch: drag from the checkboxes at once; anywhere else on the row, hold still a moment first
+  if (gesture.touch && !gesture.lead) { const g = gesture; g.hold = setTimeout(() => { if (gesture === g && g.mode === 'pending') { startPaint(g); navigator.vibrate?.(8); } }, 380); }
+});
+addEventListener('pointermove', e => {
+  const g = gesture; if (!g || e.pointerId !== g.pid) return;
+  const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+  if (g.mode === 'pending') {
+    if (Math.hypot(dx, dy) < 8) return;
+    const sideways = Math.abs(dx) > Math.abs(dy) * 1.2;
+    if (!g.lead && sideways && dx < 0) startSwipe(g);
+    else if (g.lead || (!g.touch && !sideways)) startPaint(g);
+    else return endGesture(); // a phone's vertical drag is a scroll
+  }
+  if (g.mode === 'paint') { g.y = e.clientY; paintTo(g); }
+  if (g.mode === 'swipe') slide(g.s, dx);
+});
+for (const t of ['pointerup', 'pointercancel']) addEventListener(t, e => { if (gesture && e.pointerId === gesture.pid) endGesture(t === 'pointerup'); });
+// once a touch gesture has started, the page must not scroll under it; a held press must not open the long-press menu
+groupsEl.addEventListener('touchmove', e => { if (gesture && gesture.mode !== 'pending') e.preventDefault(); }, { passive: false });
+groupsEl.addEventListener('contextmenu', e => { if (gesture?.touch) e.preventDefault(); });
+// a drag ends with a click on the row it started from; that click must not tick the box again
+addEventListener('click', e => { if (eatClick) { eatClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
+
+function startPaint(g) {
+  g.mode = 'paint'; g.base = new Set(world.sel.ids); g.on = !g.base.has(g.id); g.y = g.y0;
+  world.sel.anchor = g.id; document.body.classList.add('painting'); paintTo(g); scrollNearEdge(g);
+}
+// Every row between the first and the one under the pointer takes the first row's new state; rows the drag leaves again go back.
+function paintTo(g) {
+  const rows = [...groupsEl.querySelectorAll('.row')]; if (!rows.length) return;
+  let at = rows.find(r => r.getBoundingClientRect().bottom >= g.y) || rows.at(-1);
+  if (rows.indexOf(at) > 0 && at.getBoundingClientRect().top > g.y) at = rows[rows.indexOf(at) - 1]; // between groups: the row above
+  const a = order.indexOf(g.id), b = order.indexOf(at.dataset.id); if (a < 0 || b < 0) return;
+  const ids = new Set(g.base); for (const id of order.slice(Math.min(a, b), Math.max(a, b) + 1)) g.on ? ids.add(id) : ids.delete(id);
+  if (ids.size === world.sel.ids.size && [...ids].every(id => world.sel.ids.has(id))) return;
+  world.sel.set([...ids]);
+}
+// Near the top or bottom of the window the list scrolls by itself, so a drag can reach rows off screen.
+function scrollNearEdge(g) {
+  if (gesture !== g || g.mode !== 'paint') return;
+  const edge = 72, top = $('.top').getBoundingClientRect().bottom + (innerWidth <= 860 ? 66 : 0), v = g.y > innerHeight - edge ? g.y - (innerHeight - edge) : g.y < top + edge ? g.y - (top + edge) : 0;
+  if (v) { scrollBy(0, v / 4); paintTo(g); }
+  requestAnimationFrame(() => scrollNearEdge(g));
+}
+
+// Swipe: the row slides left over a red strip; past about a third of its width the strip lights and letting go deletes.
+function startSwipe(g) { g.mode = 'swipe'; g.s = swipeStart(rowById(g.id)); }
+function swipeStart(row) {
+  const under = document.createElement('div'); under.className = 'swipe-under'; under.setAttribute('aria-hidden', 'true');
+  under.innerHTML = `${ICON.trash}<span>Delete</span>`;
+  under.style.top = `${row.offsetTop}px`; under.style.height = `${row.offsetHeight}px`;
+  row.before(under); row.classList.add('swiping');
+  return { row, under, x: 0, limit: Math.min(160, row.offsetWidth * 0.34) };
+}
+function slide(s, dx) {
+  const x = dx > 0 ? 0 : dx < -s.limit * 1.6 ? -s.limit * 1.6 + (dx + s.limit * 1.6) * 0.25 : dx; // stiffer past the far end
+  s.x = x; s.row.style.transform = `translateX(${x}px)`;
+  s.under.classList.toggle('armed', -x >= s.limit);
+}
+function swipeEnd(s, commit) {
+  const armed = commit && -s.x >= s.limit, id = s.row.dataset.id;
+  if (armed) {
+    s.row.animate([{ transform: `translateX(${s.x}px)` }, { transform: 'translateX(-104%)', opacity: 0.4 }], { duration: 200, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' })
+      .finished.then(() => { s.under.remove(); world.sel.ids.delete(id); deleteNow(id); });
+  } else {
+    s.row.animate([{ transform: `translateX(${s.x}px)` }, { transform: 'none' }], { duration: 320, easing: 'cubic-bezier(0.34, 1.4, 0.64, 1)' })
+      .finished.then(() => { s.under.remove(); s.row.classList.remove('swiping'); });
+    s.row.style.transform = '';
+  }
+}
+function endGesture(commit = false) {
+  const g = gesture; if (!g) return; gesture = null; clearTimeout(g.hold);
+  document.body.classList.remove('painting');
+  if (g.mode === 'paint') { eatClick = true; setTimeout(() => (eatClick = false), 0); renderInbox(); }
+  if (g.mode === 'swipe') { eatClick = true; setTimeout(() => (eatClick = false), 0); swipeEnd(g.s, commit); }
+}
+
+// Touchpad: a two-finger sideways swipe over a row slides it the same way; it settles when the fingers stop.
+groupsEl.addEventListener('wheel', e => {
+  if (!gesturesOn() || gesture || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  const r = e.target.closest('.row');
+  if (!wheelSwipe) { if (!r || world.morph.has(r.dataset.id) || e.deltaX < 0) return; wheelSwipe = { s: swipeStart(r), dx: 0 }; }
+  e.preventDefault(); // and no back-navigation swipe
+  const w = wheelSwipe; w.dx = Math.min(0, w.dx - e.deltaX); slide(w.s, w.dx);
+  clearTimeout(w.t); w.t = setTimeout(() => { wheelSwipe = null; swipeEnd(w.s, true); }, 140);
+}, { passive: false });
 
 // ---------- selection bar ----------
 let lastCount = 0;
@@ -306,7 +444,7 @@ function showView(view) {
   app.dataset.view = view; $('#settings').hidden = !on;
   $('#nav-settings').classList.toggle('is-active', on); $('#nav-settings').toggleAttribute('aria-current', on);
   const inbox = document.querySelector('.nav-item[data-tab="inbox"]'); inbox.classList.toggle('is-active', !on); inbox.toggleAttribute('aria-current', !on);
-  if (on) { $('#page-title').textContent = 'Settings'; setPond ||= new KoiPond($('#set-pond'), { count: 3, size: [110, 170], font: 10, flee: 90, pointerTarget: $('#set-pond') }); paintKoiSwitch(); }
+  if (on) { $('#page-title').textContent = 'Settings'; setPond ||= new KoiPond($('#set-pond'), { count: 3, size: [110, 170], font: 10, flee: 90, pointerTarget: $('#set-pond'), splashTarget: $('#set-pond') }); paintKoiSwitch(); }
   else if ($('#page-title').textContent === 'Settings') $('#page-title').textContent = 'Inbox';
 }
 function paintKoiSwitch(saved) {
@@ -315,6 +453,13 @@ function paintKoiSwitch(saved) {
   if (saved) $('#koi-saved').textContent = swim ? 'Saved · the koi swim' : 'Saved · the koi stay still';
 }
 $('#koi-switch').addEventListener('click', () => { setMotionPref(motionPref() === 'swim' ? 'static' : 'swim'); paintKoiSwitch(true); });
+function paintGestureSwitch(saved) {
+  const on = gesturePref() === 'on';
+  $('#gesture-switch').setAttribute('aria-checked', String(on)); $('#app').classList.toggle('gestures', on);
+  if (saved) $('#gesture-saved').textContent = on ? 'Saved · swipe gestures on' : 'Saved · swipe gestures off';
+}
+$('#gesture-switch').addEventListener('click', () => { setGesturePref(gesturePref() === 'on' ? 'off' : 'on'); paintGestureSwitch(true); });
+paintGestureSwitch();
 // only real view links: #app carries data-view (the current view) too
 document.addEventListener('click', e => { const v = e.target.closest('a[data-view], button[data-view]'); if (!v) return; e.preventDefault(); showView(v.dataset.view); closeSheet(); });
 

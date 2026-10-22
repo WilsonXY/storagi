@@ -158,6 +158,20 @@
 .list-head .all { display: grid; place-items: center; }
 .list-head .check { opacity: 1; }
 .r { text-align: right; }
+/* sortable column headers: the arrow sits outside the label, so the label never moves */
+.list-head .sort { position: relative; justify-self: start; height: 28px; color: var(--faint); font-size: 12px; transition: color .15s; }
+.list-head .sort.r { justify-self: end; }
+.list-head .sort:hover, .list-head .sort.on { color: var(--text); }
+.sort .dir { position: absolute; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--muted); }
+.sort:not(.r) .dir { left: calc(100% + 6px); }
+.sort.r .dir { right: calc(100% + 6px); }
+.sort-clear { justify-self: end; width: 28px; height: 28px; animation: pop-in .22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes pop-in { from { opacity: 0; transform: scale(.6); } }
+.list-head .check:hover:not(:checked):not(:indeterminate), .lead .check:hover:not(:checked) { box-shadow: inset 0 0 0 1.5px var(--muted); }
+.check:checked, .check:indeterminate { animation: tick .2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes tick { from { transform: scale(.82); } }
+.group { position: relative; overflow-x: clip; } /* a swiped row slides out of sight, not over the gutter */
+.group.flat { padding-top: 4px; }
 .group h3 { font-size: 12px; font-weight: 500; color: var(--faint); padding: 18px 10px 6px; }
 .group:first-child h3 { padding-top: 8px; }
 .row { position: relative; min-height: 44px; padding: 0 10px; border-radius: var(--radius-control); transition: background .15s, opacity .3s, transform .3s var(--ease); }
@@ -181,6 +195,18 @@
 .row.arrived { animation: arrive 2.4s var(--ease); }
 @keyframes arrive { 0% { background: var(--koi-dim); } 100% { background: transparent; } }
 .row.leaving { opacity: 0; transform: translateX(8px); }
+/* gestures: rows keep vertical scrolling on touch; the checkbox column is the drag-to-select handle */
+.app.gestures #groups .row { touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.app.gestures #groups .lead { touch-action: none; }
+body.painting, body.painting * { cursor: ns-resize !important; }
+/* swipe to delete: the row slides over a red strip, which lights once letting go will delete */
+.row.swiping { z-index: 1; background: var(--surface); transition: none; }
+.row.swiping.selected { background: var(--active); }
+.swipe-under { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-right: 22px;
+  border-radius: var(--radius-control); background: rgb(242 85 90 / 16%); color: #ff9b9e; font-size: 13px; transition: background .18s, color .18s; }
+.swipe-under .i { transition: transform .22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.swipe-under.armed { background: var(--negative); color: #fff; }
+.swipe-under.armed .i { transform: scale(1.2) rotate(-8deg); }
 .row.ghost .name strong { color: var(--faint); text-decoration: line-through; text-decoration-color: rgb(255 255 255 / 25%); }
 
 /* inline delete morph sits over the action column and grows leftwards */
@@ -313,7 +339,13 @@
   .composer-row { justify-content: stretch; }
   .composer .btn { flex: 1; height: 44px; font-size: 14px; }
   .tabs button { flex: 1; height: 44px; }
-  .list-head { display: none; }
+  /* on a phone the header keeps select-all and sorting, as a row of 44px targets */
+  .list-head { display: flex; height: 44px; padding: 0 4px; gap: 2px; }
+  .list-head .all { flex: none; width: 36px; height: 44px; }
+  .list-head .sort { height: 44px; padding: 0 8px; font-size: 13px; }
+  .list-head .sort[data-sort="size"] { margin-left: auto; }
+  .sort .dir { position: static; transform: none; margin: 0 4px; }
+  .sort-clear { width: 40px; height: 44px; }
   .group h3 { padding-left: 4px; }
   .row { grid-template-columns: 36px minmax(0, 1fr) auto; grid-template-areas: "lead name acts" "lead meta acts"; row-gap: 0; padding: 8px 4px; min-height: 60px; }
   .row .lead { grid-area: lead; width: 36px; height: 44px; }

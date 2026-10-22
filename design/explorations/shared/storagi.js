@@ -216,3 +216,8 @@ export function motionPref() { try { return localStorage.getItem(MOTION_KEY) ===
 export function setMotionPref(value) { try { localStorage.setItem(MOTION_KEY, value); } catch {} dispatchEvent(new Event('storagi:motion')); }
 export const reduced = () => motionPref() === 'static';
 export function onMotionChange(fn) { addEventListener('storagi:motion', fn); }
+
+// Row gestures, the owner's second switch: drag across rows to select, swipe a row left to delete. 'on' (default) or 'off'.
+const GESTURE_KEY = 'storagi.gestures';
+export function gesturePref() { try { return localStorage.getItem(GESTURE_KEY) === 'off' ? 'off' : 'on'; } catch { return 'on'; } }
+export function setGesturePref(value) { try { localStorage.setItem(GESTURE_KEY, value); } catch {} }
