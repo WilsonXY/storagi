@@ -3,7 +3,9 @@
 # Installed by hand, root-owned, as /usr/local/sbin/storagi-promote; see docs/system-service.md.
 # Usage: sudo /usr/local/sbin/storagi-promote /absolute/staging/vX.Y.Z-<sha>-<YYYYMMDDTHHMMSSZ>
 # Exit 0 deployed, 1 refused or failed before cutover (production untouched),
-# 2 cutover failed and the previous release is back, 3 MANUAL RECOVERY REQUIRED.
+# 2 cutover failed and the previous release is back, 3 MANUAL RECOVERY REQUIRED,
+# 75 busy (open connections or another deploy) or, for the auto-deploy account, no longer newer
+# than the live release; production untouched: try again later.
 #
 # The caller is untrusted: it may be an unprivileged account whose passwordless sudo rule allows
 # only this file. It chooses the release code, and that code only ever runs as $app under systemd.
@@ -26,10 +28,12 @@ data=/var/lib/storagi
 env_file=/etc/storagi/environment
 unit=/etc/systemd/system/storagi.service
 owner=root
+deployer=storagi-deploy
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
 
 service=storagi.service app=storagi
 die() { echo "storagi-promote: $*" >&2; exit 1; }
+busy() { echo "storagi-promote: $*" >&2; exit 75; }
 # Explicit "return 0": in bash <= 5.2 a bare return during the EXIT trap (rollback) reuses the
 # status from before the trap, so a successful wait would read as failed.
 wait_for() { local i; for ((i = 0; i < $1; i++)); do "${@:2}" && return 0; sleep 1; done; return 1; }
@@ -48,15 +52,16 @@ healthy() { # $1: physical release dir the service must run from
     [[ $(readlink -f "/proc/$pid/cwd") == "$1"/* ]]
 }
 
-# Roll back on any failure or HUP/INT/TERM after the stop; other failures exit 1.
+# Roll back on any failure or HUP/INT/TERM after the stop; other failures exit 1 (75 stays 75).
 phase=
 on_exit() {
   local status=$?
+  ((status == 0 || status == 75)) || status=1
   case $phase in
-    build) chmod -R u+w "$dest" && rm -rf "$dest"; echo "storagi-promote: stopped before cutover; removed releases/$name, production untouched" >&2; exit 1 ;;
+    build) chmod -R u+w "$dest" && rm -rf "$dest"; echo "storagi-promote: stopped before cutover; removed releases/$name, production untouched" >&2; exit $((status == 75 ? 75 : 1)) ;;
     cutover) rollback ;;
     live | manual) ;;
-    *) ((status == 0)) || exit 1 ;;
+    *) exit "$status" ;;
   esac
 }
 rollback() {
@@ -99,10 +104,18 @@ src=$1 name=${1##*/}
 [[ $(stat -c %u -- "$src") == "$caller_uid" ]] || die "the staging dir is not owned by the calling user"
 
 exec 9<"$opt"
-flock -n 9 || die "another deploy is running"
+flock -n 9 || busy "another deploy is running"
 prev=$(readlink -e "$opt/current") && [[ ${prev%/*} == "$(readlink -e "$opt/releases")" ]] ||
   die "$opt/current must point into releases/; first installation is manual (docs/system-service.md)"
 prev_target=$(readlink "$opt/current")
+# The auto-deploy account (docs/auto-deploy.md) only upgrades. Its poller checked before building;
+# this repeats the check under the lock, after any deploy that ran meanwhile. Others may deploy any tag.
+if [[ $(id -u "$deployer" 2>/dev/null) == "$caller_uid" ]]; then
+  live_tag=${prev##*/} live_tag=${live_tag%%-*} new_tag=${name%%-*}
+  [[ $live_tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "the running release ${prev##*/} has no vX.Y.Z tag; deploy by hand"
+  [[ $new_tag != "$live_tag" && $(printf '%s\n' "$live_tag" "$new_tag" | sort -V | tail -n 1) == "$new_tag" ]] ||
+    busy "$deployer deploys only newer tags: $new_tag is not newer than the live $live_tag"
+fi
 [[ -f $unit ]] || die "no installed unit at $unit"
 [[ -f $env_file && $(stat -c %U:%a "$env_file") == "$owner:600" ]] || die "environment $env_file missing, or not $owner mode 600"
 node=$(sed -n 's/^ExecStart=\(\/[^ ]*\) .*/\1/p' "$unit")
@@ -135,7 +148,7 @@ app_config() { # $1: release dir; sets config, port, db, authority
 app_config "$prev"
 early=$config
 [[ -f $db ]] || die "no storagi.sqlite in $data"
-idle || die "open connections to 127.0.0.1:$port (or ss failed); wait for transfers to finish (idle keep-alives close within minutes)"
+idle || busy "open connections to 127.0.0.1:$port (or ss failed); wait for transfers to finish (idle keep-alives close within minutes)"
 dest=$opt/releases/$name
 backup=$backups/$name
 [[ ! -e $dest && ! -e $backup ]] || die "release $name already exists"
@@ -163,7 +176,7 @@ wait $! || die "could not list symlinks in $name"
 # No settings migration: the new release must resolve the same port, DATA_DIR and host.
 app_config "$dest"
 [[ $config == "$early" ]] || die "the new release resolves a different port, DATA_DIR or host than the running one"
-idle || die "connections to 127.0.0.1:$port opened during the copy (or ss failed); retry when idle"
+idle || busy "connections to 127.0.0.1:$port opened during the copy (or ss failed); retry when idle"
 install -d -m 700 "$backups" "$backup"
 
 # --- Cutover with the service stopped. The installed unit is never touched.

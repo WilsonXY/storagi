@@ -30,7 +30,7 @@ function sh(cwd: string, command: string, env: Record<string, string> = env0) {
 const write = (file: string, text: string, mode = 0o644) => { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, text, { mode }); };
 
 // The installed helper's path constants and what a test copy sets them to: the only lines that differ.
-function promoteCopy(c: { opt: string; backups: string; data: string; envFile: string; unit: string; bin: string; owner: string; inject?: string }) {
+function promoteCopy(c: { opt: string; backups: string; data: string; envFile: string; unit: string; bin: string; owner: string; deployer?: string; inject?: string }) {
   const lines: Record<string, string> = {
     'opt=/opt/storagi': `opt=${c.opt}`,
     'backups=/var/backups/storagi': `backups=${c.backups}`,
@@ -38,6 +38,7 @@ function promoteCopy(c: { opt: string; backups: string; data: string; envFile: s
     'env_file=/etc/storagi/environment': `env_file=${c.envFile}`,
     'unit=/etc/systemd/system/storagi.service': `unit=${c.unit}`,
     'owner=root': `owner=${c.owner}`,
+    'deployer=storagi-deploy': `deployer=${c.deployer ?? 'no-such-deployer'}`,
     'export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C': `export PATH=${c.bin}:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C`,
   };
   const out = promoteSrc.split('\n').map(l => lines[l] ?? l);
@@ -86,13 +87,13 @@ before(() => {
 });
 after(() => { for (const pid of pids) try { process.kill(pid); } catch {} spawnSync('chmod', ['-R', 'u+w', base]); rmSync(base, { recursive: true, force: true }); });
 
-function fixture(publicOrigin = 'https://example.invalid', o: { bare?: boolean; inject?: string; owner?: string } = {}) {
+function fixture(publicOrigin = 'https://example.invalid', o: { bare?: boolean; inject?: string; owner?: string; deployer?: string } = {}) {
   const dir = `${base}/case${++count}`, home = `${dir}/home`, state = `${dir}/state`, bin = `${dir}/bin`, clone = `${dir}/clone`;
   const opt = `${dir}/opt`, backups = `${dir}/backups`, data = `${dir}/data`, envFile = `${dir}/etc/environment`, unit = `${dir}/units/storagi.service`;
   const stagingRoot = `${home}/.cache/storagi/staging`, promote = `${dir}/storagi-promote`;
   mkdirSync(state, { recursive: true }); mkdirSync(stagingRoot, { recursive: true }); mkdirSync(`${opt}/releases`, { recursive: true });
   sh(dir, `git clone -q ${origin} clone`);
-  write(promote, promoteCopy({ opt, backups, data, envFile, unit, bin, owner: o.owner ?? user, inject: o.inject }), 0o755);
+  write(promote, promoteCopy({ opt, backups, data, envFile, unit, bin, owner: o.owner ?? user, deployer: o.deployer, inject: o.inject }), 0o755);
   // The owner-installed unit, pointing at this tree.
   const unitText = readFileSync(`${repo}/deploy/storagi.service`, 'utf8').replaceAll('/opt/storagi', opt).replaceAll('/usr/bin/node', process.execPath);
   write(unit, unitText);
@@ -143,7 +144,8 @@ case "$url" in */api/session) echo 401 ;; */) echo 200 ;; *) echo 404 ;; esac
 case "$*" in *-Htln*) [ -f "$STATE/ss-listen-fails" ] && exit 1 ;; esac
 case "$*" in *established*) cat "$STATE/busy" 2>/dev/null ;; *) ${alive} && echo "LISTEN 0 511 127.0.0.1:18787 0.0.0.0:*" ;; esac; exit 0
 `);
-  shim('npm', `if [ "$1" = prune ]; then echo "$* in $PWD" >> "$STATE/npm.log"; exit 0; fi
+  shim('npm', `[ -f "$STATE/npm-exits-3" ] && exit 3
+if [ "$1" = prune ]; then echo "$* in $PWD" >> "$STATE/npm.log"; exit 0; fi
 exec ${JSON.stringify(realNpm)} "$@"
 `);
   // Fake sudo: only the helper, by its installed path. Like a permissive sudo rule it passes the
@@ -250,7 +252,7 @@ test('a test copy of the helper differs from the installed one only in its path 
   const copy = promoteCopy({ opt: '/o', backups: '/b', data: '/d', envFile: '/e', unit: '/u', bin: '/x', owner: 'someone' }).split('\n');
   const orig = promoteSrc.split('\n');
   assert.equal(copy.length, orig.length);
-  assert.equal(copy.filter((l, i) => l !== orig[i]).length, 7);
+  assert.equal(copy.filter((l, i) => l !== orig[i]).length, 8);
   // bash -p: no BASH_ENV, SHELLOPTS or exported functions. Tests run it with bash -p explicitly.
   assert.equal(orig[0], '#!/bin/bash -p');
 });
@@ -365,25 +367,34 @@ test('a failing find in the release hash fails verify-release', { timeout: 12000
 });
 
 test('deploy.sh refusals build nothing and never call sudo', { timeout: 120000 }, async t => {
-  type Case = [string, (f: Fixture) => void, string[], RegExp];
+  // Exit 75: try again later (origin unreachable or main moved on); exit 1 otherwise.
+  type Case = [string, (f: Fixture) => void, string[], RegExp, number?];
+  const failingGit = (f: Fixture, call: string) => {
+    write(`${f.dir}/git-bin/git`, `#!/bin/sh\ncase "$*" in *${call}*) exit 128 ;; esac\nexec ${JSON.stringify(which('git'))} "$@"\n`, 0o755);
+    f.env.PATH = `${f.dir}/git-bin:${f.env.PATH}`;
+  };
   const cases: Case[] = [
     ['no argument', () => {}, [], /usage/],
     ['non-version tag', () => {}, ['main'], /usage/],
     ['two arguments', () => {}, ['v1.1.0', 'v1.0.0'], /usage/],
     ['tracked change', f => writeFileSync(`${f.clone}/notes.txt`, 'changed'), ['v1.1.0'], /tracked changes/],
     ['git status fails', f => { sh(f.clone, 'git config fetch.recurseSubmodules false'); writeFileSync(`${f.clone}/.git/index`, 'corrupt'); writeFileSync(`${f.clone}/notes.txt`, 'changed'); }, ['v1.1.0'], /git status/],
-    ['HEAD is not origin/main', f => sh(f.clone, 'git checkout -q HEAD~1'), ['v1.0.0'], /origin\/main/],
+    ['HEAD is not origin/main', f => sh(f.clone, 'git checkout -q HEAD~1'), ['v1.0.0'], /origin\/main/, 75],
+    ['origin unreachable', f => sh(f.clone, `git remote set-url origin '${f.dir}/missing.git'`), ['v1.1.0'], /could not fetch/, 75],
+    ['ls-remote fails', f => failingGit(f, 'ls-remote'), ['v1.1.0'], /could not reach origin/, 75],
     ['missing tag', () => {}, ['v7.7.7'], /tag v7\.7\.7/],
     ['tag not on main', () => {}, ['v9.9.9'], /not on origin\/main/],
     ['tag only in this checkout', f => sh(f.clone, 'git tag v5.0.0'), ['v5.0.0'], /not pushed to origin/],
     ['a failing check', () => {}, ['v0.0.1'], /building v0\.0\.1/],
+    // Any failing build step is exit 1, so it never reads as 2, 3 or 75.
+    ['a build step exiting 3', f => writeFileSync(`${f.state}/npm-exits-3`, ''), ['v1.1.0'], /building v1\.1\.0/],
     // The caller's content hash refuses a link leaving the release before anything is handed over.
     ['a symlink leaving the release', f => { writeFileSync(`${f.state}/external-link`, 'outside\n'); f.env.EXTERNAL_LINK = `${f.state}/external-link`; }, ['v1.1.0'], /outside the release/],
   ];
-  for (const [label, arrange, args, reason] of cases) await t.test(label, () => {
+  for (const [label, arrange, args, reason, status = 1] of cases) await t.test(label, () => {
     const f = fixture(); arrange(f);
     const before = f.snapshot(), r = f.run(...args);
-    assert.equal(r.status, 1, r.out); assert.match(r.out, reason);
+    assert.equal(r.status, status, r.out); assert.match(r.out, reason);
     assert.deepEqual(f.snapshot(), before);
     assert.deepEqual(readdirSync(f.stagingRoot), []);
     assert.equal(f.log('sudo.log'), '');
@@ -392,7 +403,8 @@ test('deploy.sh refusals build nothing and never call sudo', { timeout: 120000 }
 
 test('helper refusals leave production and the staging dir untouched', { timeout: 300000 }, async t => {
   // arrange returns the helper's arguments (default: the staging dir) and optional caller environment.
-  type Case = [string, (f: Fixture, src: string) => void | { args?: string[]; env?: Record<string, string> }, RegExp, { owner?: string; copied?: boolean }?];
+  // Busy refusals (open connections, the deploy lock) exit 75, try again later; others exit 1.
+  type Case = [string, (f: Fixture, src: string) => void | { args?: string[]; env?: Record<string, string> }, RegExp, { owner?: string; copied?: boolean; status?: number }?];
   const rename = (src: string, to: string) => { const p = `${path.dirname(src)}/${to}`; renameSync(src, p); return { args: [p] }; };
   const lying = (f: Fixture, js: string, port = '18787') => prevConfig(f, `${js}\nexport const loadConfig = () => ({ port: ${port}, dataDir: ${JSON.stringify(f.data)}, origin: 'https://example.invalid' });\n`);
   const cases: Case[] = [
@@ -420,8 +432,8 @@ test('helper refusals leave production and the staging dir untouched', { timeout
     ['missing environment', f => unlinkSync(f.envFile), /environment/],
     ['environment not 0600', f => chmodSync(f.envFile, 0o640), /environment/],
     ['missing database', f => unlinkSync(`${f.data}/storagi.sqlite`), /storagi\.sqlite/],
-    ['active connections', f => writeFileSync(`${f.state}/busy`, 'ESTAB 0 0 127.0.0.1:18787 127.0.0.1:50000\n'), /connection/],
-    ['ss fails', f => writeFileSync(`${f.state}/ss-fails`, ''), /connection/],
+    ['active connections', f => writeFileSync(`${f.state}/busy`, 'ESTAB 0 0 127.0.0.1:18787 127.0.0.1:50000\n'), /connection/, { status: 75 }],
+    ['ss fails', f => writeFileSync(`${f.state}/ss-fails`, ''), /connection/, { status: 75 }],
     ['missing PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', null), /PUBLIC_ORIGIN/],
     ['http PUBLIC_ORIGIN', f => setEnv(f, 'PUBLIC_ORIGIN', 'http://example.invalid'), /PUBLIC_ORIGIN/],
     ['PUBLIC_ORIGIN with a path', f => setEnv(f, 'PUBLIC_ORIGIN', 'https://example.invalid/'), /PUBLIC_ORIGIN/],
@@ -448,14 +460,14 @@ test('helper refusals leave production and the staging dir untouched', { timeout
     ['a file the caller cannot read', (f, src) => { write(`${src}/docs/private`, 'x'); chmodSync(`${src}/docs/private`, 0); }, /removed releases\//, { copied: true }],
     ['tampered content', (f, src) => { chmodSync(`${src}/server/dist/src/main.js`, 0o644); writeFileSync(`${src}/server/dist/src/main.js`, 'evil\n'); }, /CONTENT_SHA256[\s\S]*verify-release refuses/, { copied: true }],
     ['no manifest', (f, src) => unlinkSync(`${src}/BUILD_MANIFEST`), /BUILD_MANIFEST/, { copied: true }],
-    ['a connection opened during the copy', f => writeFileSync(`${f.state}/busy-late`, 'ESTAB 0 0 127.0.0.1:18787 127.0.0.1:50000\n'), /during the copy/, { copied: true }],
+    ['a connection opened during the copy', f => writeFileSync(`${f.state}/busy-late`, 'ESTAB 0 0 127.0.0.1:18787 127.0.0.1:50000\n'), /during the copy/, { copied: true, status: 75 }],
     ['a new release resolving different settings', f => prevConfig(f, `export const loadConfig = () => ({ port: 18787, dataDir: ${JSON.stringify(f.data)}, origin: 'https://other.invalid' });\n`), /differ/, { copied: true }],
   ];
   for (const [label, arrange, reason, o = {}] of cases) await t.test(label, () => {
     const f = fixture('https://example.invalid', { owner: o.owner });
     const src = f.stage('v1.1.0'), plan = arrange(f, src) || {};
     const before = f.snapshot(), r = f.promote(plan.args ?? [src], plan.env);
-    assert.equal(r.status, 1, r.out); assert.match(r.out, reason);
+    assert.equal(r.status, o.status ?? 1, r.out); assert.match(r.out, reason);
     if (o.copied) assert.match(r.out, /removed releases\/.*production untouched/);
     assert.deepEqual(f.snapshot(), before);
     assert.doesNotMatch(f.systemctl().split('\n').slice(1).join('\n'), /stop|start/);
@@ -466,7 +478,7 @@ test('helper refusals leave production and the staging dir untouched', { timeout
     try {
       while (spawnSync('flock', ['-n', f.opt, 'true']).status === 0) await new Promise(r => setTimeout(r, 20));
       const before = f.snapshot(), r = f.promote([src]);
-      assert.equal(r.status, 1, r.out); assert.match(r.out, /another deploy/);
+      assert.equal(r.status, 75, r.out); assert.match(r.out, /another deploy/);
       assert.deepEqual(f.snapshot(), before);
     } finally { holder.kill(); }
   });
@@ -622,4 +634,34 @@ test('a non-default PUBLIC_ORIGIN port is sent in the health Host header', { tim
   const f = fixture('https://example.invalid:8443'), r = f.promote([f.stage('v1.1.0')]);
   assert.equal(r.status, 0, r.out);
   assert.match(readlinkSync(`${f.opt}/current`), /^releases\/v1\.1\.0-/);
+});
+
+test('the auto-deploy account only upgrades, checked under the deploy lock; the owner may deploy any tag', { timeout: 120000 }, async t => {
+  // A v1.0.0 staging dir under a new name: the running release already uses the original one.
+  const again = (f: Fixture) => { const src = f.stage('v1.0.0'), p = `${path.dirname(src)}/${path.basename(src).replace(/-\d{8}T\d{6}Z$/, '-20991231T000000Z')}`; renameSync(src, p); return p; };
+  await t.test('the deploy account: newer deploys, equal and older exit 75 untouched', () => {
+    const f = fixture('https://example.invalid', { deployer: user });
+    let r = f.promote([f.stage('v1.1.0')]);
+    assert.equal(r.status, 0, r.out);
+    for (const src of [again(f), (() => { const s = `${f.stagingRoot}/v1.1.0-abcdef0-20991231T000000Z`; sh(f.dir, `cp -a '${staged['v1.1.0']}' '${s}'`); return s; })()]) {
+      const before = f.snapshot();
+      r = f.promote([src]);
+      assert.equal(r.status, 75, r.out); assert.match(r.out, /deploys only newer tags: v1\.[01]\.0 is not newer than the live v1\.1\.0/);
+      assert.deepEqual(f.snapshot(), before);
+    }
+  });
+  await t.test('the deploy account: a running release whose name has no tag is refused', () => {
+    const f = fixture('https://example.invalid', { deployer: user });
+    renameSync(f.prev, `${f.opt}/releases/bootstrap`); unlinkSync(`${f.opt}/current`); symlinkSync('releases/bootstrap', `${f.opt}/current`);
+    const src = f.stage('v1.1.0'), before = f.snapshot(), r = f.promote([src]);
+    assert.equal(r.status, 1, r.out); assert.match(r.out, /running release bootstrap has no vX\.Y\.Z tag/);
+    assert.deepEqual(f.snapshot(), before);
+  });
+  await t.test('any other caller: a rollback to an older tag deploys', () => {
+    const f = fixture();
+    assert.equal(f.promote([f.stage('v1.1.0')]).status, 0);
+    const r = f.promote([again(f)]);
+    assert.equal(r.status, 0, r.out);
+    assert.match(readlinkSync(`${f.opt}/current`), /^releases\/v1\.0\.0-.*-20991231T000000Z$/);
+  });
 });

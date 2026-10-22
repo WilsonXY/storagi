@@ -10,6 +10,6 @@
     "check": "npm test && npm run test:acceptance && npm run test:deploy && npm run typecheck && npm run build",
     "start": "npm start --prefix server",
     "test:acceptance": "server/node_modules/.bin/tsx --test scripts/acceptance-api.test.ts scripts/acceptance-review-fixes.test.ts",
-    "test:deploy": "server/node_modules/.bin/tsx --test scripts/deploy.test.ts"
+    "test:deploy": "server/node_modules/.bin/tsx --test scripts/deploy.test.ts scripts/autodeploy.test.ts"
   }
 }

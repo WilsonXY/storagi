@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Deploy a new owner-created vX.Y.Z tag once its CI passed. See docs/auto-deploy.md.
+# Run by deploy/storagi-autodeploy.timer as storagi-deploy, from that account's clone of the repo.
+# Each tick updates the clone to origin/main and runs this script again from it, so the poller
+# and scripts/deploy.sh that run are always reviewed main. Uses no tokens: anonymous git over
+# https and the unauthenticated GitHub API.
+# Exits 0 when there is nothing to do or the tick should be retried later (offline, CI pending,
+# rate limit, busy service), 1 on its own errors, and with deploy.sh's status when a deploy fails.
+set -euo pipefail
+
+# The release storagi runs, read as data. Tests run a copy with only this line rewritten.
+live_manifest=/opt/storagi/current/BUILD_MANIFEST
+api=https://api.github.com/repos/WilsonXY/storagi
+semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+
+log() { echo "storagi-autodeploy: $*"; }
+die() { log "$*" >&2; exit 1; }
+later() { log "$*; trying again next tick"; exit 0; }
+# $1 is a higher version than $2.
+newer() { [[ $1 != "$2" && $(printf '%s\n' "$1" "$2" | sort -V | tail -n 1) == "$1" ]]; }
+
+# Post one line to the Discord webhook. The URL is a secret: bash reads it from the systemd
+# credential and hands it to curl as a config on a pipe, so it is never in argv or the log.
+# A failed post is logged and changes nothing else.
+alert() {
+  local file=${CREDENTIALS_DIRECTORY-}/discord-webhook url code rc=0
+  [[ -f $file && -r $file ]] || { log "alert not sent: no discord-webhook credential"; return 0; }
+  url=$(<"$file")
+  [[ $url =~ ^https://discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$ ]] || { log "alert not sent: the credential is not a Discord webhook URL"; return 0; }
+  code=$(printf '{"content":"%s"}' "$1" | curl -q -s --max-time 15 -o /dev/null -w '%{http_code}' \
+    -H 'Content-Type: application/json' --data-binary @- -K <(printf 'url = "%s"\n' "$url")) || rc=$?
+  [[ $rc == 0 && $code == 2?? ]] || log "alert not sent (curl exit $rc, HTTP ${code:-none})"
+}
+
+main() {
+  local repo state live last tag t sha short out code ci status what
+  repo=$(cd "$(dirname "$0")/.." && pwd -P)
+  state=$HOME/autodeploy.state
+  # One run at a time. The run started with --updated inherits fd 8, still locked.
+  [[ ${1-} == --updated ]] || exec 8>>"$HOME/autodeploy.lock"
+  flock -n 8 || { log "another run holds the lock; skipping this tick"; exit 0; }
+  if [[ ${1-} != --updated ]]; then
+    # Mirror origin's main and tags, including tags moved or deleted there.
+    git -C "$repo" fetch --quiet --force --prune --prune-tags --tags origin || later "git fetch failed"
+    git -C "$repo" reset --quiet --hard origin/main
+    exec "$repo/scripts/storagi-autodeploy" --updated
+  fi
+
+  live=$(sed -n 's/^TAG=//p' "$live_manifest") && [[ $live =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+    die "cannot read the live release's TAG"
+  # The state file lists every tag this poller tried (with its exit code) or saw live. Only tags
+  # newer than all of them are candidates: no downgrade, no automatic retry of a failed tag, and
+  # a tag the owner rolled back from by hand is not deployed again.
+  touch "$state"
+  last=$(cut -d' ' -f1 "$state" | sort -V | tail -n 1)
+  if newer "$live" "$last"; then echo "$live - live" >>"$state"; last=$live; fi
+
+  # The highest well-formed tag on origin/main.
+  tag=
+  for t in $(git -C "$repo" tag -l 'v*' | sort -rV); do
+    [[ $t =~ $semver ]] || continue
+    git -C "$repo" merge-base --is-ancestor "refs/tags/$t^{commit}" origin/main 2>/dev/null || continue
+    tag=$t
+    break
+  done
+  if [[ -z $tag ]] || ! newer "$tag" "$last"; then log "nothing to deploy (live $live)"; exit 0; fi
+  sha=$(git -C "$repo" rev-parse "refs/tags/$tag^{commit}") short=${sha:0:7}
+
+  # CI: GitHub Actions' "check" run(s) on the tag's commit must all have succeeded.
+  out=$(curl -q -s --max-time 30 -w '\n%{http_code}' -H 'Accept: application/vnd.github+json' \
+    "$api/commits/$sha/check-runs?check_name=check&per_page=100") || later "GitHub API unreachable (curl exit $?)"
+  code=${out##*$'\n'}
+  case $code in
+    200) ;;
+    403 | 429) later "GitHub API rate limit (HTTP $code)" ;;
+    *) later "GitHub API error (HTTP $code)" ;;
+  esac
+  ci=$(jq -r '[.check_runs[] | select(.name == "check" and .app.slug == "github-actions")]
+    | if length == 0 or any(.status != "completed") then "pending"
+      elif all(.conclusion == "success") then "success" else "failure" end' <<<"${out%$'\n'*}") ||
+    later "unreadable GitHub API response"
+  case $ci in
+    success) ;;
+    pending) later "$tag ($short): CI has not finished" ;;
+    failure)
+      echo "$tag $sha ci-failed" >>"$state"
+      log "$tag ($short): CI failed; not deploying"
+      alert "Storagi $tag ($short): CI failed, not deployed. See journalctl -u storagi-autodeploy"
+      exit 0 ;;
+    *) later "unexpected CI state" ;;
+  esac
+
+  log "deploying $tag ($short)"
+  export TMPDIR=$HOME/.cache/storagi/tmp
+  mkdir -p "$TMPDIR"
+  status=0
+  "$repo/scripts/deploy.sh" "$tag" 8>&- || status=$?
+  case $status in
+    0) echo "$tag $sha exit-0" >>"$state"; log "$tag ($short) is live"; alert "Storagi $tag ($short) is live."; exit 0 ;;
+    75) later "$tag ($short): not deployed (exit 75: busy, or no longer newer than the live release)" ;;
+    2) what="cutover failed, rolled back, previous release healthy" ;;
+    3) what="MANUAL RECOVERY REQUIRED" ;;
+    *) what="build failed or refused before cutover, production untouched" ;;
+  esac
+  echo "$tag $sha exit-$status" >>"$state"
+  log "$tag ($short): $what (exit $status); not retried automatically"
+  alert "Storagi $tag ($short): $what (exit $status). See journalctl -u storagi-autodeploy"
+  exit "$status"
+}
+
+# Parsed whole before it runs, so updating the clone cannot change this run mid-way; main always exits.
+main "$@"
