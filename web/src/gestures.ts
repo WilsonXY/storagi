@@ -6,7 +6,7 @@ export function rowGestures(groups: HTMLElement, selection: Selection, order: ()
   let g: Gesture | undefined, wheel: { swipe: Swipe; dx: number; timer?: ReturnType<typeof setTimeout> } | undefined, eat = false, frame = 0, settling = false, dead = false;
   const on = (target: EventTarget, type: string, fn: (e: any) => void, passive = true) => target.addEventListener(type, fn, { signal, passive });
   function startSwipe(row: HTMLElement): Swipe {
-    const under = document.createElement('div'); under.className = 'swipe-under'; under.setAttribute('aria-hidden', 'true'); under.textContent = 'Delete';
+    const under = document.createElement('div'); under.className = 'swipe-under'; under.setAttribute('aria-hidden', 'true'); under.innerHTML = '<svg class="i" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg><span>Delete</span>';
     under.style.top = `${row.offsetTop}px`; under.style.height = `${row.offsetHeight}px`; row.before(under); row.classList.add('swiping');
     return { row, under, x: 0, limit: Math.min(160, row.offsetWidth * .34) };
   }

@@ -167,3 +167,13 @@ test('settings persist switches, phone menu opens, and tabs and shortcuts change
   window.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true })); expect(document.activeElement?.id).toBe('search');
   localStorage.clear();
 });
+test('copy follows the prototype: singular bulk toast, sort labels, sign-out note, and the page survives pagehide', async () => {
+  vi.useFakeTimers(); await mount();
+  click('[data-id="new-id"] .lead'); click('#sel-delete');
+  expect(document.querySelector('.toast span')?.textContent).toBe('1 copy deleted'); click('.toast button');
+  click('[data-sort="name"]'); expect(document.querySelector('[data-sort="name"]')!.getAttribute('aria-label')).toBe('Name, sorted A to Z');
+  expect(document.querySelector('[data-sort="size"]')!.getAttribute('aria-label')).toBe('Sort by size');
+  click('#sign-out'); expect(document.querySelector('#signout-note')?.textContent).toBe('Your files stay on the shelf.');
+  window.dispatchEvent(new Event('pagehide')); click('#signout-cancel');
+  expect(document.querySelector('#signout-pop')!.hasAttribute('hidden')).toBe(true);
+});

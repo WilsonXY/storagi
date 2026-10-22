@@ -109,7 +109,8 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     if (focus) Array.from(root.querySelectorAll<HTMLElement>('[data-key]')).find(el => el.dataset.key === focus)?.focus();
     for (const b of root.querySelectorAll<HTMLElement>('.sort')) {
       const on = sort?.key === b.dataset.sort; b.classList.toggle('on', on); b.querySelector('.dir')!.textContent = on ? sort!.dir > 0 ? '↑' : '↓' : '';
-      b.setAttribute('aria-label', on ? `${b.dataset.sort}, sorted ${sort!.dir > 0 ? 'ascending' : 'descending'}` : `Sort by ${b.dataset.sort}`);
+      const key = b.dataset.sort as SortKey, label = sortWords[key][0];
+      b.setAttribute('aria-label', on ? `${label}, sorted ${sortWords[key][sort!.dir > 0 ? 1 : 2]}` : `Sort by ${label.toLowerCase()}`);
     }
     $('#sort-clear').hidden = !sort; $('.list-head').hidden = !all.length;
     $('#empty').hidden = !!all.length || offline; $('#no-match').hidden = !all.length || !!files.length;
@@ -131,10 +132,10 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   }
   function renderSelection() {
     const files = shelf.files.filter(f => sel.ids.has(f.id)); $('#select-bar').classList.toggle('out', !files.length); document.body.classList.toggle('selecting', !!files.length);
-    $('#sel-count').textContent = String(files.length); $('#sel-size').textContent = bytes(files.reduce((n, f) => n + f.size, 0)); $<HTMLButtonElement>('#sel-download').disabled = files.every(f => +new Date(f.expiresAt) <= Date.now());
+    const count = $('#sel-count'); if (count.textContent !== String(files.length)) { count.textContent = String(files.length); count.classList.remove('bump'); void count.offsetWidth; count.classList.add('bump'); } $('#sel-size').textContent = bytes(files.reduce((n, f) => n + f.size, 0)); $<HTMLButtonElement>('#sel-download').disabled = files.every(f => +new Date(f.expiresAt) <= Date.now());
   }
   function renderUsage() {
-    $('#used').textContent = bytes(shelf.usedBytes); $('#budget').textContent = bytes(shelf.budgetBytes);
+    $('#used').textContent = bytes(shelf.usedBytes); $('#budget').textContent = bytes(shelf.budgetBytes, 0);
     const meter = $('#meter'), n = blockCount(meter), ratio = (v: number) => shelf.budgetBytes > 0 ? Math.min(n, Math.round(v / shelf.budgetBytes * n)) : 0;
     const used = ratio(shelf.usedBytes), held = Math.min(n - used, ratio(shelf.reservedBytes)); blocks(meter, [[used, 'u'], [held, 'r'], [n - used - held, 'f']]);
     meter.setAttribute('aria-label', `${bytes(shelf.usedBytes + shelf.reservedBytes)} of ${bytes(shelf.budgetBytes)}, including reserved uploads`);
@@ -151,7 +152,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     cleanups.push(op.destroy);
     if (!bulk) for (const id of ids) morph.set(id, { state: 'deleted', left: 6, op });
     for (const id of ids) sel.ids.delete(id); renderInbox(); renderSelection();
-    if (bulk) toast(`${ids.length} copies deleted`, { action: 'Undo', onAction: op.undo, ms: 6000, clockFrom: 6 });
+    if (bulk) toast(`${ids.length} ${ids.length === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: op.undo, ms: 6000, clockFrom: 6 });
   }
   let gestures: ReturnType<typeof rowGestures> | undefined;
   gestures = rowGestures($('#groups'), sel, () => order, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
@@ -227,12 +228,15 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   });
   function switches(saved = '') {
     $('#koi-switch').setAttribute('aria-checked', String(motionPref() === 'swim')); $('#gesture-switch').setAttribute('aria-checked', String(gesturePref() === 'on')); app.classList.toggle('gestures', gesturePref() === 'on');
-    if (saved) $(`#${saved}-saved`).textContent = 'Saved';
+    if (saved === 'koi') $('#koi-saved').textContent = motionPref() === 'swim' ? 'Saved · the koi swim' : 'Saved · the koi stay still';
+    if (saved === 'gesture') $('#gesture-saved').textContent = gesturePref() === 'on' ? 'Saved · swipe gestures on' : 'Saved · swipe gestures off';
   }
   listen($('#koi-switch'), 'click', () => { setMotionPref(reduced() ? 'swim' : 'static'); switches('koi'); });
   listen($('#gesture-switch'), 'click', () => { setGesturePref(gesturePref() === 'on' ? 'off' : 'on'); switches('gesture'); }); switches();
   const closeSignout = () => { $('#signout-pop').hidden = true; $('#sign-out').setAttribute('aria-expanded', 'false'); };
-  listen($('#sign-out'), 'click', () => { if (!$('#signout-pop').hidden) return closeSignout(); $('#signout-note').textContent = transfers.open().length ? `${transfers.open().length} transfers will stop.` : 'Your files stay on the shelf.'; $('#signout-pop').hidden = false; $('#sign-out').setAttribute('aria-expanded', 'true'); $('#signout-cancel').focus(); });
+  listen($('#sign-out'), 'click', () => { if (!$('#signout-pop').hidden) return closeSignout(); const count = (dir: string) => transfers.open().filter(t => t.dir === dir).length, up = count('up'), down = count('down');
+    const parts = [up && `${up} upload${up > 1 ? 's' : ''}`, down && `${down} download${down > 1 ? 's' : ''}`].filter(Boolean);
+    $('#signout-note').textContent = parts.length ? `${parts.join(' and ')} will stop.` : 'Your files stay on the shelf.'; $('#signout-pop').hidden = false; $('#sign-out').setAttribute('aria-expanded', 'true'); $('#signout-cancel').focus(); });
   listen($('#signout-cancel'), 'click', () => { closeSignout(); $('#sign-out').focus(); });
   listen($('#signout-confirm'), 'click', async () => { try { await request('/auth/logout', 'POST'); if (active) locked(); } catch (error) { if (active) { closeSignout(); toast((error as Error).message); } } });
   listen(document, 'pointerdown', (e: PointerEvent) => { if (!(e.target as Element).closest('#signout-pop,#sign-out')) closeSignout(); });
@@ -244,7 +248,8 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !typing) { e.preventDefault(); sel.set(order); }
   });
   cleanups.push(setupTransfers(root, session.csrfToken, { refresh: () => auto.now(), notice: message => toast(message), expired: () => locked(true), offline: () => setOffline(true), view: transfers, queued: () => { toast('Files queued', { action: 'View', onAction: openTransfers }); } }));
-  listen(window, 'pagehide', destroy); tab('inbox'); panel(true); await auto.now(); return destroy;
+  tab('inbox'); panel(true); await auto.now(); return destroy;
 }
+const sortWords: Record<SortKey, [string, string, string]> = { name: ['Name', 'A to Z', 'Z to A'], size: ['Size', 'smallest first', 'largest first'], expires: ['Expires', 'soonest first', 'latest first'] };
 const downIcon = '<svg class="i" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>';
 const trashIcon = '<svg class="i" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>';
