@@ -1,6 +1,6 @@
 # Storagi frontend overhaul: implementation handoff
 
-The owner approved the design on 2026-10-21. This brief tells the next agent how to build it into the real app. The design record is [stage 48](../../docs/stages/48-frontend-design-exploration.md); this work is the next stage.
+The owner approved the design on 2026-10-21 and approved the day-2 additions (sorting, row gestures, pond waves, the select-all fix) on 2026-10-22. This brief tells the next agent how to build it into the real app. The design record is [stage 48](../../docs/stages/48-frontend-design-exploration.md); this work is the next stage.
 
 ## Read first
 
@@ -24,8 +24,8 @@ The bar at the bottom of the page switches between states: Locked, Loading, Shel
 | `shared/tokens.css` | Yes | Colour, type and component tokens (T3 Code's pure-black theme, one koi hue). |
 | `shared/fonts/` | Yes | Leon Sans 2.0 and the **full** JetBrains Mono (both SIL OFL; keep the licence files). Load them as real files that Vite bundles into `/assets`. |
 | `shared/brand/` | Yes | The owner's favicon set. `mark.js` holds the mark as a baked grayscale bitmap for the dotted koi. |
-| `shared/koi.js` | Yes, ported to TS | `KoiPond` (ASCII pond), `KoiMark` (dotted koi; touch drag; optional static band), `orbitLoader`. |
-| `shared/storagi.js` | **Only partly** | Keep `bytes`, `rate`, `duration`, `fileDrop`, `Selection`, `deferredDelete`, `toast`, the motion preference and the `Transfers` speed/ETA maths. Replace `createHost`, the sample files, `NOW`/`simNow`, the fixed UTC+8 `TZ` and the simulated link speeds with the real service, the real clock and the browser's own time zone. |
+| `shared/koi.js` | Yes, ported to TS | `KoiPond` (ASCII pond; a click drops one ring that is gone in 1 s and startles the koi it reaches), `KoiMark` (dotted koi; touch drag; optional static band), `orbitLoader`. |
+| `shared/storagi.js` | **Only partly** | Keep `bytes`, `rate`, `duration`, `fileDrop`, `Selection`, `deferredDelete`, `toast`, the motion and gesture preferences and the `Transfers` speed/ETA maths. Replace `createHost`, the sample files, `NOW`/`simNow`, the fixed UTC+8 `TZ` and the simulated link speeds with the real service, the real clock and the browser's own time zone. |
 | `final/index.html`, `app.js`, `style.css` | As the spec | The layout and every interaction. Rewrite against `web/src/` (plain TypeScript + Vite + tus-js-client). |
 
 ## Map onto the real service

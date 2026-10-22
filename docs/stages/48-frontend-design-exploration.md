@@ -1,7 +1,7 @@
 # 48: Frontend design exploration (dark ASCII koi direction)
 
 - Status: completed; owner chose the final design (A's app with C's locked screen)
-- Started: 2026-10-21 16:00 +08:00; completed 2026-10-21
+- Started: 2026-10-21 16:00 +08:00; completed 2026-10-21; owner's day-2 additions 2026-10-22, after which the owner called the design final for this first iteration
 - Coordinator thread: Claude Code cloud session on branch `claude/nifty-knuth-k90bhs`, starting commit `1fa9cd8`.
 - Agent/task identifiers: coordinator plus four delegated variant builders (forks of the coordinator session), listed under Delegation.
 - Provider/model/effort: the session is configured for Claude Opus 5.5; the serving model per turn is not independently proven here. Forks inherit the coordinator's model.
@@ -95,4 +95,4 @@ Checked in headless Chromium (1440×900 and 390×844 with touch, UTC+8), with no
 
 ## Handoff
 
-The design is final and approved. [`design/explorations/HANDOFF.md`](../../design/explorations/HANDOFF.md) is the implementation brief: what to reuse, how each piece maps onto the real endpoints, the CSP and static-file constraints, the open download decision, and the acceptance list. Stage 49 (port into `web/`) is planned for a different agent; it is not started here, and nothing was deployed.
+The design is final and approved, day-2 additions included (owner, 2026-10-22: "nice and final for this first overhaul iteration"). The desktop and phone screenshots in `shots/` were retaken after the day-2 changes. [`design/explorations/HANDOFF.md`](../../design/explorations/HANDOFF.md) is the implementation brief: what to reuse, how each piece maps onto the real endpoints, the CSP and static-file constraints, the open download decision, and the acceptance list. Stage 49 (port into `web/`) is planned for a different agent; it is not started here, and nothing was deployed.
