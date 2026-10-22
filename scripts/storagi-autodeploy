@@ -97,7 +97,7 @@ main() {
   "$repo/scripts/deploy.sh" "$tag" 8>&- || status=$?
   case $status in
     0) echo "$tag $sha exit-0" >>"$state"; log "$tag ($short) is live"; alert "Storagi $tag ($short) is live."; exit 0 ;;
-    75) later "$tag ($short): not deployed yet, busy (exit 75)" ;;
+    75) later "$tag ($short): not deployed (exit 75: busy, or no longer newer than the live release)" ;;
     2) what="cutover failed, rolled back, previous release healthy" ;;
     3) what="MANUAL RECOVERY REQUIRED" ;;
     *) what="build failed or refused before cutover, production untouched" ;;

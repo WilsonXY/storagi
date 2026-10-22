@@ -30,7 +30,7 @@ function sh(cwd: string, command: string, env: Record<string, string> = env0) {
 const write = (file: string, text: string, mode = 0o644) => { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, text, { mode }); };
 
 // The installed helper's path constants and what a test copy sets them to: the only lines that differ.
-function promoteCopy(c: { opt: string; backups: string; data: string; envFile: string; unit: string; bin: string; owner: string; inject?: string }) {
+function promoteCopy(c: { opt: string; backups: string; data: string; envFile: string; unit: string; bin: string; owner: string; deployer?: string; inject?: string }) {
   const lines: Record<string, string> = {
     'opt=/opt/storagi': `opt=${c.opt}`,
     'backups=/var/backups/storagi': `backups=${c.backups}`,
@@ -38,6 +38,7 @@ function promoteCopy(c: { opt: string; backups: string; data: string; envFile: s
     'env_file=/etc/storagi/environment': `env_file=${c.envFile}`,
     'unit=/etc/systemd/system/storagi.service': `unit=${c.unit}`,
     'owner=root': `owner=${c.owner}`,
+    'deployer=storagi-deploy': `deployer=${c.deployer ?? 'no-such-deployer'}`,
     'export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C': `export PATH=${c.bin}:/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C`,
   };
   const out = promoteSrc.split('\n').map(l => lines[l] ?? l);
@@ -86,13 +87,13 @@ before(() => {
 });
 after(() => { for (const pid of pids) try { process.kill(pid); } catch {} spawnSync('chmod', ['-R', 'u+w', base]); rmSync(base, { recursive: true, force: true }); });
 
-function fixture(publicOrigin = 'https://example.invalid', o: { bare?: boolean; inject?: string; owner?: string } = {}) {
+function fixture(publicOrigin = 'https://example.invalid', o: { bare?: boolean; inject?: string; owner?: string; deployer?: string } = {}) {
   const dir = `${base}/case${++count}`, home = `${dir}/home`, state = `${dir}/state`, bin = `${dir}/bin`, clone = `${dir}/clone`;
   const opt = `${dir}/opt`, backups = `${dir}/backups`, data = `${dir}/data`, envFile = `${dir}/etc/environment`, unit = `${dir}/units/storagi.service`;
   const stagingRoot = `${home}/.cache/storagi/staging`, promote = `${dir}/storagi-promote`;
   mkdirSync(state, { recursive: true }); mkdirSync(stagingRoot, { recursive: true }); mkdirSync(`${opt}/releases`, { recursive: true });
   sh(dir, `git clone -q ${origin} clone`);
-  write(promote, promoteCopy({ opt, backups, data, envFile, unit, bin, owner: o.owner ?? user, inject: o.inject }), 0o755);
+  write(promote, promoteCopy({ opt, backups, data, envFile, unit, bin, owner: o.owner ?? user, deployer: o.deployer, inject: o.inject }), 0o755);
   // The owner-installed unit, pointing at this tree.
   const unitText = readFileSync(`${repo}/deploy/storagi.service`, 'utf8').replaceAll('/opt/storagi', opt).replaceAll('/usr/bin/node', process.execPath);
   write(unit, unitText);
@@ -251,7 +252,7 @@ test('a test copy of the helper differs from the installed one only in its path 
   const copy = promoteCopy({ opt: '/o', backups: '/b', data: '/d', envFile: '/e', unit: '/u', bin: '/x', owner: 'someone' }).split('\n');
   const orig = promoteSrc.split('\n');
   assert.equal(copy.length, orig.length);
-  assert.equal(copy.filter((l, i) => l !== orig[i]).length, 7);
+  assert.equal(copy.filter((l, i) => l !== orig[i]).length, 8);
   // bash -p: no BASH_ENV, SHELLOPTS or exported functions. Tests run it with bash -p explicitly.
   assert.equal(orig[0], '#!/bin/bash -p');
 });
@@ -633,4 +634,27 @@ test('a non-default PUBLIC_ORIGIN port is sent in the health Host header', { tim
   const f = fixture('https://example.invalid:8443'), r = f.promote([f.stage('v1.1.0')]);
   assert.equal(r.status, 0, r.out);
   assert.match(readlinkSync(`${f.opt}/current`), /^releases\/v1\.1\.0-/);
+});
+
+test('the auto-deploy account only upgrades, checked under the deploy lock; the owner may deploy any tag', { timeout: 120000 }, async t => {
+  // A v1.0.0 staging dir under a new name: the running release already uses the original one.
+  const again = (f: Fixture) => { const src = f.stage('v1.0.0'), p = `${path.dirname(src)}/${path.basename(src).replace(/-\d{8}T\d{6}Z$/, '-20991231T000000Z')}`; renameSync(src, p); return p; };
+  await t.test('the deploy account: newer deploys, equal and older exit 75 untouched', () => {
+    const f = fixture('https://example.invalid', { deployer: user });
+    let r = f.promote([f.stage('v1.1.0')]);
+    assert.equal(r.status, 0, r.out);
+    for (const src of [again(f), (() => { const s = `${f.stagingRoot}/v1.1.0-abcdef0-20991231T000000Z`; sh(f.dir, `cp -a '${staged['v1.1.0']}' '${s}'`); return s; })()]) {
+      const before = f.snapshot();
+      r = f.promote([src]);
+      assert.equal(r.status, 75, r.out); assert.match(r.out, /deploys only newer tags: v1\.[01]\.0 is not newer than the live v1\.1\.0/);
+      assert.deepEqual(f.snapshot(), before);
+    }
+  });
+  await t.test('any other caller: a rollback to an older tag deploys', () => {
+    const f = fixture();
+    assert.equal(f.promote([f.stage('v1.1.0')]).status, 0);
+    const r = f.promote([again(f)]);
+    assert.equal(r.status, 0, r.out);
+    assert.match(readlinkSync(`${f.opt}/current`), /^releases\/v1\.0\.0-.*-20991231T000000Z$/);
+  });
 });

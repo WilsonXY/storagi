@@ -1,6 +1,6 @@
 # 70: Pull-based auto-deploy on `v*` tags
 
-- Status: completed on branch; independent review in stage71 onward. Nothing installed, deployed, tagged or merged.
+- Status: completed on branch; review71 FAIL (1 P1, 1 P2, fixed), review72 pending. Nothing installed, deployed, tagged or merged.
 - Date: 2026-10-22, Asia/Kuala_Lumpur.
 - Coordinator thread: [deployment safety](t3-thread://v1/6b27b52f-7f18-4dd5-8543-2af3e102c844). This stage: [auto-deploy](t3-thread://v1/mcp:06a77307-df93-47a9-a949-3e4546caa859).
 - Provider/model/effort: Anthropic Claude Opus 5.5 (`claude-opus-5-5`), effort high, from the T3 thread configuration.
@@ -48,3 +48,10 @@
 ## Handoff
 
 Independent review (Codex `gpt-6.1-sol`/high per the owner profile, since Claude implemented it) in stage71 onward, then the PR. After merge the owner follows [docs/auto-deploy.md](../auto-deploy.md) steps 0-8 with the coordinator thread checking each step.
+
+## Review fixes (stage71 round 1)
+
+- **P1, downgrade race.** `storagi-promote` now repeats the upgrade-only check under its deploy lock when the sudo caller is the `storagi-deploy` account: the tag in the release name must be newer than the tag in the running release's name (`sort -V`), else exit 75 with production untouched. The next tick then finds nothing newer and stays quiet. Other callers (the owner, including rollbacks) are unaffected. The account name is a new path-style constant (`deployer=storagi-deploy`), rewritten in the test copy like the others. It is a race guard, not a security boundary: the account names the release itself. RED→GREEN: the new test (deploy account: newer deploys, equal and older exit 75 with a byte-identical snapshot; another caller: rollback to an older tag deploys) and the 8-constant copy test failed before the helper change and pass after. The poller's 75 log line now reads `not deployed (exit 75: busy, or no longer newer than the live release)`.
+- **P2, rollback during a tick.** The guide's Disable and Roll back bullets now say that disabling the timer does not stop a running tick: wait for `systemctl is-active storagi-autodeploy.service` to be `inactive`/`failed` or stop the service, and only then roll back by hand.
+- `docs/system-service.md` gate list and the guide's exit table and threat model mention the new 75 case.
+- After the fixes: `npm run test:deploy` 151/151 on bash 5.3.9 and 5.2.0; `npm run check` PASS (server 31, web 19, HTTP 11, deploy 151, typechecks, builds); shellcheck clean; `git diff --check` clean.

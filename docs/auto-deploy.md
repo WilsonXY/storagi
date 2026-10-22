@@ -17,7 +17,7 @@ GitHub gets no way into the host: no self-hosted runner, no inbound connection, 
 | Exit | Meaning | Recorded | Discord |
 | --- | --- | --- | --- |
 | 0 | deployed and healthy | `exit-0` | `Storagi v1.2.3 (abc1234) is live.` |
-| 75 | busy, nothing done: transfers open, another deploy holds the lock, origin unreachable or `main` moved on | nothing | none; tried again next tick |
+| 75 | nothing done: transfers open, another deploy holds the lock, origin unreachable, `main` moved on, or the tag is no longer newer than the live release (the helper repeats that check under its lock, so a manual deploy during the build wins) | nothing | none; tried again next tick |
 | 1 | build or check failed, or refused before cutover; production untouched | `exit-1` | `… build failed or refused before cutover, production untouched (exit 1). See journalctl -u storagi-autodeploy` |
 | 2 | cutover failed, previous release healthy again | `exit-2` | `… cutover failed, rolled back, previous release healthy (exit 2). …` |
 | 3 | MANUAL RECOVERY REQUIRED | `exit-3` | `… MANUAL RECOVERY REQUIRED (exit 3). …` |
@@ -32,7 +32,7 @@ Any other status counts as 1. A recorded tag is never retried; a newer tag still
 
 ## Threat model
 
-**`storagi-deploy` can** read the public repository, build and test it, read the live `BUILD_MANIFEST` and run `sudo /usr/local/sbin/storagi-promote <dir>` without a password. Through the helper it can choose which built code `storagi` runs, as before only inside the `storagi` sandbox. In normal operation the poller only picks owner tags on `main` whose CI passed.
+**`storagi-deploy` can** read the public repository, build and test it, read the live `BUILD_MANIFEST` and run `sudo /usr/local/sbin/storagi-promote <dir>` without a password. Through the helper it can choose which built code `storagi` runs, as before only inside the `storagi` sandbox; the helper accepts from this account only a release whose tag is newer than the live one (a race guard, not a security boundary: the account writes the release name itself). In normal operation the poller only picks owner tags on `main` whose CI passed.
 
 **It cannot** gain root or run any other command through sudo (the helper runs no caller code as root and changes nothing outside `/opt/storagi`, `/var/backups/storagi` and the service lifecycle; see [what the helper never does](system-service.md#deploying)); read Storagi's data (`/var/lib/storagi`, `storagi` 700) or environment (`/etc/storagi/environment`, root 600); change units or sudoers; read the owner's home (`ProtectHome`, and file permissions); write to the filesystem outside its home and temporary directories (`ProtectSystem=strict`; `/opt/storagi` and `/var/backups/storagi` are writable in the unit's namespace only for the root helper, and their permissions keep the account out); or push to GitHub (it has no credentials).
 
@@ -154,13 +154,13 @@ When the next change is merged, tag it as usual on `main` and push the tag (`git
 - `readlink /opt/storagi/current` is `releases/v1.0.2-…`; `journalctl -u storagi.service -n 20 --no-pager` shows `verify-release: v1.0.2 … ok`; the two `curl` lines from [migration step 7](system-service.md#migration-from-the-user-service-owner-run) give 200 and 401; sign in and open the Inbox.
 - `sudo cat /var/lib/storagi-deploy/autodeploy.state` ends with `v1.0.2 <commit> exit-0`; `sudo ls /var/lib/storagi-deploy/.cache/storagi/staging` is empty.
 
-To exercise the busy path, keep a download running when the tick fires: the journal shows `busy (exit 75); trying again next tick` and the deploy follows on a later tick.
+To exercise the busy path, keep a download running when the tick fires: the journal shows `not deployed (exit 75: busy, …); trying again next tick` and the deploy follows on a later tick.
 
 ## Operating it
 
-- **Disable:** `sudo systemctl disable --now storagi-autodeploy.timer`. Manual `scripts/deploy.sh` keeps working as before; re-enable with `sudo systemctl enable --now storagi-autodeploy.timer`.
+- **Disable:** `sudo systemctl disable --now storagi-autodeploy.timer` stops future ticks, but not one already running. Then wait until `systemctl is-active storagi-autodeploy.service` prints `inactive` or `failed` (it shows `activating` during a tick; a build takes several minutes), or end the tick with `sudo systemctl stop storagi-autodeploy.service` (a build is abandoned, a cutover rolls back). Manual `scripts/deploy.sh` keeps working as before; re-enable with `sudo systemctl enable --now storagi-autodeploy.timer`.
 - **Run a tick now:** `sudo systemctl start storagi-autodeploy.service`.
-- **Roll back by hand** as before (`scripts/deploy.sh vOLD` from your checkout). The poller does not redeploy a tag it tried or saw live. If you deployed a newer tag by hand and roll it back within 15 minutes, disable the timer first.
+- **Roll back by hand:** first disable the timer and wait for a running tick to end (above), then `scripts/deploy.sh vOLD` from your checkout as before. Otherwise a tick already building a tag newer than `vOLD` would put it live after your rollback. Afterwards the poller does not redeploy a tag it tried or saw live, so you can re-enable the timer.
 - **Retry a failed tag:** tag a new patch release with the fix, or deploy that tag by hand. To let the poller retry the same tag, remove its line, as the account: `(cd / && sudo -u storagi-deploy sed -i '/^v1\.2\.3 /d' /var/lib/storagi-deploy/autodeploy.state)`.
 - **Changes to the units, sudoers file or helper** reach the host only when you reinstall them (steps 3 and 5); compare with `cmp` after merging such a change. The poller and `deploy.sh` update themselves from `main`.
 - **Uninstall:** disable the timer, then `sudo rm /etc/systemd/system/storagi-autodeploy.{service,timer} /etc/sudoers.d/storagi-deploy /etc/credstore/storagi-discord-webhook && sudo systemctl daemon-reload && sudo userdel storagi-deploy && sudo rm -rf /var/lib/storagi-deploy`.

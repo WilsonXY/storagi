@@ -206,7 +206,7 @@ test('busy (exit 75): nothing recorded, no alert, deployed on a later tick', () 
   writeFileSync(`${f.state}/deploy-exit`, '75');
   for (let i = 0; i < 2; i++) {
     const r = f.poll();
-    assert.equal(r.status, 0, r.out); assert.match(r.out, /busy \(exit 75\); trying again next tick/);
+    assert.equal(r.status, 0, r.out); assert.match(r.out, /not deployed \(exit 75: busy, .*\); trying again next tick/);
   }
   assert.equal(f.lines('deploy.log').length, 2); assert.equal(f.read('webhook.log'), '');
   assert.equal(f.stateFile(), 'v1.0.0 - live\n');
