@@ -104,6 +104,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 67 | Dedicated `storagi` system account: sandboxed unit, unprivileged build + root `storagi-promote`, owner-run migration guide | System-account thread, actual claude-opus-5-5 | Completed on branch; deploy 96/96 on bash 5.2 and 5.3, check PASS, security 1.7 OK, nothing migrated | [67](stages/67-system-account.md) |
 | 68 | Independent review of stage67, round 1 | Fresh Codex gpt-6.1-sol/high confirmed | FAIL; 3 P1 (backup race, two guide guards) fixed on branch, invariance/cleanup passed | [68](stages/68-system-account-review.md) |
 | 69 | Independent review of stage67 after round-1 fixes, round 2 | Fresh Codex gpt-6.1-sol/high confirmed | PASS; no findings, round-1 P1s resolved, invariance/cleanup passed | [69](stages/69-system-account-review-2.md) |
+| 70 | Pull-based auto-deploy on `v*` tags: `storagi-deploy` account, 15-minute timer, CI gate, exit 75 retries, Discord alerts, owner-run guide | Auto-deploy thread, actual claude-opus-5-5 | Completed on branch; deploy 148/148 on bash 5.2 and 5.3, check PASS, nothing installed or deployed | [70](stages/70-auto-deploy.md) |
+| 71 | Independent review of stage70, round 1 | Fresh Codex gpt-6.1-sol/high | In progress | [71](stages/71-auto-deploy-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

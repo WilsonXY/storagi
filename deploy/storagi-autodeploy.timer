@@ -1,0 +1,11 @@
+# Poll for a new Storagi release tag every 15 minutes. Disable: systemctl disable --now storagi-autodeploy.timer
+[Unit]
+Description=Poll for a new Storagi release tag every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

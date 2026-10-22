@@ -1,0 +1,4 @@
+# Storagi auto-deploy: storagi-deploy may run only the root deploy helper, as root, without a password.
+# Installed by hand as /etc/sudoers.d/storagi-deploy (docs/auto-deploy.md). sudo-rs allows no
+# wildcards inside arguments, so the rule names the command only; the helper checks its one argument.
+storagi-deploy ALL=(root) NOPASSWD: /usr/local/sbin/storagi-promote
