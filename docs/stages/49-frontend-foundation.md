@@ -57,3 +57,12 @@ Stage 50 starts from the implementation commit on this branch. Import `./tokens.
 - `mark.ts`: `MARK`, the original baked grayscale bitmap for the dotted mark.
 
 No deploy, service restart, exposure, push, PR or stage-index change was performed. Coordinator supplies independent review and integration evidence separately.
+
+## Coordinator acceptance
+
+Coordinator read the full diff and reran `npm run check` on `30239b9` (32 server, 44 web, 11 acceptance tests, typechecks and builds pass; three fonts emitted as files). Sizes stayed on budget (koi 406 lines, logic 258). Accepted, with follow-ups carried into stage 50 rather than another round:
+
+- `web/vite.config.ts` adds `src/tokens.css` as a second production entry, so the build ships an orphan stylesheet. Stage 50 imports the tokens from the app and removes that entry.
+- `web/src/transfers.ts` still has its own `bytes`; stage 50 uses `formatting.ts`.
+- `TransferMetrics` only updates on progress callbacks, so a stalled transfer would keep its last speed. Stage 50 feeds it the unchanged `sent` once a second so the speed decays.
+- Its history is per transfer; the throughput chart needs one history across uploads and downloads, kept by the UI.
