@@ -198,7 +198,7 @@ export class KoiPond {
 
 // Click waves: thin rings drawn in glyphs, '~' across the top and bottom, '( )' at the sides and '/ \' between, with a
 // faint '·' wake inside each. Each ring is one cell thick whichever way it faces; the koi swim over them.
-const WAVE = { speed: 80, life: 1.3, rings: [0, 0.3] }; // gone 1.6 s after the click
+const WAVE = { speed: 100, life: 0.75, rings: [0, 0.25] }; // gone 1 s after the click
 const waveStrength = (age, r) => (age <= 0 || age >= WAVE.life ? 0 : (1 - age / WAVE.life) ** 1.6 * Math.min(1, r / 14));
 function crest(dx, dy) {
   const a = Math.atan2(dy, dx), c = Math.cos(a), sn = Math.sin(a);
