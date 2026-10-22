@@ -650,6 +650,13 @@ test('the auto-deploy account only upgrades, checked under the deploy lock; the 
       assert.deepEqual(f.snapshot(), before);
     }
   });
+  await t.test('the deploy account: a running release whose name has no tag is refused', () => {
+    const f = fixture('https://example.invalid', { deployer: user });
+    renameSync(f.prev, `${f.opt}/releases/bootstrap`); unlinkSync(`${f.opt}/current`); symlinkSync('releases/bootstrap', `${f.opt}/current`);
+    const src = f.stage('v1.1.0'), before = f.snapshot(), r = f.promote([src]);
+    assert.equal(r.status, 1, r.out); assert.match(r.out, /running release bootstrap has no vX\.Y\.Z tag/);
+    assert.deepEqual(f.snapshot(), before);
+  });
   await t.test('any other caller: a rollback to an older tag deploys', () => {
     const f = fixture();
     assert.equal(f.promote([f.stage('v1.1.0')]).status, 0);

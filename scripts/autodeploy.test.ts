@@ -260,6 +260,17 @@ test('a tag rolled back by hand is not deployed again', async t => {
   });
 });
 
+test('a tag the owner suppressed in the state file is not deployed', () => {
+  // docs/auto-deploy.md: after rolling back by hand from a tag the poller never saw.
+  const f = fixture(); f.tag('v1.2.0');
+  writeFileSync(`${f.home}/autodeploy.state`, 'v1.2.0 - rolled-back\n');
+  const r = f.poll();
+  assert.match(r.out, /nothing to deploy \(live v1\.0\.0\)/); assert.equal(f.read('deploy.log'), '');
+  f.tag('v1.2.1');
+  assert.equal(f.poll().status, 0);
+  assert.match(f.lines('deploy.log')[0], /^v1\.2\.1 /);
+});
+
 test('each tick resets the clone to origin/main and runs that poller and deploy.sh', () => {
   const f = fixture();
   writeFileSync(`${f.clone}/scripts/deploy.sh`, '#!/bin/sh\necho local edit\n'); // a tracked change in the clone

@@ -112,6 +112,7 @@ prev_target=$(readlink "$opt/current")
 # this repeats the check under the lock, after any deploy that ran meanwhile. Others may deploy any tag.
 if [[ $(id -u "$deployer" 2>/dev/null) == "$caller_uid" ]]; then
   live_tag=${prev##*/} live_tag=${live_tag%%-*} new_tag=${name%%-*}
+  [[ $live_tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "the running release ${prev##*/} has no vX.Y.Z tag; deploy by hand"
   [[ $new_tag != "$live_tag" && $(printf '%s\n' "$live_tag" "$new_tag" | sort -V | tail -n 1) == "$new_tag" ]] ||
     busy "$deployer deploys only newer tags: $new_tag is not newer than the live $live_tag"
 fi

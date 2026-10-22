@@ -1,6 +1,6 @@
 # 70: Pull-based auto-deploy on `v*` tags
 
-- Status: completed on branch; review71 FAIL (1 P1, 1 P2, fixed), review72 pending. Nothing installed, deployed, tagged or merged.
+- Status: completed on branch; review71 FAIL (1 P1, 1 P2, fixed), review72 FAIL (2 P2, fixed), review73 pending. Nothing installed, deployed, tagged or merged.
 - Date: 2026-10-22, Asia/Kuala_Lumpur.
 - Coordinator thread: [deployment safety](t3-thread://v1/6b27b52f-7f18-4dd5-8543-2af3e102c844). This stage: [auto-deploy](t3-thread://v1/mcp:06a77307-df93-47a9-a949-3e4546caa859).
 - Provider/model/effort: Anthropic Claude Opus 5.5 (`claude-opus-5-5`), effort high, from the T3 thread configuration.
@@ -55,3 +55,9 @@ Independent review (Codex `gpt-6.1-sol`/high per the owner profile, since Claude
 - **P2, rollback during a tick.** The guide's Disable and Roll back bullets now say that disabling the timer does not stop a running tick: wait for `systemctl is-active storagi-autodeploy.service` to be `inactive`/`failed` or stop the service, and only then roll back by hand.
 - `docs/system-service.md` gate list and the guide's exit table and threat model mention the new 75 case.
 - After the fixes: `npm run test:deploy` 151/151 on bash 5.3.9 and 5.2.0; `npm run check` PASS (server 31, web 19, HTTP 11, deploy 151, typechecks, builds); shellcheck clean; `git diff --check` clean.
+
+## Review fixes (stage72 round 2)
+
+- **Unvalidated live name.** For the deploy account the helper now requires the running release's name to start with a `vX.Y.Z` tag before comparing, else exit 1 ("has no vX.Y.Z tag; deploy by hand"), production untouched. RED→GREEN: the new case (running release renamed `bootstrap`, deploy account, exit 1, byte-identical snapshot) failed with the helper line removed and passes with it.
+- **Rollback then re-enable.** The guide's rollback now ends with recording the rolled-back tag as the account (`<tag> - rolled-back`, appended with `tee -a` under `sudo -u storagi-deploy`) before re-enabling the timer; the state format lists the `rolled-back` outcome. The poller already treats any recorded tag as a high-water mark; a new poller test pins that a hand-added `rolled-back` line suppresses the tag and that the next tag still deploys.
+- After the fixes: `npm run test:deploy` 153/153 on bash 5.3.9 and 5.2.0; `npm run check` PASS (server 31, web 19, HTTP 11, deploy 153, typechecks, builds); shellcheck clean; `git diff --check` clean.
