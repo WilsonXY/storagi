@@ -27,3 +27,17 @@ test('a storage symlink into public assets is rejected before any database is wr
   await assert.rejects(access(path.join(webDir,'assets','storagi.sqlite')));
  }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('serves only exact brand icon paths with their MIME types',async()=>{
+ const f=await fixture();
+ try{
+  const root=path.join(f.dir,'no-web');await mkdir(root,{recursive:true});
+  const icons=['favicon.ico','favicon-16.png','favicon-32.png','favicon-48.png','apple-touch-icon.png','icon-192.png','icon-512.png'];
+  for(const name of [...icons,'other.png','favicon-64.png','secret.ico'])await writeFile(path.join(root,name),'synthetic icon');
+  for(const name of icons){
+   const response=await f.request('/'+name);assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),name.endsWith('.ico')?'image/x-icon':'image/png');assert.equal(await response.text(),'synthetic icon');
+   const head=await f.request('/'+name,{method:'HEAD'});assert.equal(head.status,200);assert.equal(await head.text(),'');
+  }
+  for(const route of ['/other.png','/favicon-64.png','/secret.ico','/icons/favicon.ico','/favicon.ico/extra'])assert.equal((await f.request(route)).status,404);
+ }finally{await f.close();}
+});
