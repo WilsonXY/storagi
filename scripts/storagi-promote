@@ -1,0 +1,202 @@
+#!/bin/bash -p
+# Root half of scripts/deploy.sh: promote a staged, stamped release to the Storagi system service.
+# Installed by hand, root-owned, as /usr/local/sbin/storagi-promote; see docs/system-service.md.
+# Usage: sudo /usr/local/sbin/storagi-promote /absolute/staging/vX.Y.Z-<sha>-<YYYYMMDDTHHMMSSZ>
+# Exit 0 deployed, 1 refused or failed before cutover (production untouched),
+# 2 cutover failed and the previous release is back, 3 MANUAL RECOVERY REQUIRED.
+#
+# The caller is untrusted: it may be an unprivileged account whose passwordless sudo rule allows
+# only this file. It chooses the release code, and that code only ever runs as $app under systemd.
+# This script never runs release code as root, reads the staging dir only with the caller's own
+# uid, never installs or changes a unit or sudoers file, and writes only under $opt and $backups.
+# bash -p ignores BASH_ENV, SHELLOPTS and exported functions.
+IFS=$' \t\n'
+caller_uid=${SUDO_UID-} caller_gid=${SUDO_GID-}
+# Nothing from the caller's environment reaches a child (SHELLOPTS is readonly; bash set it).
+for v in $(compgen -e); do unset "$v" 2>/dev/null || :; done
+set -euo pipefail
+umask 022
+cd /
+
+# Installed paths. Tests run a copy with only these lines rewritten: no argument or variable
+# from the caller can change them.
+opt=/opt/storagi
+backups=/var/backups/storagi
+data=/var/lib/storagi
+env_file=/etc/storagi/environment
+unit=/etc/systemd/system/storagi.service
+owner=root
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
+
+service=storagi.service app=storagi
+die() { echo "storagi-promote: $*" >&2; exit 1; }
+# Explicit "return 0": in bash <= 5.2 a bare return during the EXIT trap (rollback) reuses the
+# status from before the trap, so a successful wait would read as failed.
+wait_for() { local i; for ((i = 0; i < $1; i++)); do "${@:2}" && return 0; sleep 1; done; return 1; }
+# A failing or missing ss counts as busy / still listening.
+idle() { local out; out=$(ss -Htn state established "sport = :$port") && [[ -z $out ]]; }
+stopped() {
+  local out
+  [[ $(systemctl is-active "$service") =~ ^(inactive|failed)$ ]] && out=$(ss -Htln "sport = :$port") && [[ -z $out ]]
+}
+# The app answers 400 unless Host is the PUBLIC_ORIGIN authority. -q: no ~/.curlrc.
+code() { curl -q -s --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: $authority" "http://127.0.0.1:$port$1"; }
+healthy() { # $1: physical release dir the service must run from
+  local pid
+  [[ $(code /) == 200 && $(code /api/session) == 401 ]] &&
+    pid=$(systemctl show -p MainPID --value "$service") && [[ $pid != 0 ]] &&
+    [[ $(readlink -f "/proc/$pid/cwd") == "$1"/* ]]
+}
+
+# Roll back on any failure or HUP/INT/TERM after the stop; other failures exit 1.
+phase=
+on_exit() {
+  local status=$?
+  case $phase in
+    build) chmod -R u+w "$dest" && rm -rf "$dest"; echo "storagi-promote: stopped before cutover; removed releases/$name, production untouched" >&2; exit 1 ;;
+    cutover) rollback ;;
+    live | manual) ;;
+    *) ((status == 0)) || exit 1 ;;
+  esac
+}
+rollback() {
+  trap '' HUP INT TERM
+  set +e
+  echo "storagi-promote: cutover failed; rolling back to $prev_target" >&2
+  local failed=
+  if systemctl stop "$service" && wait_for 60 stopped; then
+    { ln -sfn "$prev_target" "$opt/current.next" && mv -T "$opt/current.next" "$opt/current"; } || failed+=' current'
+    systemctl start "$service" || failed+=' start'
+    if [[ -z $failed ]] && wait_for 90 healthy "$prev"; then
+      echo "storagi-promote: rolled back to $prev_target; database backup (not restored) in $backup" >&2
+      exit 2
+    fi
+  else failed=' stop'
+  fi
+  echo "storagi-promote: rollback failed at:$failed" >&2
+  manual "database backup (not restored) in $backup."
+}
+manual() {
+  echo "storagi-promote: MANUAL RECOVERY REQUIRED: $service is not restored and healthy on $prev_target." >&2
+  echo "storagi-promote: $1 Never run two app processes on one DATA_DIR." >&2
+  phase=manual
+  exit 3
+}
+trap on_exit EXIT
+trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
+
+# --- Refusal gates: nothing below changes the runtime until they all pass.
+[[ $(id -un) == "$owner" ]] || die "run as $owner, through sudo"
+[[ $caller_uid =~ ^[1-9][0-9]*$ && $caller_gid =~ ^[0-9]+$ ]] || die "run through sudo by an ordinary user (no SUDO_UID/SUDO_GID)"
+[[ $# -eq 1 ]] || die "usage: storagi-promote /absolute/staging/<release name>"
+src=$1 name=${1##*/}
+[[ $name =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7,}-[0-9]{8}T[0-9]{6}Z$ ]] || die "the release name must be vX.Y.Z-<sha>-<YYYYMMDDTHHMMSSZ>"
+# Sanity, not the security boundary (the caller can still swap the tree; the copy below reads it
+# with the caller's uid): a canonical absolute path to a real directory the caller owns, with
+# no ".", "..", "//" or symlink anywhere in it.
+[[ $src == /* && -d $src && ! -L $src && $(readlink -e -- "$src") == "$src" ]] ||
+  die "the staging dir must be an existing absolute path with no symlink, . or .. in it"
+[[ $(stat -c %u -- "$src") == "$caller_uid" ]] || die "the staging dir is not owned by the calling user"
+
+exec 9<"$opt"
+flock -n 9 || die "another deploy is running"
+prev=$(readlink -e "$opt/current") && [[ ${prev%/*} == "$(readlink -e "$opt/releases")" ]] ||
+  die "$opt/current must point into releases/; first installation is manual (docs/system-service.md)"
+prev_target=$(readlink "$opt/current")
+[[ -f $unit ]] || die "no installed unit at $unit"
+[[ -f $env_file && $(stat -c %U:%a "$env_file") == "$owner:600" ]] || die "environment $env_file missing, or not $owner mode 600"
+node=$(sed -n 's/^ExecStart=\(\/[^ ]*\) .*/\1/p' "$unit")
+[[ -n $node ]] || die "no absolute ExecStart in $unit"
+# Release code runs only as $app, in a sandbox, bounded by RuntimeMaxSec (killing systemd-run
+# would leave the unit running and holding the pipe).
+as_app=(systemd-run --uid="$app" --gid="$app" --pipe --wait --quiet --collect -p RuntimeMaxSec=60
+  -p ProtectSystem=strict -p ProtectHome=yes -p PrivateTmp=yes -p NoNewPrivileges=yes)
+# The app's own config check, with the service's EnvironmentFile: systemd decodes the file and
+# config.ts validates the result, as at service start. Only port, the database file (path.join,
+# as storage.ts) and origin host come out; on error only config.ts's message (an uncaught error
+# prints values).
+config_js="try {
+  const {loadConfig} = await import('./dist/src/config.js'), {join} = await import('node:path');
+  const c = loadConfig(process.env);
+  process.stdout.write([c.port, join(c.dataDir, 'storagi.sqlite'), new URL(c.origin).host].join('\n'));
+} catch (e) { console.error(e.message); process.exitCode = 1; }"
+app_config() { # $1: release dir; sets config, port, db, authority
+  local cfg
+  config=$("${as_app[@]}" -p EnvironmentFile="$env_file" -p WorkingDirectory="$1/server" "$node" --input-type=module -e "$config_js") ||
+    die "the app's config check in ${1##*/} refuses the environment"
+  mapfile -t cfg <<<"$config"
+  # Release code wrote these, and root uses them: keep them to a port, a host and the fixed database.
+  [[ ${#cfg[@]} == 3 && ${cfg[0]} =~ ^[0-9]{1,5}$ && ${cfg[2]} =~ ^[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]] ||
+    die "the app's config check in ${1##*/} did not return port, database and host"
+  port=${cfg[0]} db=${cfg[1]} authority=${cfg[2]}
+  [[ $db == "$data/storagi.sqlite" ]] || die "DATA_DIR must be $data"
+}
+# The running release's own rules decide what is idle and what to back up.
+app_config "$prev"
+early=$config
+[[ -f $db ]] || die "no storagi.sqlite in $data"
+idle || die "open connections to 127.0.0.1:$port (or ss failed); wait for transfers to finish (idle keep-alives close within minutes)"
+dest=$opt/releases/$name
+backup=$backups/$name
+[[ ! -e $dest && ! -e $backup ]] || die "release $name already exists"
+
+# --- Copy: the caller's uid reads the staging dir, so no link or swapped directory can make root
+# read for it; root-without-capabilities, sandboxed to $dest, writes. Links are copied as links.
+echo "storagi-promote: copying $name"
+mkdir -m 700 "$dest"
+phase=build
+dest=$(readlink -e "$dest")
+setpriv --reuid="$caller_uid" --regid="$caller_gid" --clear-groups -- tar -C "$src" -cf - . 9<&- |
+  systemd-run --pipe --wait --quiet --collect -p RuntimeMaxSec=300 -p ProtectSystem=strict -p ReadWritePaths="$dest" \
+    -p ProtectHome=yes -p PrivateTmp=yes -p PrivateDevices=yes -p NoNewPrivileges=yes -p CapabilityBoundingSet= \
+    tar -C "$dest" -xf - --no-same-owner --no-same-permissions
+chmod -R a+rX,a-w,a-st "$dest"
+bad=$(find "$dest" \( ! -type f ! -type d ! -type l -o ! -user "$owner" -o ! -type l -perm /7222 \) -print -quit) ||
+  die "could not check $name"
+[[ -z $bad ]] || die "${bad#"$dest"/} is not a $owner-owned read-only file, directory or symlink"
+while IFS= read -r -d '' link; do
+  [[ $(readlink -e -- "$link") == "$dest"/* ]] || die "symlink ${link#"$dest"/} points outside the release or is dangling"
+done < <(find "$dest" -type l -print0)
+wait $! || die "could not list symlinks in $name"
+# The release's own start-time check, as at ExecStartPre; nobody but root can change it from here on.
+"${as_app[@]}" "$dest/scripts/verify-release.sh" || die "verify-release refuses $name"
+# No settings migration: the new release must resolve the same port, DATA_DIR and host.
+app_config "$dest"
+[[ $config == "$early" ]] || die "the new release resolves a different port, DATA_DIR or host than the running one"
+idle || die "connections to 127.0.0.1:$port opened during the copy (or ss failed); retry when idle"
+install -d -m 700 "$backups" "$backup"
+
+# --- Cutover with the service stopped. The installed unit is never touched.
+echo "storagi-promote: stopping $service"
+phase=cutover
+if ! systemctl stop "$service" || ! wait_for 60 stopped; then
+  trap '' HUP INT TERM
+  phase=
+  { systemctl start "$service" && wait_for 90 healthy "$prev"; } ||
+    manual "could not stop $service, and starting it again did not make it healthy."
+  die "could not stop $service; it is healthy again, nothing changed"
+fi
+# Root never opens a path in $data: storagi owns it and could hand it to the caller, who could swap
+# a checked file for a link or FIFO. storagi reads (bounded), root writes the 0600 copy.
+read_as_app() { timeout 300 setpriv --reuid="$app" --regid="$app" --clear-groups -- cat -- "$1" 9<&-; }
+for f in "$db"{,-wal,-shm}; do
+  [[ -e $f || -L $f ]] || continue
+  [[ -f $f && ! -L $f ]] || die "${f##*/} in $data is not a regular file"
+  (umask 077 && read_as_app "$f" >"$backup/${f##*/}") || die "could not back up ${f##*/}"
+  read_as_app "$f" | cmp -s - "$backup/${f##*/}" || die "database backup of ${f##*/} does not match"
+done
+ln -sfn "releases/$name" "$opt/current.next"
+mv -T "$opt/current.next" "$opt/current"
+systemctl start "$service"
+wait_for 90 healthy "$dest" || die "new release is not healthy"
+phase=live
+set +e
+
+# --- Keep current, previous and the 3 newest releases; the 3 newest backups.
+older() { find "$1" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' | sort -rn | tail -n +4 | cut -d' ' -f2-; }
+older "$opt/releases" | while read -r old; do
+  [[ $old == "$name" || $old == "${prev##*/}" ]] && continue
+  chmod -R u+w "$opt/releases/$old" && rm -rf "${opt:?}/releases/$old"
+done
+older "$backups" | while read -r old; do rm -rf "${backups:?}/$old"; done
+echo "storagi-promote: $name live (previous ${prev##*/}); database backup in $backup"
