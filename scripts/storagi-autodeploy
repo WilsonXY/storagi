@@ -11,6 +11,7 @@ set -euo pipefail
 # The release storagi runs, read as data. Tests run a copy with only this line rewritten.
 live_manifest=/opt/storagi/current/BUILD_MANIFEST
 api=https://api.github.com/repos/WilsonXY/storagi
+web=https://github.com/WilsonXY/storagi
 semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 
 log() { echo "storagi-autodeploy: $*"; }
@@ -19,21 +20,24 @@ later() { log "$*; trying again next tick"; exit 0; }
 # $1 is a higher version than $2.
 newer() { [[ $1 != "$2" && $(printf '%s\n' "$1" "$2" | sort -V | tail -n 1) == "$1" ]]; }
 
-# Post one line to the Discord webhook. The URL is a secret: bash reads it from the systemd
-# credential and hands it to curl as a config on a pipe, so it is never in argv or the log.
-# A failed post is logged and changes nothing else.
+# Post one Discord embed: $1 ok|warn|fail (the colour bar), $2 tag (the title links to it), $3 title,
+# $4 description (Discord caps titles at 256 characters). The URL is a secret: bash reads it from the systemd credential and hands it to
+# curl as a config on a pipe, so it is never in argv or the log. A failed post is logged and
+# changes nothing else.
 alert() {
-  local file=${CREDENTIALS_DIRECTORY-}/discord-webhook url code rc=0
+  local file=${CREDENTIALS_DIRECTORY-}/discord-webhook url code rc=0 color
   [[ -f $file && -r $file ]] || { log "alert not sent: no discord-webhook credential"; return 0; }
   url=$(<"$file")
   [[ $url =~ ^https://discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$ ]] || { log "alert not sent: the credential is not a Discord webhook URL"; return 0; }
-  code=$(printf '{"content":"%s"}' "$1" | curl -q -s --max-time 15 -o /dev/null -w '%{http_code}' \
+  case $1 in ok) color=3066993 ;; warn) color=15105570 ;; *) color=15158332 ;; esac
+  code=$(jq -nc --arg t "$3" --arg d "$4" --arg u "$web/releases/tag/$2" --argjson c "$color" \
+    '{embeds: [{title: $t[:256], description: $d, url: $u, color: $c}]}' | curl -q -s --max-time 15 -o /dev/null -w '%{http_code}' \
     -H 'Content-Type: application/json' --data-binary @- -K <(printf 'url = "%s"\n' "$url")) || rc=$?
   [[ $rc == 0 && $code == 2?? ]] || log "alert not sent (curl exit $rc, HTTP ${code:-none})"
 }
 
 main() {
-  local repo state live last tag t sha short out code ci status what
+  local repo state live last tag t sha short out code ci status what kind title
   repo=$(cd "$(dirname "$0")/.." && pwd -P)
   state=$HOME/autodeploy.state
   # One run at a time. The run started with --updated inherits fd 8, still locked.
@@ -85,7 +89,7 @@ main() {
     failure)
       echo "$tag $sha ci-failed" >>"$state"
       log "$tag ($short): CI failed; not deploying"
-      alert "Storagi $tag ($short): CI failed, not deployed. See journalctl -u storagi-autodeploy"
+      alert fail "$tag" "❌ Storagi $tag not deployed" "CI failed on commit \`$short\`. See \`journalctl -u storagi-autodeploy\`."
       exit 0 ;;
     *) later "unexpected CI state" ;;
   esac
@@ -96,15 +100,15 @@ main() {
   status=0
   "$repo/scripts/deploy.sh" "$tag" 8>&- || status=$?
   case $status in
-    0) echo "$tag $sha exit-0" >>"$state"; log "$tag ($short) is live"; alert "Storagi $tag ($short) is live."; exit 0 ;;
+    0) echo "$tag $sha exit-0" >>"$state"; log "$tag ($short) is live"; alert ok "$tag" "✅ Storagi $tag is live" "Commit \`$short\`"; exit 0 ;;
     75) later "$tag ($short): not deployed (exit 75: busy, or no longer newer than the live release)" ;;
-    2) what="cutover failed, rolled back, previous release healthy" ;;
-    3) what="MANUAL RECOVERY REQUIRED" ;;
-    *) what="build failed or refused before cutover, production untouched" ;;
+    2) kind=warn title="⚠️ Storagi $tag rolled back" what="cutover failed, rolled back, previous release healthy" ;;
+    3) kind=fail title="🚨 Storagi $tag: manual recovery required" what="MANUAL RECOVERY REQUIRED" ;;
+    *) kind=fail title="❌ Storagi $tag not deployed" what="build failed or refused before cutover, production untouched" ;;
   esac
   echo "$tag $sha exit-$status" >>"$state"
   log "$tag ($short): $what (exit $status); not retried automatically"
-  alert "Storagi $tag ($short): $what (exit $status). See journalctl -u storagi-autodeploy"
+  alert "$kind" "$tag" "$title" "${what^} (exit $status), commit \`$short\`. See \`journalctl -u storagi-autodeploy\`."
   exit "$status"
 }
 

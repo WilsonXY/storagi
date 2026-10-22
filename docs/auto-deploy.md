@@ -16,17 +16,17 @@ GitHub gets no way into the host: no self-hosted runner, no inbound connection, 
 
 | Exit | Meaning | Recorded | Discord |
 | --- | --- | --- | --- |
-| 0 | deployed and healthy | `exit-0` | `Storagi v1.2.3 (abc1234) is live.` |
+| 0 | deployed and healthy | `exit-0` | green: `✅ Storagi v1.2.3 is live` |
 | 75 | nothing done: transfers open, another deploy holds the lock, origin unreachable, `main` moved on, or the tag is no longer newer than the live release (the helper repeats that check under its lock, so a manual deploy during the build wins) | nothing | none; tried again next tick |
-| 1 | build or check failed, or refused before cutover; production untouched | `exit-1` | `… build failed or refused before cutover, production untouched (exit 1). See journalctl -u storagi-autodeploy` |
-| 2 | cutover failed, previous release healthy again | `exit-2` | `… cutover failed, rolled back, previous release healthy (exit 2). …` |
-| 3 | MANUAL RECOVERY REQUIRED | `exit-3` | `… MANUAL RECOVERY REQUIRED (exit 3). …` |
+| 1 | build or check failed, or refused before cutover; production untouched | `exit-1` | red: `❌ Storagi v1.2.3 not deployed` |
+| 2 | cutover failed, previous release healthy again | `exit-2` | orange: `⚠️ Storagi v1.2.3 rolled back` |
+| 3 | MANUAL RECOVERY REQUIRED | `exit-3` | red: `🚨 Storagi v1.2.3: manual recovery required` |
 
 Any other status counts as 1. A recorded tag is never retried; a newer tag still is. The service exits with `deploy.sh`'s status when a deploy fails, so `systemctl --failed` shows it until the next tick.
 
 **State file.** `/var/lib/storagi-deploy/autodeploy.state`, one line per tag: `<tag> <commit> <outcome>`, where the outcome is `exit-N`, `ci-failed`, `rolled-back` (added by the owner, below), or `live` (with `-` for the commit) when the poller first sees a newer tag live, for example after a manual deploy. Read it with `sudo cat /var/lib/storagi-deploy/autodeploy.state`.
 
-**Discord.** Messages are one line: tag, short commit, outcome and exit code, and for failures a pointer to `journalctl -u storagi-autodeploy`. No host names, paths, settings or logs. A failed post is logged (`alert not sent (curl exit N, HTTP M)`) and changes nothing else; it is not retried.
+**Discord.** Each message is one embed with a coloured bar: a title with the tag and outcome, linking to the tag on GitHub, and a line with the short commit, plus for failures the outcome, exit code and a pointer to `journalctl -u storagi-autodeploy`. A CI failure is red `❌ Storagi v1.2.3 not deployed`. No host names, paths, settings or logs. A failed post is logged (`alert not sent (curl exit N, HTTP M)`) and changes nothing else; it is not retried.
 
 **The webhook URL is a secret.** The owner stores it as `/etc/credstore/storagi-discord-webhook` (root, mode 600). systemd copies it for each run with `LoadCredential=` into a private directory only that run can read. Bash reads it, checks it looks like `https://discord.com/api/webhooks/<id>/<token>`, and hands it to curl as a config on a pipe (`curl -K /dev/fd/N`), so it is never in a process's arguments, the journal or the state file.
 
@@ -110,10 +110,10 @@ Check, without printing it: `sudo stat -c '%U:%G %a' /etc/credstore/storagi-disc
 ```sh
 sudo install -o root -g root -m 644 deploy/storagi-autodeploy.service deploy/storagi-autodeploy.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-systemd-analyze verify /etc/systemd/system/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.timer
+sudo systemd-analyze verify /etc/systemd/system/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.timer
 ```
 
-Check: `systemd-analyze verify` exits 0 and prints nothing about these two units (lines about other host units are unrelated); `cmp deploy/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.service && cmp deploy/storagi-autodeploy.timer /etc/systemd/system/storagi-autodeploy.timer && echo same`; `systemctl show storagi-autodeploy.service -p User -p LoadState` is `storagi-deploy` and `loaded`.
+Check: `systemd-analyze verify` exits 0 and prints nothing about these two units (lines about other host units are unrelated). It needs `sudo`: as the owner it cannot look inside the account's 700 home and reports the `ExecStart` script as not executable; `cmp deploy/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.service && cmp deploy/storagi-autodeploy.timer /etc/systemd/system/storagi-autodeploy.timer && echo same`; `systemctl show storagi-autodeploy.service -p User -p LoadState` is `storagi-deploy` and `loaded`.
 
 **6. sudo inside the sandbox.** The unit's sandbox settings, running the helper with a well-formed but missing staging dir. Reaching the helper's own refusal proves the rule needs no password and does not set no-new-privileges, and that the helper accepts `storagi-deploy` as the sudo caller.
 
@@ -145,14 +145,14 @@ sudo systemctl enable --now storagi-autodeploy.timer
 systemctl list-timers storagi-autodeploy.timer       # NEXT within 15 minutes
 ```
 
-## End-to-end test with a real tag (later)
+## Releasing a version
 
-When the next change is merged, tag it as usual on `main` and push the tag (`git tag v1.0.2 origin/main && git push origin v1.0.2`). After CI on that commit passes, within about 15 minutes:
+This is also the end-to-end test; the first one is recorded in [stage74](stages/74-host-rollout.md). Pick a version higher than the live one and every tag in the state file, say `vX.Y.Z`. When the change is merged, create the tag as the admin owner on GitHub (Releases → Draft a new release, new tag `vX.Y.Z`, target `main`, then publish). A `git push` of the tag from the host is rejected: its git account is not admin, and the ruleset lets only admins create `v*` tags. After CI on that commit passes, within about 15 minutes:
 
-- Discord shows `Storagi v1.0.2 (<sha>) is live.`
-- `journalctl -u storagi-autodeploy -n 60 --no-pager` shows `deploying v1.0.2`, the build, `storagi-promote: … live` and `v1.0.2 (…) is live`.
-- `readlink /opt/storagi/current` is `releases/v1.0.2-…`; `journalctl -u storagi.service -n 20 --no-pager` shows `verify-release: v1.0.2 … ok`; the two `curl` lines from [migration step 7](system-service.md#migration-from-the-user-service-owner-run) give 200 and 401; sign in and open the Inbox.
-- `sudo cat /var/lib/storagi-deploy/autodeploy.state` ends with `v1.0.2 <commit> exit-0`; `sudo ls /var/lib/storagi-deploy/.cache/storagi/staging` is empty.
+- Discord shows a green embed `✅ Storagi vX.Y.Z is live` with the short commit.
+- `journalctl -u storagi-autodeploy -n 60 --no-pager` shows `deploying vX.Y.Z`, the build, `storagi-promote: … live` and `vX.Y.Z (…) is live`.
+- `readlink /opt/storagi/current` is `releases/vX.Y.Z-…`; `journalctl -u storagi.service -n 20 --no-pager` shows `verify-release: vX.Y.Z … ok`; the two `curl` lines from [migration step 7](system-service.md#migration-from-the-user-service-owner-run) give 200 and 401; sign in and open the Inbox.
+- `sudo cat /var/lib/storagi-deploy/autodeploy.state` ends with `vX.Y.Z <commit> exit-0`; `sudo ls /var/lib/storagi-deploy/.cache/storagi/staging` is empty.
 
 To exercise the busy path, keep a download running when the tick fires: the journal shows `not deployed (exit 75: busy, …); trying again next tick` and the deploy follows on a later tick.
 

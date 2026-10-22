@@ -94,6 +94,15 @@ cat "$STATE/api-body"; printf '\\n%s' "$(cat "$STATE/api-code" 2>/dev/null || ec
 }
 type Fixture = ReturnType<typeof fixture>;
 const short = (sha: string) => sha.slice(0, 7);
+// Each webhook post is exactly one embed; returns them in order.
+const alerts = (f: Fixture) => f.lines('webhook.log').map(l => {
+  const body = JSON.parse(l);
+  assert.deepEqual(Object.keys(body), ['embeds']); assert.equal(body.embeds.length, 1);
+  return body.embeds[0];
+});
+const embed = (color: 'ok' | 'warn' | 'fail', tag: string, title: string, description: string) =>
+  ({ title, description, url: `https://github.com/WilsonXY/storagi/releases/tag/${tag}`, color: { ok: 3066993, warn: 15105570, fail: 15158332 }[color] });
+const liveEmbed = (tag: string, sha: string) => embed('ok', tag, `✅ Storagi ${tag} is live`, `Commit \`${short(sha)}\``);
 // Nothing happened this tick beyond the given log sizes.
 const quiet = (f: Fixture, before: { deploys: number; alerts: number; state: string }) => {
   assert.equal(f.lines('deploy.log').length, before.deploys);
@@ -120,7 +129,7 @@ test('deploys the highest semver tag on origin/main; malformed, off-main and old
   // Run from the clone at origin/main, without the poller's lock, with TMPDIR in its home.
   assert.deepEqual(f.lines('deploy.log'), [`v1.10.0 ${main} fd8=closed tmp=${f.home}/.cache/storagi/tmp`]);
   assert.deepEqual(f.lines('api.log'), [`https://api.github.com/repos/WilsonXY/storagi/commits/${sha}/check-runs?check_name=check&per_page=100`]);
-  assert.deepEqual(f.lines('webhook.log'), [`{"content":"Storagi v1.10.0 (${short(sha)}) is live."}`]);
+  assert.deepEqual(alerts(f), [liveEmbed('v1.10.0', sha)]);
   assert.equal(f.stateFile(), `v1.0.0 - live\nv1.10.0 ${sha} exit-0\n`);
   // Next tick: v1.10.0 is live; nothing to do and no API call.
   const before = mark(f), again = f.poll();
@@ -166,7 +175,7 @@ test('CI failed: marks the tag failed, alerts once, never retries; a newer tag i
     const r = f.poll();
     assert.equal(r.status, 0, r.out); assert.match(r.out, /CI failed; not deploying/);
     assert.equal(f.read('deploy.log'), '');
-    assert.deepEqual(f.lines('webhook.log'), [`{"content":"Storagi v1.2.0 (${short(sha)}): CI failed, not deployed. See journalctl -u storagi-autodeploy"}`]);
+    assert.deepEqual(alerts(f), [embed('fail', 'v1.2.0', '❌ Storagi v1.2.0 not deployed', `CI failed on commit \`${short(sha)}\`. See \`journalctl -u storagi-autodeploy\`.`)]);
     assert.match(f.stateFile(), new RegExp(`^v1\\.2\\.0 ${sha} ci-failed$`, 'm'));
     // Even if CI is re-run green, the tag is not retried automatically, and there is no second alert.
     f.ci(checkRun());
@@ -213,22 +222,22 @@ test('busy (exit 75): nothing recorded, no alert, deployed on a later tick', () 
   unlinkSync(`${f.state}/deploy-exit`);
   assert.equal(f.poll().status, 0);
   assert.equal(f.lines('deploy.log').length, 3);
-  assert.deepEqual(f.lines('webhook.log'), [`{"content":"Storagi v1.2.0 (${short(sha)}) is live."}`]);
+  assert.deepEqual(alerts(f), [liveEmbed('v1.2.0', sha)]);
 });
 
 test('a failed deploy is alerted once and never retried; a newer tag still is', async t => {
-  const cases: [number, string][] = [
-    [1, 'build failed or refused before cutover, production untouched'],
-    [2, 'cutover failed, rolled back, previous release healthy'],
-    [3, 'MANUAL RECOVERY REQUIRED'],
-    [130, 'build failed or refused before cutover, production untouched'],
+  const cases: [number, 'warn' | 'fail', string, string][] = [
+    [1, 'fail', '❌ Storagi v1.2.0 not deployed', 'Build failed or refused before cutover, production untouched'],
+    [2, 'warn', '⚠️ Storagi v1.2.0 rolled back', 'Cutover failed, rolled back, previous release healthy'],
+    [3, 'fail', '🚨 Storagi v1.2.0: manual recovery required', 'MANUAL RECOVERY REQUIRED'],
+    [130, 'fail', '❌ Storagi v1.2.0 not deployed', 'Build failed or refused before cutover, production untouched'],
   ];
-  for (const [code, what] of cases) await t.test(`exit ${code}`, () => {
+  for (const [code, color, title, what] of cases) await t.test(`exit ${code}`, () => {
     const f = fixture(), sha = f.tag('v1.2.0');
     writeFileSync(`${f.state}/deploy-exit`, String(code));
     const r = f.poll();
     assert.equal(r.status, code, r.out); assert.match(r.out, /not retried automatically/);
-    assert.deepEqual(f.lines('webhook.log'), [`{"content":"Storagi v1.2.0 (${short(sha)}): ${what} (exit ${code}). See journalctl -u storagi-autodeploy"}`]);
+    assert.deepEqual(alerts(f), [embed(color, 'v1.2.0', title, `${what} (exit ${code}), commit \`${short(sha)}\`. See \`journalctl -u storagi-autodeploy\`.`)]);
     assert.match(f.stateFile(), new RegExp(`^v1\\.2\\.0 ${sha} exit-${code}$`, 'm'));
     unlinkSync(`${f.state}/deploy-exit`);
     const before = mark(f), again = f.poll();
@@ -237,8 +246,18 @@ test('a failed deploy is alerted once and never retried; a newer tag still is', 
     f.tag('v1.3.0');
     assert.equal(f.poll().status, 0);
     assert.match(f.lines('deploy.log')[1], /^v1\.3\.0 /);
-    assert.match(f.lines('webhook.log')[1], /v1\.3\.0 .* is live/);
+    assert.equal(alerts(f)[1].title, '✅ Storagi v1.3.0 is live');
   });
+});
+
+test('a very long tag still gives a Discord-valid title (at most 256 characters)', () => {
+  const f = fixture(), tag = `v${'9'.repeat(240)}.0.0`;
+  f.tag(tag);
+  writeFileSync(`${f.state}/deploy-exit`, '3');
+  assert.equal(f.poll().status, 3);
+  const [a] = alerts(f);
+  assert.equal([...a.title].length, 256);
+  assert.ok(a.title.startsWith(`🚨 Storagi ${tag}`));
 });
 
 test('a tag rolled back by hand is not deployed again', async t => {
