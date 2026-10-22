@@ -21,7 +21,7 @@ later() { log "$*; trying again next tick"; exit 0; }
 newer() { [[ $1 != "$2" && $(printf '%s\n' "$1" "$2" | sort -V | tail -n 1) == "$1" ]]; }
 
 # Post one Discord embed: $1 ok|warn|fail (the colour bar), $2 tag (the title links to it), $3 title,
-# $4 description. The URL is a secret: bash reads it from the systemd credential and hands it to
+# $4 description (Discord caps titles at 256 characters). The URL is a secret: bash reads it from the systemd credential and hands it to
 # curl as a config on a pipe, so it is never in argv or the log. A failed post is logged and
 # changes nothing else.
 alert() {
@@ -31,7 +31,7 @@ alert() {
   [[ $url =~ ^https://discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$ ]] || { log "alert not sent: the credential is not a Discord webhook URL"; return 0; }
   case $1 in ok) color=3066993 ;; warn) color=15105570 ;; *) color=15158332 ;; esac
   code=$(jq -nc --arg t "$3" --arg d "$4" --arg u "$web/releases/tag/$2" --argjson c "$color" \
-    '{embeds: [{title: $t, description: $d, url: $u, color: $c}]}' | curl -q -s --max-time 15 -o /dev/null -w '%{http_code}' \
+    '{embeds: [{title: $t[:256], description: $d, url: $u, color: $c}]}' | curl -q -s --max-time 15 -o /dev/null -w '%{http_code}' \
     -H 'Content-Type: application/json' --data-binary @- -K <(printf 'url = "%s"\n' "$url")) || rc=$?
   [[ $rc == 0 && $code == 2?? ]] || log "alert not sent (curl exit $rc, HTTP ${code:-none})"
 }

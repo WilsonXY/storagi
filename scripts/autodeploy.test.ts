@@ -250,6 +250,16 @@ test('a failed deploy is alerted once and never retried; a newer tag still is', 
   });
 });
 
+test('a very long tag still gives a Discord-valid title (at most 256 characters)', () => {
+  const f = fixture(), tag = `v${'9'.repeat(240)}.0.0`;
+  f.tag(tag);
+  writeFileSync(`${f.state}/deploy-exit`, '3');
+  assert.equal(f.poll().status, 3);
+  const [a] = alerts(f);
+  assert.equal([...a.title].length, 256);
+  assert.ok(a.title.startsWith(`🚨 Storagi ${tag}`));
+});
+
 test('a tag rolled back by hand is not deployed again', async t => {
   await t.test('after the poller deployed it', () => {
     const f = fixture(); f.tag('v1.2.0');

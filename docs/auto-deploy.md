@@ -145,14 +145,14 @@ sudo systemctl enable --now storagi-autodeploy.timer
 systemctl list-timers storagi-autodeploy.timer       # NEXT within 15 minutes
 ```
 
-## End-to-end test with a real tag (later)
+## Releasing a version
 
-When the next change is merged, create the tag as the admin owner on GitHub (Releases → Draft a new release, new tag `v1.0.2`, target `main`). A `git push` of the tag from the host is rejected: its git account is not admin, and the ruleset lets only admins create `v*` tags. After CI on that commit passes, within about 15 minutes:
+This is also the end-to-end test; the first one is recorded in [stage74](stages/74-host-rollout.md). Pick a version higher than the live one and every tag in the state file, say `vX.Y.Z`. When the change is merged, create the tag as the admin owner on GitHub (Releases → Draft a new release, new tag `vX.Y.Z`, target `main`, then publish). A `git push` of the tag from the host is rejected: its git account is not admin, and the ruleset lets only admins create `v*` tags. After CI on that commit passes, within about 15 minutes:
 
-- Discord shows `Storagi v1.0.2 (<sha>) is live.`
-- `journalctl -u storagi-autodeploy -n 60 --no-pager` shows `deploying v1.0.2`, the build, `storagi-promote: … live` and `v1.0.2 (…) is live`.
-- `readlink /opt/storagi/current` is `releases/v1.0.2-…`; `journalctl -u storagi.service -n 20 --no-pager` shows `verify-release: v1.0.2 … ok`; the two `curl` lines from [migration step 7](system-service.md#migration-from-the-user-service-owner-run) give 200 and 401; sign in and open the Inbox.
-- `sudo cat /var/lib/storagi-deploy/autodeploy.state` ends with `v1.0.2 <commit> exit-0`; `sudo ls /var/lib/storagi-deploy/.cache/storagi/staging` is empty.
+- Discord shows a green embed `✅ Storagi vX.Y.Z is live` with the short commit.
+- `journalctl -u storagi-autodeploy -n 60 --no-pager` shows `deploying vX.Y.Z`, the build, `storagi-promote: … live` and `vX.Y.Z (…) is live`.
+- `readlink /opt/storagi/current` is `releases/vX.Y.Z-…`; `journalctl -u storagi.service -n 20 --no-pager` shows `verify-release: vX.Y.Z … ok`; the two `curl` lines from [migration step 7](system-service.md#migration-from-the-user-service-owner-run) give 200 and 401; sign in and open the Inbox.
+- `sudo cat /var/lib/storagi-deploy/autodeploy.state` ends with `vX.Y.Z <commit> exit-0`; `sudo ls /var/lib/storagi-deploy/.cache/storagi/staging` is empty.
 
 To exercise the busy path, keep a download running when the tick fires: the journal shows `not deployed (exit 75: busy, …); trying again next tick` and the deploy follows on a later tick.
 
