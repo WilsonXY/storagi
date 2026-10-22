@@ -177,3 +177,46 @@ test('copy follows the prototype: singular bulk toast, sort labels, sign-out not
   window.dispatchEvent(new Event('pagehide')); click('#signout-cancel');
   expect(document.querySelector('#signout-pop')!.hasAttribute('hidden')).toBe(true);
 });
+test('a dashboard opened in a background tab still loads its list', async () => {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  try { const api = service(); await mount(api.fetcher); expect(api.fetcher).toHaveBeenCalledWith('/api/files', expect.anything()); expect(rows()).toHaveLength(2); }
+  finally { delete (document as { visibilityState?: unknown }).visibilityState; }
+});
+test('leaving the page restores pending deletes instead of sending them on wake', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  click('[data-del="new-id"]'); click('[data-confirm="new-id"]'); window.dispatchEvent(new Event('pagehide'));
+  await vi.advanceTimersByTimeAsync(10_000); expect(api.fetcher.mock.calls.filter(c => String(c[0]).includes('/new-id'))).toHaveLength(0);
+  expect(document.querySelector('[data-del="new-id"]')).not.toBeNull();
+});
+test('an Undo toast is not pushed away by a later notice; the notice waits', async () => {
+  vi.useFakeTimers(); await mount(); click('#select-all'); click('#sel-delete');
+  click('#choose'); const picker = document.querySelector<HTMLInputElement>('#picker')!;
+  Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['x'], 'late.zip')] }); picker.dispatchEvent(new Event('change'));
+  expect(document.querySelector('#notice span')?.textContent).toBe('2 copies deleted');
+  click('.toast button'); expect(rows()).toHaveLength(2); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
+});
+test('expired copies get the friendly message, and duplicate rows name their copy for screen readers', async () => {
+  vi.useFakeTimers(); const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => options?.method === 'DELETE' ? new Response(JSON.stringify({ error: 'Not found' }), { status: 410 }) : api.fetcher(url));
+  await mount(fetcher as typeof api.fetcher);
+  const labels = [...document.querySelectorAll('[data-del]')].map(b => b.getAttribute('aria-label'));
+  expect(labels).toEqual(['Delete archive.zip · copy new-id', 'Delete archive.zip · copy old-id']);
+  click('[data-del="new-id"]'); click('[data-confirm="new-id"]'); await vi.advanceTimersByTimeAsync(6500);
+  expect(document.querySelector('#notice span')?.textContent).toBe('This copy has expired or was removed. Refresh your Inbox.');
+});
+test('a failed disk write aborts the download request', async () => {
+  const abort = vi.fn().mockResolvedValue(undefined), write = vi.fn().mockRejectedValue(new Error('Disk full'));
+  Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: vi.fn().mockResolvedValue({ createWritable: async () => ({ write, close: vi.fn(), abort }) }) });
+  let signal: AbortSignal | undefined; const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => { if (String(url).endsWith('/download')) { signal = options?.signal ?? undefined; return new Response('fixture'); } return api.fetcher(url); });
+  await mount(fetcher as typeof api.fetcher); click('[data-dl="new-id"]'); await tick();
+  expect(signal?.aborted).toBe(true); expect(abort).toHaveBeenCalled(); expect(document.querySelector('.tr.error')).not.toBeNull();
+  delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+});
+test('a touchpad sideways swipe deletes through the same six-second Undo', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  const row = document.querySelector('[data-id="new-id"]')!; row.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 40 }));
+  await vi.advanceTimersByTimeAsync(400); expect(document.querySelector('[data-undo="new-id"]')).not.toBeNull();
+  click('[data-undo="new-id"]'); await vi.advanceTimersByTimeAsync(7000);
+  expect(api.fetcher.mock.calls.filter(c => String(c[0]).includes('/new-id'))).toHaveLength(0);
+});

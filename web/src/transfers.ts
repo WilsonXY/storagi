@@ -5,7 +5,7 @@ import { fileDrop } from './ui';
 type Item = Transfer & { file: File; upload?: Upload };
 
 export function setupTransfers(root: HTMLElement, csrfToken: string, hooks: {
-  refresh: () => Promise<void>; notice: (message: string, error?: boolean) => void; expired: () => void; offline: () => void; view: ReturnType<typeof import('./transfer-view').createTransferView>; queued: () => void;
+  refresh: () => Promise<void>; notice: (message: string, error?: boolean) => void; expired: () => void; offline: () => void; view: ReturnType<typeof import('./transfer-view').createTransferView>; queued: (count: number) => void;
 }) {
   const items: Item[] = [];
   let active: Item | undefined;
@@ -87,7 +87,7 @@ export function setupTransfers(root: HTMLElement, csrfToken: string, hooks: {
       item.action = action => { void act(item, action); };
       items.push(item); added++; render(item);
     }
-    if (added) hooks.queued();
+    if (added) hooks.queued(added);
     void pump();
   }
   picker.addEventListener('change', () => { add(Array.from(picker.files || [])); picker.value = ''; });

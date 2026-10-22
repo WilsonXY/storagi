@@ -6,8 +6,7 @@ test('selection shifts from its anchor, toggles ranges and exposes header tri-st
   const s = new Selection(); expect(s.allState(order)).toBe('none');
   s.toggle('b', order); s.toggle('d', order, true); expect([...s.ids]).toEqual(['b', 'c', 'd']);
   expect(s.allState(order)).toBe('some'); s.toggle('d', order, true); expect(s.ids.size).toBe(0);
-  s.toggleAll(order); expect(s.allState(order)).toBe('all'); s.toggleAll(order); expect(s.allState(order)).toBe('none');
-  s.set(['a']); s.toggleAll(order); expect(s.allState(order)).toBe('all');
+  s.set(order); expect(s.allState(order)).toBe('all');
   s.clear(); expect(s.anchor).toBeNull(); expect(s.allState([])).toBe('none');
 });
 test('drag ranges restore the original selection as the pointer retreats or crosses the start', () => {

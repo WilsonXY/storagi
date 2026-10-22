@@ -5,9 +5,12 @@ export function blocks(el: HTMLElement, parts: [number, string][]) {
 }
 export const blockCount = (el: HTMLElement) => Math.max(8, Math.floor((el.clientWidth + 3) / 8));
 export function createToast() {
-  let close = () => {};
-  const toast = (message: string, options: { action?: string; onAction?: () => void; ms?: number; clockFrom?: number } = {}) => {
-    close(); const el = document.createElement('div'); el.className = 'toast out'; el.id = 'notice'; el.setAttribute('role', 'status');
+  type Options = { action?: string; onAction?: () => void; ms?: number; clockFrom?: number };
+  let close = () => {}, undoing = false, waiting: [string, Options] | undefined;
+  // An Undo toast is never pushed away; a notice raised meanwhile waits for it.
+  const toast = (message: string, options: Options = {}) => {
+    if (undoing && !options.clockFrom) { waiting = [message, options]; return; }
+    const keep = waiting; waiting = undefined; close(); waiting = keep; undoing = !!options.clockFrom; const el = document.createElement('div'); el.className = 'toast out'; el.id = 'notice'; el.setAttribute('role', 'status');
     el.innerHTML = '<span></span>'; el.firstElementChild!.textContent = message;
     let left = options.clockFrom ?? 0;
     const clock = document.createElement('span'); clock.className = 'clock';
@@ -16,9 +19,12 @@ export function createToast() {
     document.body.append(el); requestAnimationFrame(() => el.classList.remove('out'));
     const iv = setInterval(() => { clock.textContent = `${Math.max(0, --left)}s`; }, 1000);
     const to = setTimeout(() => close(), options.ms ?? 4000);
-    close = () => { clearInterval(iv); clearTimeout(to); el.classList.add('out'); el.removeAttribute('id'); setTimeout(() => el.remove(), 300); };
+    close = () => {
+      clearInterval(iv); clearTimeout(to); el.classList.add('out'); el.removeAttribute('id'); setTimeout(() => el.remove(), 300);
+      close = () => {}; undoing = false; const next = waiting; waiting = undefined; if (next) toast(...next);
+    };
   };
-  return { toast, destroy: () => close() };
+  return { toast, destroy: () => { waiting = undefined; close(); } };
 }
 export function fileDrop(options: { enabled: () => boolean; on: (over: boolean) => void; drop: (files: File[]) => void }) {
   const events = new AbortController(); let active = false, timer: ReturnType<typeof setTimeout>;

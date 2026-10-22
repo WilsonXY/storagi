@@ -8,9 +8,13 @@ test('refreshes every 60 s visibly and suspends all requests while hidden', asyn
   const fetcher = vi.fn().mockResolvedValue(undefined), ar = new AutoRefresh(fetcher);
   expect(ar.remaining).toBe(60); await vi.advanceTimersByTimeAsync(59_000); expect(fetcher).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1000); expect(fetcher).toHaveBeenCalledTimes(1); expect(ar.last).toBe(60_000);
-  visible = false; visibility(); await vi.advanceTimersByTimeAsync(120_000); await ar.now(); expect(fetcher).toHaveBeenCalledTimes(1);
+  visible = false; visibility(); await vi.advanceTimersByTimeAsync(120_000); expect(fetcher).toHaveBeenCalledTimes(1);
   visible = true; visibility(); await vi.advanceTimersByTimeAsync(0); expect(fetcher).toHaveBeenCalledTimes(2);
   ar.destroy(); await vi.advanceTimersByTimeAsync(120_000); expect(fetcher).toHaveBeenCalledTimes(2);
+});
+test('an explicit refresh fetches even in a hidden tab (first load of a background tab, offline retry)', async () => {
+  visible = false; const fetcher = vi.fn().mockResolvedValue(undefined), ar = new AutoRefresh(fetcher);
+  await ar.now(); expect(fetcher).toHaveBeenCalledOnce(); await vi.advanceTimersByTimeAsync(120_000); expect(fetcher).toHaveBeenCalledOnce(); ar.destroy();
 });
 test('return threshold measures time away, and overlapping manual calls join the same request', async () => {
   const fetcher = vi.fn().mockResolvedValue(undefined), ar = new AutoRefresh(fetcher);
@@ -28,10 +32,10 @@ test('exposes failures and clears them on successful manual/after-upload refresh
 });
 test('offline retry counts down 10 s, repeats failures, supports retry now and stops on success', async () => {
   const error = new Error('offline'), fetcher = vi.fn().mockRejectedValue(error), retry = new OfflineRetry(fetcher);
-  retry.start(error); expect(retry.remaining).toBe(10); await vi.advanceTimersByTimeAsync(9000); expect(retry.remaining).toBe(1); expect(fetcher).not.toHaveBeenCalled();
-  await vi.advanceTimersByTimeAsync(1000); expect(fetcher).toHaveBeenCalledTimes(1); expect(retry.error).toBe(error); expect(retry.remaining).toBe(10);
+  retry.start(); expect(retry.remaining).toBe(10); await vi.advanceTimersByTimeAsync(9000); expect(retry.remaining).toBe(1); expect(fetcher).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1000); expect(fetcher).toHaveBeenCalledTimes(1); expect(retry.remaining).toBe(10);
   await retry.now(); expect(fetcher).toHaveBeenCalledTimes(2);
-  fetcher.mockResolvedValue(undefined); await vi.advanceTimersByTimeAsync(10_000); expect(fetcher).toHaveBeenCalledTimes(3); expect(retry.active).toBe(false); expect(retry.error).toBeNull();
+  fetcher.mockResolvedValue(undefined); await vi.advanceTimersByTimeAsync(10_000); expect(fetcher).toHaveBeenCalledTimes(3); expect(retry.active).toBe(false);
   await vi.advanceTimersByTimeAsync(20_000); expect(fetcher).toHaveBeenCalledTimes(3); retry.destroy();
 });
 test('offline retry never overlaps and teardown cancels its timer', async () => {

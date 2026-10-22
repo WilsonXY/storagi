@@ -30,4 +30,3 @@ export function relDay(value: DateValue, now: DateValue = Date.now()) {
 export const daysLeft = (file: { expiresAt: DateValue }, now: DateValue = Date.now()) => Math.max(0, Math.floor((+new Date(file.expiresAt) - +new Date(now)) / DAY));
 export const ext = (name: string) => name.includes('.') ? name.split('.').pop()!.slice(0, 4).toLowerCase() : 'file';
 export const shortId = (id: string) => id.slice(-6);
-export function ago(ms: number) { const s = Math.round(ms / 1000); return s < 5 ? 'just now' : s < 60 ? `${s}s ago` : `${Math.floor(s / 60)}m ago`; }

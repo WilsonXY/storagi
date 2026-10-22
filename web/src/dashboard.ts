@@ -61,6 +61,10 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const app = $('#shelf-app'), sel = new Selection(), hidden = new Set<string>();
   let shelf: Shelf = { files: [], usedBytes: 0, reservedBytes: 0, budgetBytes: 0 }, sort: Sort = null, order: string[] = [], emptyMark = false;
   const morph = new Map<string, { state: 'confirm' | 'deleted'; op?: ReturnType<typeof deferredDelete>; left?: number }>();
+  const pending = new Set<ReturnType<typeof deferredDelete>>(), downloads = new Set<() => void>();
+  cleanups.push(() => { for (const op of pending) op.destroy(); for (const cancel of downloads) cancel(); });
+  // A frozen or cached page would otherwise send its DELETEs the moment it wakes, with no Undo left.
+  listen(window, 'pagehide', () => { for (const op of [...pending]) op.undo(); });
   const transfers = createTransferView(root); cleanups.push(transfers.destroy);
   const mainPond = pond('#pond', { count: innerWidth < 640 ? 2 : 4, size: innerWidth < 640 ? [80, 130] : [110, 190], font: 11, flee: 130,
     avoid: () => [relative($('#composer'), $('#pond'), .32), relative($('.lede'), $('#pond'), .1), relative($('.search'), $('#pond'), .1)], splashTarget: $('#pond-zone'), canSplash: e => !(e.target as Element).closest('#composer, button, a, input') });
@@ -87,7 +91,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     if (response.status === 401 || response.status === 403) { locked(true); throw new Error('Your session expired. Sign in again.'); }
     if (!response.ok) {
       const body = await response.json().catch(() => ({})); if (response.status >= 500) setOffline(true);
-      throw new Error(body.error || (response.status === 404 || response.status === 410 ? 'This copy has expired or was removed. Refresh your Inbox.' : 'The host could not complete that request. Please try again.'));
+      throw new Error(response.status === 404 || response.status === 410 ? 'This copy has expired or was removed. Refresh your Inbox.' : body.error || 'The host could not complete that request. Please try again.');
     }
     setOffline(false); return response;
   }
@@ -120,10 +124,10 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     syncRows();
   }
   function row(f: ShelfFile, duplicate: boolean) {
-    const id = esc(f.id), n = esc(f.name), expired = +new Date(f.expiresAt) <= Date.now(), left = daysLeft(f), state = morph.get(f.id);
+    const id = esc(f.id), n = esc(duplicate ? `${f.name} · copy ${shortId(f.id)}` : f.name), expired = +new Date(f.expiresAt) <= Date.now(), left = daysLeft(f), state = morph.get(f.id);
     const exp = expired ? 'Expired' : `${left} d left`, cls = expired ? 'gone' : left <= 3 ? 'soon' : '';
     const actions = state?.state === 'confirm' ? `<div class="morph"><span class="m-ask">Delete copy?</span><button data-cancel="${id}" data-key="k-${id}">Cancel</button><button class="m-confirm" data-confirm="${id}">Delete</button></div>` : state?.state === 'deleted' ? `<div class="morph"><span class="m-ok">✓ Deleted</span><button data-undo="${id}" data-key="u-${id}">Undo</button><span class="m-clock" data-clock="${id}">${state.left}s</span></div>` : `${expired ? '' : `<a class="icon-btn" href="/api/files/${encodeURIComponent(f.id)}/download" download data-dl="${id}" data-key="d-${id}" draggable="false" aria-label="Download ${n}" title="Download">${downIcon}</a>`}<button class="icon-btn" data-del="${id}" data-key="x-${id}" aria-label="Delete ${n}" title="Delete this copy">${trashIcon}</button>`;
-    return `<div class="row${state?.state === 'deleted' ? ' ghost' : ''}" data-id="${id}"><label class="lead"><span class="ext">${esc(ext(f.name))}</span><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${n}">${n}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone"><span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
+    return `<div class="row${state?.state === 'deleted' ? ' ghost' : ''}" data-id="${id}"><label class="lead"><span class="ext">${esc(ext(f.name))}</span><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${esc(f.name)}">${esc(f.name)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone"><span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
   }
   function focusKey(key: string) { Array.from(root.querySelectorAll<HTMLElement>('[data-key]')).find(el => el.dataset.key === key)?.focus(); }
   function syncRows() {
@@ -143,19 +147,18 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     $('#full-shelf').hidden = shelf.usedBytes + shelf.reservedBytes < shelf.budgetBytes;
   }
   function deleteFiles(ids: string[], bulk = false) {
-    const restore = () => { for (const id of ids) { hidden.delete(id); morph.delete(id); } if (active) { renderInbox(); renderSelection(); } };
+    const restore = () => { pending.delete(op); for (const id of ids) { hidden.delete(id); morph.delete(id); } if (active) { renderInbox(); renderSelection(); } };
     if (bulk) for (const id of ids) hidden.add(id);
     const op = deferredDelete(async () => { for (const id of ids) { if (!active) return; await request(`/api/files/${encodeURIComponent(id)}`, 'DELETE'); shelf.files = shelf.files.filter(f => f.id !== id); } }, {
       onTick: seconds => { for (const id of ids) { const state = morph.get(id); if (state) state.left = seconds; const c = Array.from(root.querySelectorAll<HTMLElement>('[data-clock]')).find(el => el.dataset.clock === id); if (c) c.textContent = `${seconds}s`; } },
       onUndo: restore, onCommit: () => { restore(); if (active) void auto.now(); }, onError: error => { restore(); if (active) toast((error as Error).message); },
     });
-    cleanups.push(op.destroy);
+    pending.add(op);
     if (!bulk) for (const id of ids) morph.set(id, { state: 'deleted', left: 6, op });
     for (const id of ids) sel.ids.delete(id); renderInbox(); renderSelection();
     if (bulk) toast(`${ids.length} ${ids.length === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: op.undo, ms: 6000, clockFrom: 6 });
   }
-  let gestures: ReturnType<typeof rowGestures> | undefined;
-  gestures = rowGestures($('#groups'), sel, () => order, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
+  const gestures = rowGestures($('#groups'), sel, () => order, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
   listen(sel, 'change', () => { syncRows(); renderSelection(); });
   listen($('#groups'), 'click', (e: MouseEvent) => {
     const t = e.target as HTMLElement, row = t.closest<HTMLElement>('.row'); if (!row) return;
@@ -184,7 +187,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   async function streamDownload(handle: ReturnType<SavePicker>, f: ShelfFile) {
     const controller = new AbortController(); let writable: Writable | undefined, t: ReturnType<typeof transfers.add> | undefined;
     const cancel = () => { controller.abort(); void writable?.abort().catch(() => {}); if (t) { t.state = 'cancelled'; transfers.render(t); } };
-    cleanups.push(cancel);
+    downloads.add(cancel);
     try {
       const file = await handle; if (!active) return;
       t = transfers.add(f.name, f.size, 'down'); t.action = cancel; transfers.render(t); openTransfers();
@@ -201,10 +204,10 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
       if (controller.signal.aborted) return;
       await writable.close(); t.state = 'done'; t.sent = t.size; transfers.render(t);
     } catch (error) {
-      await writable?.abort().catch(() => {});
-      if (t && !controller.signal.aborted && active) { t.state = 'error'; t.message = (error as Error).message; transfers.render(t); toast(t.message); }
+      const cancelled = controller.signal.aborted; controller.abort(); await writable?.abort().catch(() => {});
+      if (t && !cancelled && active) { t.state = 'error'; t.message = (error as Error).message; transfers.render(t); toast(t.message); }
       else if ((error as Error).name !== 'AbortError' && active) toast((error as Error).message);
-    }
+    } finally { downloads.delete(cancel); }
   }
   function view(name: string) {
     app.dataset.view = name; const settings = name === 'settings'; $('#settings').hidden = !settings;
@@ -247,7 +250,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     else if (e.key === 'Escape') { if (e.target === $('#search') && $<HTMLInputElement>('#search').value) $<HTMLInputElement>('#search').value = ''; else { closeSheet(); closeSignout(); sel.clear(); for (const [id, m] of morph) if (m.state === 'confirm') morph.delete(id); } renderInbox(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !typing) { e.preventDefault(); sel.set(order); }
   });
-  cleanups.push(setupTransfers(root, session.csrfToken, { refresh: () => auto.now(), notice: message => toast(message), expired: () => locked(true), offline: () => setOffline(true), view: transfers, queued: () => { toast('Files queued', { action: 'View', onAction: openTransfers }); } }));
+  cleanups.push(setupTransfers(root, session.csrfToken, { refresh: () => auto.now(), notice: message => toast(message), expired: () => locked(true), offline: () => setOffline(true), view: transfers, queued: n => { toast(`${n} ${n === 1 ? 'file' : 'files'} queued`, { action: 'View', onAction: openTransfers }); } }));
   tab('inbox'); panel(true); await auto.now(); return destroy;
 }
 const sortWords: Record<SortKey, [string, string, string]> = { name: ['Name', 'A to Z', 'Z to A'], size: ['Size', 'smallest first', 'largest first'], expires: ['Expires', 'soonest first', 'latest first'] };

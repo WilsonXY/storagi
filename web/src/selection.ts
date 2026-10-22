@@ -19,11 +19,6 @@ export class Selection extends EventTarget {
     const count = order.filter(id => this.ids.has(id)).length;
     return count === 0 ? 'none' : count === order.length ? 'all' : 'some';
   }
-  toggleAll(order: string[]) {
-    const on = this.allState(order) !== 'all';
-    for (const id of order) on ? this.ids.add(id) : this.ids.delete(id);
-    this.emit();
-  }
   beginDrag(id: string, order: string[]) {
     if (!order.includes(id)) return;
     this.drag = { id, order: [...order], base: new Set(this.ids), on: !this.ids.has(id) };

@@ -13,7 +13,7 @@ test('progress keeps button focus, stalled speed decays, shared history survives
   expect(document.activeElement).toBe(button); const speed = t.metrics.speed;
   await vi.advanceTimersByTimeAsync(4000); expect(t.metrics.speed).toBeLessThan(speed);
   t.state = 'done'; view.render(t); const next = view.add('two.zip', 10000, 'up'); next.state = 'uploading'; next.metrics.progress(0, next.size); view.render(next);
-  expect(next.metrics.history).toHaveLength(0); expect(document.querySelector<HTMLElement>('.chart')!.hidden).toBe(false);
+  expect(document.querySelector<HTMLElement>('.chart')!.hidden).toBe(false);
   await vi.advanceTimersByTimeAsync(4000); expect(document.querySelector('.tr.leaving')).not.toBeNull();
   await vi.advanceTimersByTimeAsync(1000); expect(document.querySelectorAll('.tr')).toHaveLength(1);
 });

@@ -86,7 +86,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 49 | Frontend port foundation: fonts/brand assets, tokens, koi port, pure client logic with tests, static allowlist | Distinct implementation task, actual Codex gpt-6.1-sol/high (runtime) | Completed `30239b9`; coordinator reran check: 32 server/44 web/11 acceptance PASS; follow-ups carried into 50 | [49](stages/49-frontend-foundation.md) |
 | 50 | Frontend port UI: final design on the real service, mock harness, browser checks | Distinct implementation task, requested Codex gpt-6.1-sol/high | Completed `883da87`; actual Codex gpt-6.1-sol/high (runtime); coordinator reran check: 32/58/11 PASS | [50](stages/50-frontend-ui.md) |
 | 51 | Integrate 49/50, combined check and screenshots | Coordinator | Completed; 8 integration fixes, check 32/59/11 PASS twice, visual parity at 1440/1100/390 | [51](stages/51-frontend-integration.md) |
-| 52 | Independent frontend review | Fresh Claude Opus 5.5/high (gpt-6.1-sol implemented) | In progress | [52](stages/52-frontend-review.md) |
+| 52 | Independent frontend review | Fresh Claude Opus 5.5/high confirmed (gpt-6.1-sol implemented) | FAIL; 1 blocking + 8 suggestions, fixed in 53 | [52](stages/52-frontend-review.md) |
+| 53 | Fix review round 1 findings | Coordinator | Completed; 5 RED→GREEN regression tests, check 32/66/11 PASS | [53](stages/53-frontend-review-fixes.md) |
+| 54 | Independent frontend review round 2 | Fresh Claude Opus 5.5/high | In progress | [54](stages/54-frontend-review-round-2.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
