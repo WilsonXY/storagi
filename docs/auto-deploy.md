@@ -110,10 +110,10 @@ Check, without printing it: `sudo stat -c '%U:%G %a' /etc/credstore/storagi-disc
 ```sh
 sudo install -o root -g root -m 644 deploy/storagi-autodeploy.service deploy/storagi-autodeploy.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-systemd-analyze verify /etc/systemd/system/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.timer
+sudo systemd-analyze verify /etc/systemd/system/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.timer
 ```
 
-Check: `systemd-analyze verify` exits 0 and prints nothing about these two units (lines about other host units are unrelated); `cmp deploy/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.service && cmp deploy/storagi-autodeploy.timer /etc/systemd/system/storagi-autodeploy.timer && echo same`; `systemctl show storagi-autodeploy.service -p User -p LoadState` is `storagi-deploy` and `loaded`.
+Check: `systemd-analyze verify` exits 0 and prints nothing about these two units (lines about other host units are unrelated). It needs `sudo`: as the owner it cannot look inside the account's 700 home and reports the `ExecStart` script as not executable; `cmp deploy/storagi-autodeploy.service /etc/systemd/system/storagi-autodeploy.service && cmp deploy/storagi-autodeploy.timer /etc/systemd/system/storagi-autodeploy.timer && echo same`; `systemctl show storagi-autodeploy.service -p User -p LoadState` is `storagi-deploy` and `loaded`.
 
 **6. sudo inside the sandbox.** The unit's sandbox settings, running the helper with a well-formed but missing staging dir. Reaching the helper's own refusal proves the rule needs no password and does not set no-new-privileges, and that the helper accepts `storagi-deploy` as the sudo caller.
 
@@ -147,7 +147,7 @@ systemctl list-timers storagi-autodeploy.timer       # NEXT within 15 minutes
 
 ## End-to-end test with a real tag (later)
 
-When the next change is merged, tag it as usual on `main` and push the tag (`git tag v1.0.2 origin/main && git push origin v1.0.2`). After CI on that commit passes, within about 15 minutes:
+When the next change is merged, create the tag as the admin owner on GitHub (Releases → Draft a new release, new tag `v1.0.2`, target `main`). A `git push` of the tag from the host is rejected: its git account is not admin, and the ruleset lets only admins create `v*` tags. After CI on that commit passes, within about 15 minutes:
 
 - Discord shows `Storagi v1.0.2 (<sha>) is live.`
 - `journalctl -u storagi-autodeploy -n 60 --no-pager` shows `deploying v1.0.2`, the build, `storagi-promote: … live` and `v1.0.2 (…) is live`.
