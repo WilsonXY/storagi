@@ -9,7 +9,7 @@ export function createToast() {
   let close = () => {}, undoing = false, waiting: [string, Options][] = [];
   // A notice never pushes an Undo toast away; it waits, in order. A newer Undo toast replaces the old one (the caller folds both into it).
   const toast = (message: string, options: Options = {}) => {
-    if (undoing && !options.clockFrom) { waiting.push([message, options]); return; }
+    if (undoing && !options.clockFrom) { if (!waiting.some(([m]) => m === message)) waiting.push([message, options]); return; }
     const keep = waiting; waiting = []; close(); waiting = keep; undoing = !!options.clockFrom; const el = document.createElement('div'); el.className = 'toast out'; el.id = 'notice'; el.setAttribute('role', 'status');
     el.innerHTML = '<span></span>'; el.firstElementChild!.textContent = message;
     let left = options.clockFrom ?? 0;

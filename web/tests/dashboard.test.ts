@@ -54,7 +54,7 @@ test('select-all is tri-state and bulk Undo restores rows without deleting anyth
   click('[data-id="new-id"] .lead'); expect(document.querySelector<HTMLInputElement>('#select-all')!.indeterminate).toBe(true);
   click('#select-all'); expect(document.querySelector<HTMLInputElement>('#select-all')!.checked).toBe(true);
   expect(document.querySelector('#sel-count')?.textContent).toBe('2'); click('#sel-delete'); expect(rows()).toHaveLength(0);
-  click('.toast button'); expect(rows()).toHaveLength(2); await vi.advanceTimersByTimeAsync(6500);
+  click('#notice button'); expect(rows()).toHaveLength(2); await vi.advanceTimersByTimeAsync(6500);
   expect(api.fetcher).toHaveBeenCalledTimes(2);
 });
 
@@ -170,7 +170,7 @@ test('settings persist switches, phone menu opens, and tabs and shortcuts change
 test('copy follows the prototype: singular bulk toast, sort labels, sign-out note, and the page survives pagehide', async () => {
   vi.useFakeTimers(); await mount();
   click('[data-id="new-id"] .lead'); click('#sel-delete');
-  expect(document.querySelector('.toast span')?.textContent).toBe('1 copy deleted'); click('.toast button');
+  expect(document.querySelector('.toast span')?.textContent).toBe('1 copy deleted'); click('#notice button');
   click('[data-sort="name"]'); expect(document.querySelector('[data-sort="name"]')!.getAttribute('aria-label')).toBe('Name, sorted A to Z');
   expect(document.querySelector('[data-sort="size"]')!.getAttribute('aria-label')).toBe('Sort by size');
   click('#sign-out'); expect(document.querySelector('#signout-note')?.textContent).toBe('Your files stay on the shelf.');
@@ -193,7 +193,7 @@ test('an Undo toast is not pushed away by a later notice; the notice waits', asy
   click('#choose'); const picker = document.querySelector<HTMLInputElement>('#picker')!;
   Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['x'], 'late.zip')] }); picker.dispatchEvent(new Event('change'));
   expect(document.querySelector('#notice span')?.textContent).toBe('2 copies deleted');
-  click('.toast button'); expect(rows()).toHaveLength(2); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
+  click('#notice button'); expect(rows()).toHaveLength(2); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
 });
 test('expired copies get the friendly message, and duplicate rows name their copy for screen readers', async () => {
   Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: vi.fn().mockResolvedValue({ createWritable: async () => ({ write: vi.fn(), close: vi.fn(), abort: vi.fn().mockResolvedValue(undefined) }) }) });
@@ -226,7 +226,7 @@ test('a second bulk delete inside the grace keeps Undo for both batches', async 
   vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
   click('[data-id="new-id"] .lead'); click('#sel-delete'); click('[data-id="old-id"] .lead'); click('#sel-delete');
   expect(document.querySelector('#notice span')?.textContent).toBe('2 copies deleted');
-  click('.toast button'); expect(rows()).toHaveLength(2); await vi.advanceTimersByTimeAsync(7000);
+  click('#notice button'); expect(rows()).toHaveLength(2); await vi.advanceTimersByTimeAsync(7000);
   expect(api.fetcher.mock.calls.filter(c => ((c as unknown[])[1] as RequestInit | undefined)?.method === 'DELETE')).toHaveLength(0);
 });
 test('a bulk delete treats an already-removed copy as deleted and still deletes the rest', async () => {
@@ -236,18 +236,48 @@ test('a bulk delete treats an already-removed copy as deleted and still deletes 
     deleted.push(String(url)); return String(url).endsWith('/new-id') ? new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }) : new Response(null, { status: 204 });
   });
   await mount(fetcher as typeof api.fetcher); click('#select-all'); click('#sel-delete'); await vi.advanceTimersByTimeAsync(6500);
-  expect(deleted).toEqual(['/api/files/new-id', '/api/files/old-id']); expect(document.querySelector('#notice span')?.textContent ?? '').not.toContain('expired');
+  expect(deleted).toEqual(['/api/files/new-id', '/api/files/old-id']); expect(document.querySelector('#notice')).toBeNull();
 });
-test('notices raised during an Undo all show afterwards, in order', async () => {
+test('notices raised during an Undo show afterwards, in order, each message once', async () => {
   vi.useFakeTimers(); await mount(); click('#select-all'); click('#sel-delete');
   const picker = document.querySelector<HTMLInputElement>('#picker')!;
   for (const name of ['a.zip', 'b.zip']) { Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['x'], name)] }); picker.dispatchEvent(new Event('change')); }
   Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['x'], 'a.zip')] }); picker.dispatchEvent(new Event('change'));
-  click('.toast button'); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
-  await vi.advanceTimersByTimeAsync(4000); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
+  click('#notice button'); expect(document.querySelector('#notice span')?.textContent).toBe('1 file queued');
   await vi.advanceTimersByTimeAsync(4000); expect(document.querySelector('#notice span')?.textContent).toBe('a.zip is already in your transfer queue.');
 });
 test('a first load that fails does not claim an earlier good update', async () => {
   vi.useFakeTimers(); const api = service(); api.fail(503); await mount(api.fetcher);
   expect(document.querySelector('#last-good')?.textContent).toBe('—'); expect(document.querySelector('#fresh-text')?.textContent).toBe('Offline · last good —');
+});
+const deletes = (fetcher: { mock: { calls: unknown[][] } }) => fetcher.mock.calls.filter(c => (c[1] as RequestInit | undefined)?.method === 'DELETE').map(c => String(c[0]));
+test('a row already deleted inline is left out of a bulk delete, so either Undo really keeps it', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  click('[data-del="new-id"]'); click('[data-confirm="new-id"]'); click('#select-all'); click('#sel-delete');
+  expect(document.querySelector('#notice span')?.textContent).toBe('1 copy deleted');
+  click('#notice button'); click('[data-undo="new-id"]'); await vi.advanceTimersByTimeAsync(7000);
+  expect(deletes(api.fetcher)).toEqual([]);
+});
+test('a later bulk delete folds earlier pending batches into one fresh six-second Undo', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  click('[data-id="new-id"] .lead'); click('#sel-delete'); await vi.advanceTimersByTimeAsync(3000);
+  click('[data-id="old-id"] .lead'); click('#sel-delete'); await vi.advanceTimersByTimeAsync(4000);
+  expect(deletes(api.fetcher)).toEqual([]); expect(document.querySelector('#notice span')?.textContent).toBe('2 copies deleted');
+  click('#notice button'); await vi.advanceTimersByTimeAsync(7000); expect(deletes(api.fetcher)).toEqual([]); expect(rows()).toHaveLength(2);
+});
+test('a non-offline first-load failure does not print a 1970 "Updated" time', async () => {
+  const api = service(); api.fail(429); await mount(api.fetcher);
+  expect(document.querySelector('#fresh-text')?.textContent).toContain('Updated —');
+});
+test('delete failures: a single 404 counts as deleted; a 500 on one copy still deletes the rest and reports once', async () => {
+  vi.useFakeTimers(); const api = service();
+  let failNew = 404;
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => options?.method !== 'DELETE' ? api.fetcher(url)
+    : String(url).endsWith('/new-id') ? new Response(JSON.stringify({ error: 'boom' }), { status: failNew }) : new Response(null, { status: 204 }));
+  await mount(fetcher as typeof api.fetcher);
+  click('[data-del="new-id"]'); click('[data-confirm="new-id"]'); await vi.advanceTimersByTimeAsync(6500);
+  expect(document.querySelector('#notice')).toBeNull();
+  failNew = 500; click('#select-all'); click('#sel-delete'); await vi.advanceTimersByTimeAsync(6500);
+  expect(deletes(fetcher)).toEqual(['/api/files/new-id', '/api/files/new-id', '/api/files/old-id']);
+  expect(document.querySelector('#notice span')?.textContent).toBe('boom');
 });

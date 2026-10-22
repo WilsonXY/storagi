@@ -61,10 +61,10 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const app = $('#shelf-app'), sel = new Selection(), hidden = new Set<string>();
   let shelf: Shelf = { files: [], usedBytes: 0, reservedBytes: 0, budgetBytes: 0 }, sort: Sort = null, order: string[] = [], emptyMark = false;
   const morph = new Map<string, { state: 'confirm' | 'deleted'; op?: ReturnType<typeof deferredDelete>; left?: number }>();
-  const pending = new Set<ReturnType<typeof deferredDelete>>(), bulkOps = new Map<ReturnType<typeof deferredDelete>, number>(), downloads = new Set<() => void>();
+  const pending = new Set<ReturnType<typeof deferredDelete>>(), bulkOps = new Map<ReturnType<typeof deferredDelete>, string[]>(), downloads = new Set<() => void>();
   cleanups.push(() => { for (const op of pending) op.destroy(); for (const cancel of downloads) cancel(); });
   // A frozen or cached page would otherwise send its DELETEs the moment it wakes, with no Undo left.
-  listen(window, 'pagehide', () => { for (const op of [...pending]) op.undo(); });
+  listen(window, 'pagehide', () => { for (const op of [...pending]) op.undo(); closeToast(); });
   const transfers = createTransferView(root); cleanups.push(transfers.destroy);
   const mainPond = pond('#pond', { count: innerWidth < 640 ? 2 : 4, size: innerWidth < 640 ? [80, 130] : [110, 190], font: 11, flee: 130,
     avoid: () => [relative($('#composer'), $('#pond'), .32), relative($('.lede'), $('#pond'), .1), relative($('.search'), $('#pond'), .1)], splashTarget: $('#pond-zone'), canSplash: e => !(e.target as Element).closest('#composer, button, a, input') });
@@ -96,10 +96,10 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     setOffline(false); return response;
   }
   function renderFresh() {
-    if (!active) return;
+    if (!active) return; const lastGood = auto.last ? clock(auto.last) : '—';
     $('#fresh').classList.toggle('busy', auto.busy); $('#fresh').classList.toggle('off', offline && !auto.busy);
-    $('#fresh-text').innerHTML = auto.busy ? '<span class="fresh-long">Refreshing</span>…' : offline ? `Offline<span class="fresh-long"> · last good ${auto.last ? clock(auto.last) : '—'}</span>` : `<span class="fresh-long">Updated </span>${clock(auto.last)}<span class="fresh-long"> · next in ${auto.remaining}s</span>`;
-    $('#last-good').textContent = auto.last ? clock(auto.last) : '—'; $('#retry-in').textContent = retry.busy ? 'retrying…' : `retrying in ${retry.remaining}s`;
+    $('#fresh-text').innerHTML = auto.busy ? '<span class="fresh-long">Refreshing</span>…' : offline ? `Offline<span class="fresh-long"> · last good ${lastGood}</span>` : `<span class="fresh-long">Updated </span>${lastGood}<span class="fresh-long"> · next in ${auto.remaining}s</span>`;
+    $('#last-good').textContent = lastGood; $('#retry-in').textContent = retry.busy ? 'retrying…' : `retrying in ${retry.remaining}s`;
     $('#refresh').setAttribute('aria-label', `Refresh now (auto-refresh in ${auto.remaining} seconds)`);
   }
   listen(auto, 'change', renderFresh); listen(retry, 'change', renderFresh);
@@ -147,6 +147,12 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     $('#full-shelf').hidden = shelf.usedBytes + shelf.reservedBytes < shelf.budgetBytes;
   }
   function deleteFiles(ids: string[], bulk = false) {
+    if (bulk) {
+      // A row already counting down inline keeps its own Undo; earlier bulk batches fold into this one, with one fresh grace.
+      ids = ids.filter(id => morph.get(id)?.state !== 'deleted');
+      for (const [old, oldIds] of bulkOps) { old.destroy(); pending.delete(old); bulkOps.delete(old); ids = [...oldIds, ...ids]; }
+      if (!ids.length) { sel.clear(); return; }
+    }
     const restore = () => { pending.delete(op); bulkOps.delete(op); for (const id of ids) { hidden.delete(id); morph.delete(id); } if (active) { renderInbox(); renderSelection(); } };
     if (bulk) for (const id of ids) hidden.add(id);
     const op = deferredDelete(async () => {
@@ -166,8 +172,8 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     if (!bulk) for (const id of ids) morph.set(id, { state: 'deleted', left: 6, op });
     for (const id of ids) sel.ids.delete(id); renderInbox(); renderSelection();
     if (!bulk) return;
-    bulkOps.set(op, ids.length); const total = [...bulkOps.values()].reduce((n, c) => n + c, 0);
-    toast(`${total} ${total === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: () => { for (const o of [...bulkOps.keys()]) o.undo(); }, ms: 6000, clockFrom: 6 });
+    bulkOps.set(op, ids);
+    toast(`${ids.length} ${ids.length === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: op.undo, ms: 6000, clockFrom: 6 });
   }
   const gestures = rowGestures($('#groups'), sel, () => order, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
   listen(sel, 'change', () => { syncRows(); renderSelection(); });
