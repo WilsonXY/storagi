@@ -16,17 +16,17 @@ GitHub gets no way into the host: no self-hosted runner, no inbound connection, 
 
 | Exit | Meaning | Recorded | Discord |
 | --- | --- | --- | --- |
-| 0 | deployed and healthy | `exit-0` | `Storagi v1.2.3 (abc1234) is live.` |
+| 0 | deployed and healthy | `exit-0` | green: `✅ Storagi v1.2.3 is live` |
 | 75 | nothing done: transfers open, another deploy holds the lock, origin unreachable, `main` moved on, or the tag is no longer newer than the live release (the helper repeats that check under its lock, so a manual deploy during the build wins) | nothing | none; tried again next tick |
-| 1 | build or check failed, or refused before cutover; production untouched | `exit-1` | `… build failed or refused before cutover, production untouched (exit 1). See journalctl -u storagi-autodeploy` |
-| 2 | cutover failed, previous release healthy again | `exit-2` | `… cutover failed, rolled back, previous release healthy (exit 2). …` |
-| 3 | MANUAL RECOVERY REQUIRED | `exit-3` | `… MANUAL RECOVERY REQUIRED (exit 3). …` |
+| 1 | build or check failed, or refused before cutover; production untouched | `exit-1` | red: `❌ Storagi v1.2.3 not deployed` |
+| 2 | cutover failed, previous release healthy again | `exit-2` | orange: `⚠️ Storagi v1.2.3 rolled back` |
+| 3 | MANUAL RECOVERY REQUIRED | `exit-3` | red: `🚨 Storagi v1.2.3: manual recovery required` |
 
 Any other status counts as 1. A recorded tag is never retried; a newer tag still is. The service exits with `deploy.sh`'s status when a deploy fails, so `systemctl --failed` shows it until the next tick.
 
 **State file.** `/var/lib/storagi-deploy/autodeploy.state`, one line per tag: `<tag> <commit> <outcome>`, where the outcome is `exit-N`, `ci-failed`, `rolled-back` (added by the owner, below), or `live` (with `-` for the commit) when the poller first sees a newer tag live, for example after a manual deploy. Read it with `sudo cat /var/lib/storagi-deploy/autodeploy.state`.
 
-**Discord.** Messages are one line: tag, short commit, outcome and exit code, and for failures a pointer to `journalctl -u storagi-autodeploy`. No host names, paths, settings or logs. A failed post is logged (`alert not sent (curl exit N, HTTP M)`) and changes nothing else; it is not retried.
+**Discord.** Each message is one embed with a coloured bar: a title with the tag and outcome, linking to the tag on GitHub, and a line with the short commit, plus for failures the outcome, exit code and a pointer to `journalctl -u storagi-autodeploy`. A CI failure is red `❌ Storagi v1.2.3 not deployed`. No host names, paths, settings or logs. A failed post is logged (`alert not sent (curl exit N, HTTP M)`) and changes nothing else; it is not retried.
 
 **The webhook URL is a secret.** The owner stores it as `/etc/credstore/storagi-discord-webhook` (root, mode 600). systemd copies it for each run with `LoadCredential=` into a private directory only that run can read. Bash reads it, checks it looks like `https://discord.com/api/webhooks/<id>/<token>`, and hands it to curl as a config on a pipe (`curl -K /dev/fd/N`), so it is never in a process's arguments, the journal or the state file.
 

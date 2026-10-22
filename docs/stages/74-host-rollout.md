@@ -25,13 +25,13 @@ The owner created tag `v1.0.2` on GitHub at `23cb2da` (merge of PR#13). Its `che
 
 - 00:45:37 tick started; 00:45:39 `deploying v1.0.2 (23cb2da)`; build and full check as `storagi-deploy`.
 - 00:48:33 sudo ran `storagi-promote` for `storagi-deploy` with no password; 00:48:34 service stopping; 00:48:36 `verify-release: v1.0.2 23cb2da… ok`; 00:48:37 listening; 00:48:38 `v1.0.2 (23cb2da) is live`. About 3 s of downtime.
-- The service exited `Result=success`, status 0. No `alert not sent` line.
+- The service exited `Result=success`, status 0. The owner received `Storagi v1.0.2 (23cb2da) is live.` in Discord at 00:48.
 - `current` is the v1.0.2 release; v1.0.0 and v1.0.1 are kept. New MainPID, `NRestarts` 0. Local and public `/` 200, anonymous `/api/session` 401.
 
 ## Not verified
 
-Owner sign-in after v1.0.2 (the app code is unchanged from v1.0.1). The owner's receipt of the v1.0.2 Discord message (the journal shows no failed post). The state file's `exit-0` line and the empty staging dir need root and were not read by the coordinator.
+Owner sign-in after v1.0.2 (the app code is unchanged from v1.0.1). The state file's `exit-0` line and the empty staging dir need root and were not read by the coordinator.
 
 ## Handoff
 
-Production runs as `storagi` in its sandbox, and a new admin-created `v*` tag on `main` with passing CI goes live within about 15 minutes, with a Discord message. This change fixes the two guide lines found during the install.
+Production runs as `storagi` in its sandbox, and a new admin-created `v*` tag on `main` with passing CI goes live within about 15 minutes, with a Discord message. This change fixes the two guide lines found during the install; stage75 changes the alert format at the owner's request.
