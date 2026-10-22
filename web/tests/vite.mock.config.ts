@@ -9,6 +9,7 @@ const csrf = 'synthetic-preview-csrf';
 type Copy = { id: string; name: string; size: number; uploadedAt: string; expiresAt: string; data?: Buffer };
 type Partial = { name: string; size: number; offset: number; chunks: Buffer[] };
 let authenticated = true;
+let offline = false;
 let budget = 200 * GiB;
 let failure = 0;
 let resumeAuthFailure = 0;
@@ -16,7 +17,7 @@ const uploadRequests: { method: string; path: string; offset?: string }[] = [];
 let files: Copy[] = [];
 const partials = new Map<string, Partial>();
 function reset() {
-  authenticated = true; budget = 200 * GiB; failure = 0; resumeAuthFailure = 0; partials.clear(); uploadRequests.length = 0;
+  offline = false; authenticated = true; budget = 200 * GiB; failure = 0; resumeAuthFailure = 0; partials.clear(); uploadRequests.length = 0;
   files = [
     ['studio-walkthrough.mp4', 2.4 * GiB], ['project-assets.zip', .82 * GiB],
     ['handoff-notes.pdf', 240 * 1024], ['project-assets.zip', .78 * GiB], ['weekend-selects.zip', 1.2 * GiB],
@@ -46,6 +47,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, next: 
   const method = request.method || 'GET';
   if (path.startsWith('/__test/')) {
     if (path === '/__test/reset') reset();
+    else if (path === '/__test/offline' && method === 'POST') offline = JSON.parse((await body(request)).toString()).offline;
     else if (path === '/__test/session' && method === 'POST') authenticated = JSON.parse((await body(request)).toString()).authenticated;
     else if (path === '/__test/quota' && method === 'POST') budget = JSON.parse((await body(request)).toString()).budgetBytes;
     else if (path === '/__test/failure' && method === 'POST') failure = JSON.parse((await body(request)).toString()).status;
@@ -58,6 +60,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, next: 
       partials: [...partials].map(([id, partial]) => ({ id, size: partial.size, offset: partial.offset })), uploadRequests });
   }
   if (!path.startsWith('/api/') && !path.startsWith('/auth/')) return next();
+  if (offline && path.startsWith('/api/')) return send(response, 503, { error: 'Synthetic host offline.' });
   if (path.startsWith('/api/uploads')) {
     uploadRequests.push({ method, path, offset: request.headers['upload-offset'] as string | undefined });
     if (uploadRequests.length > 100) uploadRequests.shift();
@@ -80,7 +83,9 @@ async function handle(request: IncomingMessage, response: ServerResponse, next: 
     if (fileMatch[2] && method === 'GET') {
       response.setHeader('Content-Type', 'application/octet-stream');
       response.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);
-      return response.end(file.data || Buffer.from(`Synthetic preview fixture: ${file.name}\n`));
+      const data = file.data || Buffer.from(`Synthetic preview fixture: ${file.name}\n`);
+      response.setHeader('Content-Length', data.length);
+      return response.end(data);
     }
   }
   if (path.startsWith('/api/uploads')) {
@@ -124,7 +129,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, next: 
 const mockService: Plugin = {
   name: 'storagi-test-only-service',
   transformIndexHtml(html) {
-    return html.replace('<body>', '<body><div style="background:#323b2a;color:#fff;text-align:center;padding:8px;font:11px system-ui;letter-spacing:.5px">SYNTHETIC PREVIEW · Mock service and sample files · No real Google authentication</div>');
+    return html.replace('<body>', '<body><div class="synthetic-banner">SYNTHETIC PREVIEW · Mock service and sample files · No real Google authentication</div>');
   },
   configureServer(server) {
     server.middlewares.use((request, response, next) => {

@@ -1,79 +1,169 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { createDashboard } from '../src/dashboard';
+const listing = { files: [
+  { id: 'old-id', name: 'archive.zip', size: 1024, uploadedAt: '2026-10-01T12:00:00Z', expiresAt: '2099-10-31T00:00:00Z' },
+  { id: 'new-id', name: 'archive.zip', size: 2048, uploadedAt: '2026-10-18T12:00:00Z', expiresAt: '2099-11-17T00:00:00Z' },
+], usedBytes: 3072, reservedBytes: 512, budgetBytes: 200 * 1024 ** 3 };
+const tick = async () => { for (let i = 0; i < 15; i++) await Promise.resolve(); };
+let dispose = () => {};
+afterEach(() => { dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); document.body.replaceChildren(); });
+function service() {
+  let status = 200;
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => new Response(JSON.stringify(String(url) === '/api/session' ? { authenticated: true, csrfToken: 'test-csrf' } : listing), { status: String(url) === '/api/files' ? status : 200 }));
+  return { fetcher, fail: (value: number) => { status = value; } };
+}
+async function mount(fetcher = service().fetcher) { document.body.innerHTML = '<main id="app"></main>'; dispose = await createDashboard(document.querySelector('#app')!, { fetch: fetcher }); }
+const click = (selector: string) => document.querySelector<HTMLElement>(selector)!.click();
+const rows = () => [...document.querySelectorAll<HTMLElement>('#groups .row')];
 
-const listing = {
-  files: [
-    { id: 'old-id', name: 'archive.zip', size: 1024, uploadedAt: '2026-10-01T00:00:00Z', expiresAt: '2026-10-31T00:00:00Z' },
-    { id: 'new-id', name: 'archive.zip', size: 2048, uploadedAt: '2026-10-18T00:00:00Z', expiresAt: '2026-11-17T00:00:00Z' },
-  ], usedBytes: 3072, reservedBytes: 512, budgetBytes: 200 * 1024 ** 3,
-};
-const tick = () => new Promise(resolve => setTimeout(resolve, 0));
-afterEach(() => { document.body.innerHTML = ''; });
-
-test('protects the Inbox behind a session and offers Google login', async () => {
-  const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 401 }));
-  document.body.innerHTML = '<main id="app"></main>';
-  await createDashboard(document.querySelector('#app')!, { fetch: fetcher });
-  expect(document.querySelector('a[href="/auth/login"]')?.textContent ?? '').toContain('Google');
-  expect(document.body.textContent).not.toContain('archive.zip');
+test('locked pond contains a static decoy and never renders private shelf data', async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 401 })); await mount(fetcher);
+  expect(document.querySelector('#locked-decoy, .locked-decoy')).not.toBeNull();
+  expect(document.querySelector('a[href="/auth/login"]')?.textContent).toContain('Google');
+  expect(document.querySelector('#groups')).toBeNull(); expect(document.body.textContent).not.toContain('archive.zip');
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
-function authenticatedFetch() {
-  return vi.fn(async (url: RequestInfo | URL) => new Response(JSON.stringify(
-    String(url) === '/api/session' ? { authenticated: true, csrfToken: 'test-csrf' } : listing,
-  ), { headers: { 'Content-Type': 'application/json' } }));
-}
-
-test('renders newest first, distinguishes duplicates and searches filenames', async () => {
-  const fetcher = authenticatedFetch();
-  document.body.innerHTML = '<main id="app"></main>';
-  await createDashboard(document.querySelector('#app')!, { fetch: fetcher });
-  const rows = () => [...document.querySelectorAll('[data-file-id]')];
-  expect(rows().map(row => row.getAttribute('data-file-id'))).toEqual(['new-id', 'old-id']);
-  expect(rows()[0].textContent).toContain('new-id');
-  expect(document.body.textContent).toContain('30 days');
-  const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
-  search.value = 'no match';
-  search.dispatchEvent(new Event('input'));
-  expect(rows()).toHaveLength(0);
-  expect(document.body.textContent).toContain('No matching files');
-  search.value = '';
-  search.dispatchEvent(new Event('input'));
-  expect(rows()).toHaveLength(2);
-  expect(document.querySelector('img')).toBeNull();
+test('shelf groups local days, labels duplicates, searches safely and retains sorting after refresh', async () => {
+  const api = service(); await mount(api.fetcher);
+  expect(rows().map(row => row.dataset.id)).toEqual(['new-id', 'old-id']);
+  expect(document.querySelectorAll('.group h3')).toHaveLength(2);
+  expect(rows()[0].querySelector('.copy')?.textContent).toBe('copy new-id');
+  click('[data-sort="size"]'); expect(rows().map(row => row.dataset.id)).toEqual(['old-id', 'new-id']);
+  expect(document.querySelectorAll('.group h3')).toHaveLength(0);
+  click('#refresh'); await tick(); expect(rows().map(row => row.dataset.id)).toEqual(['old-id', 'new-id']);
+  click('#sort-clear'); expect(rows()[0].dataset.id).toBe('new-id');
+  const search = document.querySelector<HTMLInputElement>('#search')!; search.value = 'no match'; search.dispatchEvent(new Event('input'));
+  expect(rows()).toHaveLength(0); expect(document.querySelector('#no-match')?.textContent).toContain('No filenames match');
+  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); expect(rows()).toHaveLength(2);
 });
 
-test('requires confirmation before deleting a copy and sends the session CSRF token', async () => {
-  const fetcher = authenticatedFetch();
-  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
-  HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
-  document.body.innerHTML = '<main id="app"></main>';
-  await createDashboard(document.querySelector('#app')!, { fetch: fetcher });
-  document.querySelector<HTMLButtonElement>('[data-delete="new-id"]')!.click();
-  expect(fetcher).toHaveBeenCalledTimes(2);
-  expect(document.querySelector('dialog')!.hasAttribute('open')).toBe(true);
-  document.querySelector<HTMLButtonElement>('#confirm-delete')!.click();
-  await tick();
-  expect(fetcher).toHaveBeenCalledWith('/api/files/new-id', expect.objectContaining({ method: 'DELETE', credentials: 'same-origin', headers: { 'X-CSRF-Token': 'test-csrf' } }));
+test('inline deletion waits six seconds and sends CSRF; Undo never sends DELETE', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  click('[data-del="new-id"]'); expect(document.querySelector('[data-confirm="new-id"]')).not.toBeNull();
+  expect(api.fetcher).toHaveBeenCalledTimes(2); click('[data-confirm="new-id"]');
+  await vi.advanceTimersByTimeAsync(5999); expect(api.fetcher.mock.calls.filter(c => String(c[0]).includes('/new-id'))).toHaveLength(0);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(api.fetcher).toHaveBeenCalledWith('/api/files/new-id', expect.objectContaining({ method: 'DELETE', credentials: 'same-origin', headers: { 'X-CSRF-Token': 'test-csrf' } }));
+  click('[data-del="old-id"]'); click('[data-confirm="old-id"]'); click('[data-undo="old-id"]');
+  await vi.advanceTimersByTimeAsync(6500); expect(api.fetcher.mock.calls.filter(c => String(c[0]).includes('/old-id'))).toHaveLength(0);
 });
 
-test('renders a hostile filename as text and keeps download and delete labels safe', async () => {
-  const original = listing.files[0].name;
-  listing.files[0].name = '<img src=x onerror=alert(1)>.zip';
-  try {
-    document.body.innerHTML = '<main id="app"></main>';
-    await createDashboard(document.querySelector('#app')!, { fetch: authenticatedFetch() });
-    expect(document.querySelector('[data-file-id="old-id"] strong')?.textContent).toBe(listing.files[0].name);
-    expect(document.querySelector('img')).toBeNull();
-    expect(document.querySelector('[data-delete="old-id"]')?.getAttribute('aria-label')).toContain(listing.files[0].name);
-  } finally { listing.files[0].name = original; }
+test('select-all is tri-state and bulk Undo restores rows without deleting anything', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  click('[data-id="new-id"] .lead'); expect(document.querySelector<HTMLInputElement>('#select-all')!.indeterminate).toBe(true);
+  click('#select-all'); expect(document.querySelector<HTMLInputElement>('#select-all')!.checked).toBe(true);
+  expect(document.querySelector('#sel-count')?.textContent).toBe('2'); click('#sel-delete'); expect(rows()).toHaveLength(0);
+  click('.toast button'); expect(rows()).toHaveLength(2); await vi.advanceTimersByTimeAsync(6500);
+  expect(api.fetcher).toHaveBeenCalledTimes(2);
 });
 
-test('offers a useful retry when the host cannot be reached', async () => {
-  document.body.innerHTML = '<main id="app"></main>';
-  const fetcher = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-  await createDashboard(document.querySelector('#app')!, { fetch: fetcher });
-  expect(document.body.textContent).toContain('The host may be offline');
-  expect(document.querySelector<HTMLButtonElement>('#retry-connection')?.textContent).toBe('Try again');
+test('failed listing keeps the list visible, pins offline status, and recovers on retry', async () => {
+  const api = service(); await mount(api.fetcher); api.fail(503); click('#refresh'); await tick();
+  expect(document.querySelector<HTMLElement>('#offline')!.hidden).toBe(false); expect(document.title).toBe('Offline · Storagi');
+  expect(rows()).toHaveLength(2); expect(document.querySelector('#fresh')?.classList.contains('off')).toBe(true);
+  api.fail(200); click('#retry'); await tick(); expect(document.querySelector<HTMLElement>('#offline')!.hidden).toBe(true); expect(document.title).toBe('Storagi');
+});
+
+test('401 on refresh clears private content and explains session recovery', async () => {
+  const api = service(); await mount(api.fetcher); api.fail(401); click('#refresh'); await tick();
+  expect(document.querySelector('#groups')).toBeNull(); expect(document.body.textContent).not.toContain('archive.zip');
+  expect(document.querySelector('.session-expired')?.textContent).toContain('choose interrupted files again');
+});
+
+test('reserved bytes count toward the full-shelf notice and meter', async () => {
+  const budget = listing.budgetBytes; listing.budgetBytes = listing.usedBytes + listing.reservedBytes;
+  try { await mount(); expect(document.querySelector<HTMLElement>('#full-shelf')!.hidden).toBe(false); expect(document.querySelector('#meter')?.getAttribute('aria-label')).toContain('including reserved uploads'); }
+  finally { listing.budgetBytes = budget; }
+});
+
+test('sign-out popup asks before posting logout with CSRF', async () => {
+  const api = service(); await mount(api.fetcher); click('#sign-out'); expect(document.querySelector<HTMLElement>('#signout-pop')!.hidden).toBe(false);
+  expect(api.fetcher).toHaveBeenCalledTimes(2); click('#signout-confirm'); await tick();
+  expect(api.fetcher).toHaveBeenCalledWith('/auth/logout', expect.objectContaining({ method: 'POST', headers: { 'X-CSRF-Token': 'test-csrf' } }));
+  expect(document.querySelector('#groups')).toBeNull(); expect(document.querySelector<HTMLElement>('.session-expired')!.hidden).toBe(true);
+});
+
+test('single download calls the save picker synchronously and streams the response to disk', async () => {
+  const write = vi.fn().mockResolvedValue(undefined), close = vi.fn().mockResolvedValue(undefined), abort = vi.fn().mockResolvedValue(undefined);
+  const picker = vi.fn().mockResolvedValue({ createWritable: async () => ({ write, close, abort }) });
+  Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: picker });
+  const api = service(); const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => String(url).endsWith('/download') ? new Response('fixture', { headers: { 'Content-Length': '7' } }) : api.fetcher(url));
+  await mount(fetcher as typeof api.fetcher); const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+  document.querySelector('[data-dl="new-id"]')!.dispatchEvent(event);
+  expect(picker).toHaveBeenCalledWith({ suggestedName: 'archive.zip' }); expect(event.defaultPrevented).toBe(true);
+  await tick(); expect(write).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledOnce(); expect(document.querySelector('.tr.done')?.textContent).toContain('Saved to this device');
+  delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+});
+
+test('download without a picker remains a plain browser link', async () => {
+  await mount(); const a = document.querySelector<HTMLAnchorElement>('[data-dl="new-id"]')!;
+  expect(a.getAttribute('href')).toBe('/api/files/new-id/download'); expect(a.hasAttribute('download')).toBe(true);
+  // Suppress jsdom navigation after observing the app's handler; it must leave the default action intact.
+  let prevented = true; const handler = (e: MouseEvent) => { prevented = e.defaultPrevented; e.preventDefault(); };
+  document.addEventListener('click', handler, { once: true }); a.click(); expect(prevented).toBe(false);
+  expect(document.querySelector('.toast')?.textContent).toContain('Downloading in your browser');
+});
+
+test('hostile filenames stay text and expired copies have no download', async () => {
+  const original = { ...listing.files[0] }; listing.files[0].name = '<img src=x onerror=alert(1)>.zip'; listing.files[0].expiresAt = '2000-01-01';
+  try { await mount(); const row = document.querySelector('[data-id="old-id"]')!; expect(row.querySelector('strong')?.textContent).toBe(listing.files[0].name); expect(row.querySelector('img')).toBeNull(); expect(row.querySelector('[data-dl]')).toBeNull(); expect(row.textContent).toContain('Expired'); }
+  finally { listing.files[0] = original; }
+});
+
+test('initial connection failure offers a loading-screen retry', async () => {
+  await mount(vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+  expect(document.querySelector('#loading')?.textContent).toContain('The host may be offline'); expect(document.querySelector('#retry-connection')?.textContent).toBe('Try again');
+});
+
+test('direct checkbox clicks stay checked and shift selection selects a range', async () => {
+  await mount(); click('[data-id="new-id"] .check'); await tick();
+  expect(document.querySelector<HTMLInputElement>('[data-id="new-id"] .check')!.checked).toBe(true);
+  document.querySelector('[data-id="old-id"] .lead')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true }));
+  expect(document.querySelector('#sel-count')?.textContent).toBe('2');
+});
+
+test('bulk deletion commits each copy after the grace period', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher); click('#select-all'); click('#sel-delete');
+  await vi.advanceTimersByTimeAsync(5999); expect(api.fetcher).toHaveBeenCalledTimes(2); await vi.advanceTimersByTimeAsync(1);
+  for (const id of ['new-id', 'old-id']) expect(api.fetcher).toHaveBeenCalledWith(`/api/files/${id}`, expect.objectContaining({ method: 'DELETE', headers: { 'X-CSRF-Token': 'test-csrf' } }));
+});
+
+test('network failure retries automatically in ten seconds and expiry cancels pending deletion', async () => {
+  vi.useFakeTimers(); const api = service(); let offline = false;
+  const fetcher = vi.fn((url: RequestInfo | URL) => offline ? Promise.reject(new TypeError('Failed to fetch')) : api.fetcher(url)); await mount(fetcher);
+  offline = true; click('#refresh'); await tick(); expect(document.title).toBe('Offline · Storagi');
+  offline = false; await vi.advanceTimersByTimeAsync(10_000); expect(document.title).toBe('Storagi');
+  click('[data-del="new-id"]'); click('[data-confirm="new-id"]'); api.fail(401); click('#refresh'); await tick();
+  await vi.advanceTimersByTimeAsync(6000); expect(fetcher.mock.calls.filter(c => String(c[0]).endsWith('/new-id'))).toHaveLength(0);
+});
+
+test('streamed download has Cancel only and aborts the request and writable', async () => {
+  const abort = vi.fn().mockResolvedValue(undefined), write = vi.fn().mockResolvedValue(undefined);
+  const picker = vi.fn().mockResolvedValue({ createWritable: async () => ({ write, abort, close: vi.fn() }) });
+  Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: picker });
+  let signal: AbortSignal | null | undefined;
+  const api = service(); const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => {
+    if (String(url).endsWith('/download')) { signal = options?.signal; return new Response(new ReadableStream({ start(c) { c.enqueue(new Uint8Array([1])); } }), { headers: { 'Content-Length': '100' } }); }
+    return api.fetcher(url);
+  });
+  await mount(fetcher as typeof api.fetcher); click('[data-dl="new-id"]'); await tick();
+  expect(document.querySelectorAll('.tr [data-action]')).toHaveLength(1); click('.tr [data-action="cancel"]'); await tick();
+  expect(signal?.aborted).toBe(true); expect(abort).toHaveBeenCalled(); expect(document.querySelector('.tr.cancelled')).not.toBeNull();
+  delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+});
+
+test('phone downloads remain browser links even when a picker is available', async () => {
+  const picker = vi.fn(); Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: picker }); vi.stubGlobal('innerWidth', 390);
+  await mount(); let prevented = true; document.addEventListener('click', e => { prevented = e.defaultPrevented; e.preventDefault(); }, { once: true }); click('[data-dl="new-id"]');
+  expect(picker).not.toHaveBeenCalled(); expect(prevented).toBe(false); delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+});
+
+test('settings persist switches, phone menu opens, and tabs and shortcuts change views', async () => {
+  await mount(); click('#nav-settings'); expect(document.querySelector<HTMLElement>('#settings')!.hidden).toBe(false);
+  click('#koi-switch'); expect(localStorage.getItem('storagi.motion')).toBe('static'); click('#gesture-switch'); expect(localStorage.getItem('storagi.gestures')).toBe('off');
+  click('.nav-item[data-tab="inbox"]'); click('#menu-btn'); expect(document.querySelector<HTMLElement>('#sheet')!.hidden).toBe(false); click('#sheet-close');
+  vi.stubGlobal('innerWidth', 390); click('.tabs [data-tab="transfers"]'); expect(document.querySelector('#shelf-app')?.getAttribute('data-tab')).toBe('transfers');
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true })); expect(document.activeElement?.id).toBe('search');
+  localStorage.clear();
 });
