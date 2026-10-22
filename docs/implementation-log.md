@@ -83,7 +83,10 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 46 | Independent owner-acceptance documentation review | Fresh Claude attempt | Unavailable; API rate limit, no verdict | [46](stages/46-owner-acceptance-review.md) |
 | 47 | Fallback owner-acceptance documentation review | Fresh Codex gpt-6-astra/high confirmed | PASS; no findings, invariance/cleanup passed | [47](stages/47-owner-acceptance-fallback-review.md) |
 | 48 | Frontend design exploration: dark ASCII koi variants | Coordinator + four delegated variant forks | Completed; owner chose A + C's locked screen, others removed; day-2 additions (sorting, gestures, pond waves) | [48](stages/48-frontend-design-exploration.md) |
-| 49 | Port the final design into `web/` against the real service | Planned for a separate implementer | Not started; brief in [HANDOFF](../design/explorations/HANDOFF.md) | — |
+| 49 | Frontend port foundation: fonts/brand assets, tokens, koi port, pure client logic with tests, static allowlist | Distinct implementation task, requested Codex gpt-6.1-sol/high | In progress | [49](stages/49-frontend-foundation.md) |
+| 50 | Frontend port UI: final design on the real service, mock harness, browser checks | Distinct implementation task, requested Codex gpt-6.1-sol/high | Planned; starts on 49's commit | [50](stages/50-frontend-ui.md) |
+| 51 | Integrate 49/50, combined check and screenshots | Coordinator | Planned | [51](stages/51-frontend-integration.md) |
+| 52 | Independent frontend review | Fresh Claude Opus 5.5/high (gpt-6.1-sol implemented) | Planned | [52](stages/52-frontend-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
