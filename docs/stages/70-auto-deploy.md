@@ -1,6 +1,6 @@
 # 70: Pull-based auto-deploy on `v*` tags
 
-- Status: completed on branch; review71 FAIL (1 P1, 1 P2, fixed), review72 FAIL (2 P2, fixed), review73 pending. Nothing installed, deployed, tagged or merged.
+- Status: completed on branch; review71 FAIL (1 P1, 1 P2, fixed), review72 FAIL (2 P2, fixed), review73 PASS. Nothing installed, deployed, tagged or merged.
 - Date: 2026-10-22, Asia/Kuala_Lumpur.
 - Coordinator thread: [deployment safety](t3-thread://v1/6b27b52f-7f18-4dd5-8543-2af3e102c844). This stage: [auto-deploy](t3-thread://v1/mcp:06a77307-df93-47a9-a949-3e4546caa859).
 - Provider/model/effort: Anthropic Claude Opus 5.5 (`claude-opus-5-5`), effort high, from the T3 thread configuration.
