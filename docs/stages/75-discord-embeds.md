@@ -1,6 +1,6 @@
 # 75: Discord alerts as embeds
 
-- Status: completed on branch; review round 1 (stage76) found two P3, fixed below; round 2 in stage77.
+- Status: completed on branch; review round 1 (stage76) found two P3, fixed below; round 2 (stage77) PASS.
 - Date: 2026-10-23, Asia/Kuala_Lumpur.
 - Coordinator thread: [deployment safety](t3-thread://v1/6b27b52f-7f18-4dd5-8543-2af3e102c844), Anthropic Claude Opus 5.5. Small change, not delegated.
 - Scope: `scripts/storagi-autodeploy` alert format, its tests in `scripts/autodeploy.test.ts`, and the Discord lines in [docs/auto-deploy.md](../auto-deploy.md).
