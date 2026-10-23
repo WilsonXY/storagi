@@ -61,8 +61,8 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const app = $('#shelf-app'), sel = new Selection(), hidden = new Set<string>();
   let shelf: Shelf = { files: [], usedBytes: 0, reservedBytes: 0, budgetBytes: 0 }, sort: Sort = null, order: string[] = [], emptyMark = false;
   const morph = new Map<string, { state: 'confirm' | 'deleted' | 'deleting'; op?: ReturnType<typeof deferredDelete>; left?: number }>();
-  // A row counting down to its DELETE, or sending it: not selectable, and never deleted twice.
-  const counting = (id: string) => ['deleted', 'deleting'].includes(morph.get(id)?.state ?? '');
+  // A row counting down to its DELETE or sending it, inline or in a bulk batch: not selectable, and never deleted twice.
+  const counting = (id: string) => hidden.has(id) || ['deleted', 'deleting'].includes(morph.get(id)?.state ?? '');
   const pending = new Set<ReturnType<typeof deferredDelete>>(), bulkOps = new Map<ReturnType<typeof deferredDelete>, string[]>(), downloads = new Set<() => void>();
   cleanups.push(() => { for (const op of pending) op.destroy(); for (const cancel of downloads) cancel(); });
   // A frozen or cached page would otherwise send its DELETEs the moment it wakes, with no Undo left.

@@ -337,3 +337,15 @@ test('once the grace ends the row says Deleting and offers no dead Undo', async 
   await vi.advanceTimersByTimeAsync(6300);
   expect(document.querySelector('[data-undo="new-id"]')).toBeNull(); expect(document.querySelector('[data-id="new-id"] .m-quiet')?.textContent).toBe('Deleting');
 });
+test('a bulk delete during a swipe\'s exit animation leaves one delete, and its Undo keeps the file', async () => {
+  vi.useFakeTimers();
+  Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: vi.fn(() => ({ finished: new Promise(r => setTimeout(r, 200)) })) });
+  try {
+    const api = service(); await mount(api.fetcher);
+    click('[data-id="new-id"] .lead');
+    document.querySelector('[data-id="new-id"]')!.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 40 }));
+    await vi.advanceTimersByTimeAsync(150); click('#sel-delete'); await vi.advanceTimersByTimeAsync(300);
+    click('#notice button'); await vi.advanceTimersByTimeAsync(7000);
+    expect(deletes(api.fetcher)).toEqual([]);
+  } finally { delete (HTMLElement.prototype as { animate?: unknown }).animate; }
+});
