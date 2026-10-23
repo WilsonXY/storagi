@@ -36,4 +36,4 @@ See [setup and deployment preparation](docs/setup.md), [repeatable verification 
 
 Production startup requires explicit Google OAuth credentials, the owner's verified permanent Google subject, an HTTPS origin and a private persistent data directory. It fails closed without these; there is no password fallback, open registration or first-visitor ownership.
 
-A true custom app domain is deferred; see the [feasibility assessment](docs/custom-domain-feasibility.md). Continue using the current Funnel address.
+A true custom app domain is deferred; see the [feasibility assessment](docs/custom-domain-feasibility.md). An owner-run guide moves Storagi's Funnel address to [its own Tailscale node](docs/tailscale-node.md), so other apps' Serve changes on the host can't replace it.

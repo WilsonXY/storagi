@@ -1,0 +1,28 @@
+# Storagi's own Tailscale node, separate from the host's, so `tailscale serve` changes made on the host
+# never touch Storagi's Funnel mapping. The owner installs it by hand (docs/tailscale-node.md).
+[Unit]
+Description=Tailscale node for Storagi
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Runs as a throwaway account: only root can change this node's settings through its socket.
+DynamicUser=yes
+StateDirectory=tailscale-storagi
+RuntimeDirectory=tailscale-storagi
+# No router port mappings (UPnP, NAT-PMP, PCP); leave those to the host's own node.
+Environment=TS_DISABLE_PORTMAPPER=true
+# Userspace networking: no TUN device and no host route, DNS or firewall changes.
+ExecStart=/usr/sbin/tailscaled --tun=userspace-networking --statedir=/var/lib/tailscale-storagi --socket=/run/tailscale-storagi/tailscaled.sock --port=0
+Restart=on-failure
+RestartSec=5s
+
+ProtectHome=true
+PrivateDevices=true
+CapabilityBoundingSet=
+# Netlink lets tailscaled follow the host's network changes.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target
