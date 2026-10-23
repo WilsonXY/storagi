@@ -50,6 +50,6 @@ The service does not source shell profiles or automatically read a developer `.e
 
 ## Network and deployment acceptance still required
 
-Choose an unused HTTPS mapping without changing existing mappings. Tailscale Funnel is the candidate; private Tailscale is the accepted fallback for any Funnel blocker. Neither network path replaces the application login. Google registration must match the actual origin. Do not activate exposure until the local application and its configuration have been reviewed and deployment approved.
+Give Storagi [its own Tailscale node](tailscale-node.md) rather than a mapping on the host's shared Serve settings. Tailscale Funnel is the candidate; private Tailscale is the accepted fallback for any Funnel blocker. Neither network path replaces the application login. Google registration must match the actual origin. Do not activate exposure until the local application and its configuration have been reviewed and deployment approved.
 
 Before relying on it, exercise the real Google owner login and a different account; verify every direct file endpoint is denied to anonymous/other users. Transfer representative multi-GB ZIP/MP4 objects with hashes, interrupt and reselect on Windows/Fedora/Android, measure throughput from intended networks, test restart recovery and confirm host awake behavior. Synthetic tests and a responsive desktop browser do not establish those real-device/network properties.
