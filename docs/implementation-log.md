@@ -148,8 +148,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 111 | Owner-run move to Storagi's own Tailscale node | Owner at the host; coordinator read-only checks | Completed; new address live, old host mapping removed, owner phone test PASS; speed not recorded | [111](stages/111-tailscale-node-rollout.md) |
 | 112 | Independent review of 111 | Fresh Codex gpt-6.1-sol/high, confirmed | FAIL; 2 factual corrections (DNS timing, thread ID, also in 108), fixed | [112](stages/112-tailscale-node-rollout-review.md) |
 | 113 | Independent re-review of 111 after 112's fixes | Fresh Codex gpt-6.1-sol/high, confirmed | PASS; no findings | [113](stages/113-tailscale-node-rollout-review-2.md) |
-| 114 | Allow browsers to save public bookmark icons | Distinct implementation task; coordinator integration | Implemented; RED→GREEN, 286 checks/types/builds and built-icon HTTP smoke PASS; review pending | [114](stages/114-bookmark-icons.md) |
-| 115 | Independent review of bookmark icon caching | Owner-requested fresh GPT-6-Astra/high | Planned after committed fix and passing checks | [115](stages/115-bookmark-icons-review.md) |
+| 114 | Allow browsers to save public bookmark icons | Distinct implementation task; coordinator integration | Completed; RED→GREEN, 286 checks/types/builds and built-icon HTTP smoke PASS; 115 review PASS | [114](stages/114-bookmark-icons.md) |
+| 115 | Independent review of bookmark icon caching | Owner-requested fresh GPT-6-Astra/high, own session confirmed | PASS; no findings, read-only invariants and cleanup PASS | [115](stages/115-bookmark-icons-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

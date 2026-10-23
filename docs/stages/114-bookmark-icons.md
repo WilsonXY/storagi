@@ -1,6 +1,6 @@
 # 114: Allow browsers to save public bookmark icons
 
-- Status: implementation and verification complete; independent review pending
+- Status: completed; independent stage115 review PASS
 - Started / last updated: 2026-10-24 (Asia/Kuala_Lumpur)
 - Coordinator thread: `d807b8e5-7dd4-4689-804a-6518669f772b`
 - Agent/task/thread identifiers: native implementation task `/root/bookmark_icon_fix`, session `01a16a3c-a787-7503-bb59-c520afc5b846`.
