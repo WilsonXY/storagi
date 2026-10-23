@@ -1,6 +1,6 @@
 # Storagi's own Tailscale node
 
-Storagi's Funnel address belongs to its own Tailscale node, `storagi.<tailnet>.ts.net`, instead of the host's. Why: every app on the host shared the host node's Serve settings, and other tools' `tailscale serve` changes kept replacing Storagi's mapping. The owner tested a separate node in stages 103-107: changing and restarting it left the host's settings untouched, and its address opened with Tailscale off on the owner's phone.
+This guide moves Storagi's Funnel address to its own Tailscale node, `storagi.<tailnet>.ts.net`, off the host's. Why: every app on the host shared the host node's Serve settings, and other tools' `tailscale serve` changes kept replacing Storagi's mapping. The owner tested a separate node in stages 103-107: changing and restarting it left the host's settings untouched, and its address opened with Tailscale off on the owner's phone.
 
 [`deploy/tailscaled-storagi.service`](../deploy/tailscaled-storagi.service) runs a second `tailscaled` in userspace mode: no TUN device, and no host route, DNS, firewall or router port-mapping changes. It runs as a throwaway account (`DynamicUser`) with its state in `/var/lib/tailscale-storagi` and its socket at `/run/tailscale-storagi/tailscaled.sock`. Only root, or that account, can change this node's settings, so the owner's own processes can read its status but cannot change its Funnel mapping. The app itself is unchanged: still loopback port 8787, and only `PUBLIC_ORIGIN` moves.
 
