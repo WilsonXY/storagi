@@ -2,7 +2,7 @@
 
 - Status: completed in the repository; the move itself is owner-run and not yet done.
 - Date: 2026-10-24 +08:00
-- Owner: coordinator (Claude Code in T3 Code, Anthropic Claude Opus 5.5, thread `f68c7bfe-052b-47c5-8f82-e2df7d42e7d4`, which ran stages 101-107 under Codex before this)
+- Owner: coordinator (Claude Code in T3 Code, Anthropic Claude Opus 5.5, thread `d16900b2-19ea-4c3c-9430-1ab5fec1472f`, continuing Codex thread `f68c7bfe-052b-47c5-8f82-e2df7d42e7d4`, which ran stages 101-107)
 - Starting commit: `cebe0f4`
 
 ## Owner decisions

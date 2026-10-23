@@ -145,6 +145,9 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 108 | Permanent Tailscale node unit, owner-run move guide, experiment cleanup | Coordinator (Claude Opus 5.5) | Completed in repo; unit verify + seccomp/address-family sandbox run PASS; move owner-run, not yet done | [108](stages/108-dedicated-tailscale-node.md) |
 | 109 | Independent review of 108 | Fresh Codex gpt-6.1-sol/high, confirmed | FAIL; 2 blocking guide-order/guard findings + 2 suggestions, all fixed in 108 | [109](stages/109-tailscale-node-review.md) |
 | 110 | Independent re-review of 108 after 109's fixes | Fresh Codex gpt-6.1-sol/high, confirmed | PASS; 2 wording suggestions (1 fixed, 1 resolved by this record) | [110](stages/110-tailscale-node-review-2.md) |
+| 111 | Owner-run move to Storagi's own Tailscale node | Owner at the host; coordinator read-only checks | Completed; new address live, old host mapping removed, owner phone test PASS; speed not recorded | [111](stages/111-tailscale-node-rollout.md) |
+| 112 | Independent review of 111 | Fresh Codex gpt-6.1-sol/high, confirmed | FAIL; 2 factual corrections (DNS timing, thread ID, also in 108), fixed | [112](stages/112-tailscale-node-rollout-review.md) |
+| 113 | Independent re-review of 111 after 112's fixes | Fresh Codex gpt-6.1-sol/high, confirmed | PASS; no findings | [113](stages/113-tailscale-node-rollout-review-2.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
