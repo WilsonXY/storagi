@@ -383,3 +383,17 @@ test('leaving the page before a touchpad swipe is released cancels it instead of
   swipeRow('new-id'); window.dispatchEvent(new Event('pagehide')); await vi.advanceTimersByTimeAsync(7000);
   expect(deletes(api.fetcher)).toEqual([]); expect(document.querySelector('[data-undo="new-id"]')).toBeNull();
 });
+const pointer = (target: EventTarget, type: string, y: number) => target.dispatchEvent(Object.assign(new MouseEvent(type, { bubbles: true, button: 0, clientX: 10, clientY: y }), { pointerId: 1, pointerType: 'mouse' }));
+test('confirming a delete in the middle of a drag-select drops that row from the selection for good', async () => {
+  vi.useFakeTimers(); await mount();
+  click('[data-del="old-id"]');
+  pointer(document.querySelector('[data-id="new-id"] .lead')!, 'pointerdown', 0); pointer(window, 'pointermove', 20);
+  expect(document.querySelector('#sel-count')?.textContent).toBe('2');
+  click('[data-confirm="old-id"]'); pointer(window, 'pointermove', 30); pointer(window, 'pointerup', 30);
+  expect(document.querySelector('#sel-count')?.textContent).toBe('1');
+});
+test('a swipe that replaces the focused Delete button moves focus to its Undo', async () => {
+  vi.useFakeTimers(); await mount();
+  document.querySelector<HTMLElement>('[data-del="new-id"]')!.focus(); swipeRow('new-id'); await vi.advanceTimersByTimeAsync(300);
+  expect((document.activeElement as HTMLElement | null)?.dataset.undo).toBe('new-id');
+});

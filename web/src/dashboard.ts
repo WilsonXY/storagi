@@ -114,7 +114,8 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     const focus = (document.activeElement as HTMLElement)?.dataset.key;
     const names = new Map<string, number>(); for (const f of shelf.files) names.set(f.name, (names.get(f.name) ?? 0) + 1);
     $('#groups').innerHTML = [...groupFiles(files, sort)].map(([day, list]) => `<div class="group${sort ? ' flat' : ''}">${day ? `<h3>${esc(day)}</h3>` : ''}${list.map(f => row(f, (names.get(f.name) ?? 0) > 1)).join('')}</div>`).join('');
-    if (focus) Array.from(root.querySelectorAll<HTMLElement>('[data-key]')).find(el => el.dataset.key === focus)?.focus();
+    // If the focused Download or Delete button was replaced by the row's Undo, focus moves to that Undo.
+    if (focus) { const keyed = Array.from(root.querySelectorAll<HTMLElement>('[data-key]')); (keyed.find(el => el.dataset.key === focus) ?? keyed.find(el => el.dataset.key === focus.replace(/^[dx]-/, 'u-')))?.focus(); }
     for (const b of root.querySelectorAll<HTMLElement>('.sort')) {
       const on = sort?.key === b.dataset.sort; b.classList.toggle('on', on); b.querySelector('.dir')!.textContent = on ? sort!.dir > 0 ? '↑' : '↓' : '';
       const key = b.dataset.sort as SortKey, label = sortWords[key][0];
@@ -178,7 +179,8 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     toast(`${ids.length} ${ids.length === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: op.undo, ms: 6000, clockFrom: 6 });
   }
   const gestures = rowGestures($('#groups'), sel, selectable, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
-  listen(sel, 'change', () => { syncRows(); renderSelection(); });
+  // Whatever changed the selection (a drag replaying its starting state, too), a row being deleted never stays in it.
+  listen(sel, 'change', () => { for (const id of sel.ids) if (counting(id)) sel.ids.delete(id); syncRows(); renderSelection(); });
   listen($('#groups'), 'click', (e: MouseEvent) => {
     const t = e.target as HTMLElement, row = t.closest<HTMLElement>('.row'); if (!row) return;
     const id = row.dataset.id!, f = shelf.files.find(f => f.id === id)!;

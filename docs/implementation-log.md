@@ -103,7 +103,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 66 | Fix round 65 findings at the root | Coordinator | Completed; swipe deletes register on release; 2 RED→GREEN tests, check 32/83/11 PASS; not independently re-reviewed (budget used) | [66](stages/66-frontend-review-7-fix.md) |
 | 67 | Owner-approved re-review of 66 | Fresh Codex gpt-6-astra/high + Codex gpt-6.1-sol/high, both confirmed | Both FAIL; 66 resolved; 3 new races in the settle window and an unreleased swipe at pagehide, fixed in 68 | [67](stages/67-frontend-review-round-8.md) |
 | 68 | Fix round 67 findings | Coordinator | Completed; 3 RED→GREEN tests, check 32/86/11 PASS; not independently re-reviewed | [68](stages/68-frontend-review-8-fix.md) |
-| 69 | Owner-approved re-review of 68 | Fresh Codex gpt-6-astra/high + Codex gpt-6.1-sol/high | In progress | [69](stages/69-frontend-review-round-9.md) |
+| 69 | Owner-approved re-review of 68 | Fresh Codex gpt-6-astra/high + Codex gpt-6.1-sol/high (retried after capacity), both confirmed | Astra PASS; Sol FAIL (selection during a held drag) + 1 suggestion, fixed in 70; coordinator cleanup error recorded | [69](stages/69-frontend-review-round-9.md) |
+| 70 | Fix round 69 findings | Coordinator | Completed; 2 RED→GREEN tests, check 32/88/11 PASS; not independently re-reviewed | [70](stages/70-frontend-review-9-fix.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
