@@ -63,10 +63,12 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const morph = new Map<string, { state: 'confirm' | 'deleted' | 'deleting'; op?: ReturnType<typeof deferredDelete>; left?: number }>();
   // A row counting down to its DELETE or sending it, inline or in a bulk batch: not selectable, and never deleted twice.
   const counting = (id: string) => hidden.has(id) || ['deleted', 'deleting'].includes(morph.get(id)?.state ?? '');
+  // Checked live, because `order` (and the DOM) can lag a render behind while a swipe settles.
+  const selectable = () => order.filter(id => !counting(id));
   const pending = new Set<ReturnType<typeof deferredDelete>>(), bulkOps = new Map<ReturnType<typeof deferredDelete>, string[]>(), downloads = new Set<() => void>();
   cleanups.push(() => { for (const op of pending) op.destroy(); for (const cancel of downloads) cancel(); });
   // A frozen or cached page would otherwise send its DELETEs the moment it wakes, with no Undo left.
-  listen(window, 'pagehide', () => { for (const op of [...pending]) op.undo(); closeToast(); });
+  listen(window, 'pagehide', () => { gestures.cancel(); for (const op of [...pending]) op.undo(); closeToast(); });
   const transfers = createTransferView(root); cleanups.push(transfers.destroy);
   const mainPond = pond('#pond', { count: innerWidth < 640 ? 2 : 4, size: innerWidth < 640 ? [80, 130] : [110, 190], font: 11, flee: 130,
     avoid: () => [relative($('#composer'), $('#pond'), .32), relative($('.lede'), $('#pond'), .1), relative($('.search'), $('#pond'), .1)], splashTarget: $('#pond-zone'), canSplash: e => !(e.target as Element).closest('#composer, button, a, input') });
@@ -134,7 +136,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   function focusKey(key: string) { Array.from(root.querySelectorAll<HTMLElement>('[data-key]')).find(el => el.dataset.key === key)?.focus(); }
   function syncRows() {
     for (const row of root.querySelectorAll<HTMLElement>('#groups .row')) { const on = sel.ids.has(row.dataset.id!); row.classList.toggle('selected', on); row.querySelector<HTMLInputElement>('.check')!.checked = on; }
-    const state = sel.allState(order), all = $<HTMLInputElement>('#select-all'); all.checked = state === 'all'; all.indeterminate = state === 'some'; $('#inbox').classList.toggle('selecting', !!sel.ids.size);
+    const state = sel.allState(selectable()), all = $<HTMLInputElement>('#select-all'); all.checked = state === 'all'; all.indeterminate = state === 'some'; $('#inbox').classList.toggle('selecting', !!sel.ids.size);
   }
   function renderSelection() {
     const files = shelf.files.filter(f => sel.ids.has(f.id)); $('#select-bar').classList.toggle('out', !files.length); document.body.classList.toggle('selecting', !!files.length);
@@ -175,13 +177,14 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     bulkOps.set(op, ids);
     toast(`${ids.length} ${ids.length === 1 ? 'copy' : 'copies'} deleted`, { action: 'Undo', onAction: op.undo, ms: 6000, clockFrom: 6 });
   }
-  const gestures = rowGestures($('#groups'), sel, () => order, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
+  const gestures = rowGestures($('#groups'), sel, selectable, id => morph.has(id), id => deleteFiles([id]), renderInbox, events.signal); cleanups.push(gestures.destroy);
   listen(sel, 'change', () => { syncRows(); renderSelection(); });
   listen($('#groups'), 'click', (e: MouseEvent) => {
     const t = e.target as HTMLElement, row = t.closest<HTMLElement>('.row'); if (!row) return;
     const id = row.dataset.id!, f = shelf.files.find(f => f.id === id)!;
-    if (t.closest('.lead')) { e.preventDefault(); if (counting(id)) return; sel.toggle(id, order, e.shiftKey); queueMicrotask(() => { if (active) syncRows(); }); return; }
+    if (t.closest('.lead')) { e.preventDefault(); if (counting(id)) return; sel.toggle(id, selectable(), e.shiftKey); queueMicrotask(() => { if (active) syncRows(); }); return; }
     const b = t.closest<HTMLElement>('[data-dl],[data-del],[data-cancel],[data-confirm],[data-undo]'); if (!b) return;
+    if (counting(id) && !b.hasAttribute('data-undo')) { e.preventDefault(); return; } // a stale button on a row already being deleted
     if (b.hasAttribute('data-dl')) { download(e, f); return; } e.preventDefault();
     if (b.hasAttribute('data-del')) { morph.set(id, { state: 'confirm' }); renderInbox(); focusKey(`k-${id}`); }
     else if (b.hasAttribute('data-cancel')) { morph.delete(id); renderInbox(); focusKey(`x-${id}`); }
@@ -190,7 +193,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   });
   listen($('.list-head'), 'click', (e: MouseEvent) => { const b = (e.target as Element).closest<HTMLElement>('[data-sort]'); if (b) { sort = nextSort(sort, b.dataset.sort as SortKey); renderInbox(); } });
   listen($('#sort-clear'), 'click', () => { sort = null; renderInbox(); $('.sort').focus(); });
-  listen($('#select-all'), 'click', () => { sel.set(sel.allState(order) === 'all' ? [] : order); });
+  listen($('#select-all'), 'click', () => { const ids = selectable(); sel.set(sel.allState(ids) === 'all' ? [] : ids); });
   listen($('#search'), 'input', renderInbox); listen($('#refresh'), 'click', () => void auto.now()); listen($('#retry'), 'click', () => void retry.now());
   listen($('#sel-clear'), 'click', () => sel.clear()); listen($('#sel-delete'), 'click', () => { deleteFiles([...sel.ids], true); sel.clear(); });
   listen($('#sel-download'), 'click', () => { for (const f of shelf.files.filter(f => sel.ids.has(f.id) && +new Date(f.expiresAt) > Date.now())) browserDownload(f); sel.clear(); toast('Downloading in your browser. Allow multiple downloads if asked.'); });
@@ -265,7 +268,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     if (e.key === '/' && !typing) { e.preventDefault(); $('#search').focus(); }
     else if (e.key.toLowerCase() === 'u' && !typing && !e.ctrlKey && !e.metaKey) $('#picker').click();
     else if (e.key === 'Escape') { if (e.target === $('#search') && $<HTMLInputElement>('#search').value) $<HTMLInputElement>('#search').value = ''; else { closeSheet(); closeSignout(); sel.clear(); for (const [id, m] of morph) if (m.state === 'confirm') morph.delete(id); } renderInbox(); }
-    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !typing) { e.preventDefault(); sel.set(order); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !typing) { e.preventDefault(); sel.set(selectable()); }
   });
   cleanups.push(setupTransfers(root, session.csrfToken, { refresh: () => auto.now(), notice: message => toast(message), expired: () => locked(true), offline: () => setOffline(true), view: transfers, queued: n => { toast(`${n} ${n === 1 ? 'file' : 'files'} queued`, { action: 'View', onAction: openTransfers }); } }));
   tab('inbox'); panel(true); await auto.now(); return destroy;

@@ -361,3 +361,25 @@ test('the list re-renders when a swipe settles, so selection never includes the 
     expect(document.querySelector('[data-id="new-id"]')!.classList.contains('ghost')).toBe(true);
   } finally { delete (HTMLElement.prototype as { animate?: unknown }).animate; }
 });
+test('the swiped row\'s stale buttons do nothing while it settles, so its Undo survives', async () => {
+  vi.useFakeTimers(); slowAnimations();
+  try {
+    const api = service(); await mount(api.fetcher); swipeRow('new-id'); await vi.advanceTimersByTimeAsync(150);
+    click('[data-del="new-id"]'); document.querySelector<HTMLElement>('[data-cancel="new-id"]')?.click(); await vi.advanceTimersByTimeAsync(300);
+    expect(document.querySelector('[data-undo="new-id"]')).not.toBeNull();
+    click('[data-undo="new-id"]'); await vi.advanceTimersByTimeAsync(7000); expect(deletes(api.fetcher)).toEqual([]);
+  } finally { delete (HTMLElement.prototype as { animate?: unknown }).animate; }
+});
+test('Ctrl+A while a swipe settles leaves the swiped row out', async () => {
+  vi.useFakeTimers(); slowAnimations();
+  try {
+    await mount(); swipeRow('new-id'); await vi.advanceTimersByTimeAsync(150);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true })); await vi.advanceTimersByTimeAsync(300);
+    expect(document.querySelector('#sel-count')?.textContent).toBe('1');
+  } finally { delete (HTMLElement.prototype as { animate?: unknown }).animate; }
+});
+test('leaving the page before a touchpad swipe is released cancels it instead of deleting later', async () => {
+  vi.useFakeTimers(); const api = service(); await mount(api.fetcher);
+  swipeRow('new-id'); window.dispatchEvent(new Event('pagehide')); await vi.advanceTimersByTimeAsync(7000);
+  expect(deletes(api.fetcher)).toEqual([]); expect(document.querySelector('[data-undo="new-id"]')).toBeNull();
+});

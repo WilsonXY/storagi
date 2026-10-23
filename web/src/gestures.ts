@@ -73,5 +73,7 @@ export function rowGestures(groups: HTMLElement, selection: Selection, order: ()
     e.preventDefault(); wheel.dx = Math.min(0, wheel.dx - e.deltaX); slide(wheel.swipe, wheel.dx); clearTimeout(wheel.timer);
     wheel.timer = setTimeout(() => { const old = wheel!; wheel = undefined; finishSwipe(old.swipe, true); }, 140);
   }, false);
-  return { busy: () => settling || !!wheel || !!g && g.mode !== 'pending', destroy() { dead = true; end(); if (wheel) { clearTimeout(wheel.timer); wheel.swipe.under.remove(); wheel = undefined; } cancelAnimationFrame(frame); } };
+  // An unreleased gesture is not a decision: leaving the page snaps it back instead of letting its timer commit later.
+  function cancel() { end(); if (wheel) { clearTimeout(wheel.timer); const old = wheel; wheel = undefined; finishSwipe(old.swipe, false); } }
+  return { busy: () => settling || !!wheel || !!g && g.mode !== 'pending', cancel, destroy() { dead = true; end(); if (wheel) { clearTimeout(wheel.timer); wheel.swipe.under.remove(); wheel = undefined; } cancelAnimationFrame(frame); } };
 }
