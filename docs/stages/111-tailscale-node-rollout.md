@@ -2,14 +2,14 @@
 
 - Status: completed. Storagi's public address is now `storagi.<tailnet>.ts.net`, served by its own node; the host node's old mapping is gone.
 - Date: 2026-10-24 +08:00
-- Coordinator: Claude Code in T3 Code, Anthropic Claude Opus 5.5, thread `f68c7bfe-052b-47c5-8f82-e2df7d42e7d4`. The owner ran every root step of [docs/tailscale-node.md](../tailscale-node.md) at the host, from a checkout of `main` at `5fb6a99` (PR #17). The coordinator ran no sudo; it ran the read-only checks below afterwards.
+- Coordinator: Claude Code in T3 Code, Anthropic Claude Opus 5.5, thread `d16900b2-19ea-4c3c-9430-1ab5fec1472f`, continuing Codex thread `f68c7bfe-052b-47c5-8f82-e2df7d42e7d4` (stages 101-107). The owner ran every root step of [docs/tailscale-node.md](../tailscale-node.md) at the host, from a checkout of `main` at `5fb6a99` (PR #17). The coordinator ran no sudo; it ran the read-only checks below afterwards.
 - Live release unchanged: v1.0.3. No tag or deploy was needed: deploys never install units or edit `/etc/storagi`.
 
 ## Timeline
 
 - 01:28:14: `tailscaled-storagi.service` started (enabled at boot).
 - 01:31:26: first Funnel event on the new node.
-- 01:39:26: `storagi.service` restarted with the new `PUBLIC_ORIGIN`; `NRestarts` 0 since. Public DNS was therefore up within about 8 minutes of Funnel, against about 32 minutes in the stage 104 experiment.
+- 01:39:26: `storagi.service` restarted with the new `PUBLIC_ORIGIN`; `NRestarts` 0 since. When public DNS first resolved was not observed; the coordinator's first public lookup came later and passed.
 
 ## Coordinator checks (read-only)
 
