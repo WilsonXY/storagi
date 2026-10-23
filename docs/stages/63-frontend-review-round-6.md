@@ -17,3 +17,7 @@ Before and after: parent HEAD `15d04fc`, clean status and all nine remote heads 
 - Round 61 items: the double swipe was resolved (native Chromium wheel probe: Undo sent no DELETE); the refresh join and the dead Undo were resolved too.
 - **Blocking:** a bulk delete pressed during a swipe's exit animation bypassed the duplicate guard. `counting()` ignored rows hidden by a bulk batch, so the swipe still scheduled its own delete after the bulk Undo. Native Chromium reproduced one DELETE after Undo. Coordinator verdict: fix (64).
 - No security problems. `npm run check` passed on the first run: 32 server, 81 web, 11 acceptance tests.
+
+## Note: stray resume of the cancelled Claude task
+
+After the cancel, T3's rate-limit auto-resume started a second run of the Claude task. It got as far as "Running setup, then the full check…" before the cancel interrupted it. Its worktree had already been removed, and the parent HEAD, status and remote heads were verified unchanged afterwards.

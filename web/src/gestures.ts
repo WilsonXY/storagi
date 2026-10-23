@@ -14,9 +14,11 @@ export function rowGestures(groups: HTMLElement, selection: Selection, order: ()
   function finishSwipe(s: Swipe, commit: boolean) {
     const armed = commit && -s.x >= s.limit;
     settling = true;
+    // The delete is registered on release, not when the animation ends, so nothing (a bulk delete or its Undo) can race it.
+    if (armed && !dead) remove(s.row.dataset.id!);
     const finish = () => {
       s.under.remove(); s.row.style.transform = ''; s.row.classList.remove('swiping'); settling = false;
-      if (!dead) { if (armed) remove(s.row.dataset.id!); else render(); }
+      if (!dead) render(); // always: renders were held back while the swipe settled
     };
     if (s.row.animate) {
       s.row.animate([{ transform: `translateX(${s.x}px)` }, { transform: armed ? 'translateX(-104%)' : 'none', opacity: armed ? .4 : 1 }],

@@ -337,15 +337,27 @@ test('once the grace ends the row says Deleting and offers no dead Undo', async 
   await vi.advanceTimersByTimeAsync(6300);
   expect(document.querySelector('[data-undo="new-id"]')).toBeNull(); expect(document.querySelector('[data-id="new-id"] .m-quiet')?.textContent).toBe('Deleting');
 });
-test('a bulk delete during a swipe\'s exit animation leaves one delete, and its Undo keeps the file', async () => {
-  vi.useFakeTimers();
-  Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: vi.fn(() => ({ finished: new Promise(r => setTimeout(r, 200)) })) });
+const slowAnimations = () => Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: vi.fn(() => ({ finished: new Promise(r => setTimeout(r, 200)) })) });
+const swipeRow = (id: string) => document.querySelector(`[data-id="${id}"]`)!.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 40 }));
+test('a released swipe owns its row: a bulk delete during the animation leaves it out, and bulk Undo cannot leave a hidden delete behind', async () => {
+  vi.useFakeTimers(); slowAnimations();
   try {
     const api = service(); await mount(api.fetcher);
-    click('[data-id="new-id"] .lead');
-    document.querySelector('[data-id="new-id"]')!.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 40 }));
-    await vi.advanceTimersByTimeAsync(150); click('#sel-delete'); await vi.advanceTimersByTimeAsync(300);
-    click('#notice button'); await vi.advanceTimersByTimeAsync(7000);
+    click('[data-id="new-id"] .lead'); click('[data-id="old-id"] .lead'); swipeRow('new-id');
+    await vi.advanceTimersByTimeAsync(150); click('#sel-delete');
+    expect(document.querySelector('#notice span')?.textContent).toBe('1 copy deleted');
+    await vi.advanceTimersByTimeAsync(20); click('#notice button'); await vi.advanceTimersByTimeAsync(300);
+    expect(document.querySelector('[data-undo="new-id"]')).not.toBeNull();
+    click('[data-undo="new-id"]'); await vi.advanceTimersByTimeAsync(7000);
     expect(deletes(api.fetcher)).toEqual([]);
+  } finally { delete (HTMLElement.prototype as { animate?: unknown }).animate; }
+});
+test('the list re-renders when a swipe settles, so selection never includes the swiped row', async () => {
+  vi.useFakeTimers(); slowAnimations();
+  try {
+    await mount(); click('[data-id="new-id"] .lead'); swipeRow('new-id');
+    await vi.advanceTimersByTimeAsync(150); click('#sel-delete'); await vi.advanceTimersByTimeAsync(300);
+    click('#select-all'); expect(document.querySelector('#sel-count')?.textContent).toBe('1');
+    expect(document.querySelector('[data-id="new-id"]')!.classList.contains('ghost')).toBe(true);
   } finally { delete (HTMLElement.prototype as { animate?: unknown }).animate; }
 });
