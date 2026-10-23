@@ -99,6 +99,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 62 | Fix round 61 findings | Coordinator | Completed; 3 RED→GREEN tests, check 32/81/11 PASS | [62](stages/62-frontend-review-5-fixes.md) |
 | 63 | Final re-review by both reviewers (owner's extra budget, round 2 of 2) | Claude Opus 5.5/high: rate-limited, no verdict; Codex gpt-6-astra/high confirmed | Astra FAIL; round 61 fixes all resolved; 1 blocking race, fixed in 64 | [63](stages/63-frontend-review-round-6.md) |
 | 64 | Fix round 63 finding | Coordinator | Completed; RED→GREEN test, check 32/82/11 PASS; not independently re-reviewed (budget used) | [64](stages/64-frontend-review-6-fix.md) |
+| 65 | Owner-approved extra review of 64 and the branch | Fresh Codex gpt-6-astra/high + Codex gpt-6.1-sol/high (owner's explicit choice) | In progress | [65](stages/65-frontend-review-round-7.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 
