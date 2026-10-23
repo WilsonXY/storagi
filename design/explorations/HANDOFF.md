@@ -1,6 +1,6 @@
 # Storagi frontend overhaul: implementation handoff
 
-The owner approved the design on 2026-10-21 and approved the day-2 additions (sorting, row gestures, pond waves, the select-all fix) on 2026-10-22. This brief tells the next agent how to build it into the real app. The design record is [stage 48](../../docs/stages/48-frontend-design-exploration.md); this work is the next stage.
+The owner approved the design on 2026-10-21 and approved the day-2 additions (sorting, row gestures, pond waves, the select-all fix) on 2026-10-22. This brief tells the next agent how to build it into the real app. The design record is [stage 78](../../docs/stages/78-frontend-design-exploration.md); this work is the next stage.
 
 ## Read first
 

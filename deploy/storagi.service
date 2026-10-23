@@ -1,26 +1,49 @@
-# Inactive system service template; review docs/setup.md before installation.
-# Prerequisites: storagi account/group, built /opt/storagi, private environment and data directories.
+# Storagi system service. The owner installs it by hand (docs/system-service.md); deploys never change it.
 [Unit]
 Description=Storagi temporary file shelf
 After=network-online.target
 Wants=network-online.target
+# Retry startup discovery through network outages without exhausting a start limit.
+StartLimitIntervalSec=0
 
 [Service]
-Type=simple
+Type=exec
 User=storagi
 Group=storagi
-WorkingDirectory=/opt/storagi/server
+WorkingDirectory=/opt/storagi/current/server
 EnvironmentFile=/etc/storagi/environment
-ExecStart=/usr/bin/node /opt/storagi/server/dist/src/main.js
+# Refuse to start a release that scripts/deploy.sh did not stamp or that changed since.
+ExecStartPre=/opt/storagi/current/scripts/verify-release.sh
+ExecStart=/usr/bin/node /opt/storagi/current/server/dist/src/main.js
 Restart=on-failure
-RestartSec=5
-TimeoutStopSec=60
+RestartSec=15s
+TimeoutStopSec=60s
 UMask=0077
-NoNewPrivileges=true
-PrivateTmp=true
+
+# Sandbox: everything read-only except DATA_DIR; no home folders, devices or privileges.
 ProtectSystem=strict
-ProtectHome=true
 ReadWritePaths=/var/lib/storagi
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+CapabilityBoundingSet=
+# The loopback listener, outbound HTTPS to Google for sign-in, and local sockets.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# Not MemoryDenyWriteExecute: V8's JIT needs writable, executable memory.
 
 [Install]
 WantedBy=multi-user.target

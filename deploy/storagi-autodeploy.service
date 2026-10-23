@@ -1,0 +1,39 @@
+# Storagi auto-deploy: one poll for a new CI-passed v* tag, run by storagi-autodeploy.timer.
+# The owner installs it by hand (docs/auto-deploy.md); deploys never change it.
+[Unit]
+Description=Storagi auto-deploy (poll for a new release tag)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=storagi-deploy
+Group=storagi-deploy
+WorkingDirectory=/var/lib/storagi-deploy
+ExecStart=/var/lib/storagi-deploy/storagi/scripts/storagi-autodeploy
+# The Discord webhook URL, root:root 600 on the host; only this run can read its copy.
+LoadCredential=discord-webhook:/etc/credstore/storagi-discord-webhook
+# npm ci, the full check and a build on this laptop; and time for the helper's rollback if stopped.
+TimeoutStartSec=30min
+TimeoutStopSec=5min
+UMask=0077
+
+# Sandbox; reasons per setting in docs/auto-deploy.md. sudo must gain root through its setuid bit
+# and the helper needs root's capabilities, so no NoNewPrivileges or CapabilityBoundingSet. sudo
+# and the helper run inside this namespace: everything here also binds them, so only what neither
+# uses is restricted, and the paths the helper writes stay writable (permissions keep this
+# account out of them).
+ProtectSystem=strict
+ReadWritePaths=/var/lib/storagi-deploy /opt/storagi /var/backups/storagi
+ProtectHome=true
+PrivateTmp=true
+ProtectProc=invisible
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native

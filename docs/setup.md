@@ -1,6 +1,6 @@
 # Local build and owner setup
 
-These instructions cover a new installation. The approved Funnel access is recorded in the [rollout record](stages/31-funnel-rollout.md); the active user service and automatic recovery are recorded in [stage41](stages/41-service-activation.md) with its [operator guide](user-service.md). The separate system service template below remains inactive. Development and tests bind loopback. Production expects an HTTPS origin in front of its loopback listener.
+These instructions cover a new installation. The approved Funnel access is recorded in the [rollout record](stages/31-funnel-rollout.md); the service runs under a dedicated system account, described with its deploys and migration in the [system-service guide](system-service.md). The earlier user service (stage41) is superseded. Development and tests bind loopback. Production expects an HTTPS origin in front of its loopback listener.
 
 ## Build and verify
 
@@ -13,7 +13,7 @@ npm run setup
 npm run check
 ```
 
-The root check runs behavior/security and independent HTTP acceptance tests, TypeScript checks and both builds sequentially. There is no separate lint configuration. Tests use temporary synthetic objects and a signed test OIDC provider; they never require owner files or real Google credentials. Browser mock checks are separate and are not proof of real Google login.
+The root check runs behavior/security and independent HTTP acceptance tests, deploy-script tests, TypeScript checks and both builds sequentially. There is no separate lint configuration. Tests use temporary synthetic objects and a signed test OIDC provider; they never require owner files or real Google credentials. Browser mock checks are separate and are not proof of real Google login.
 
 ## Required Google configuration
 
@@ -42,13 +42,9 @@ Replace the SSH destination with your normal one and leave that terminal running
 
 To run the built app with the private environment loaded, use `npm start` from the repository root. It binds `127.0.0.1:8787` by default; all production login/file cookies require the configured HTTPS origin. `DATA_DIR` and the public dashboard build directory must be separate. Do not substitute dummy identity credentials or disable authentication to obtain a live preview.
 
-## Prepared service configuration
+## Service configuration
 
-`deploy/storagi.service` is an inactive, portable system service template. It has not been installed, enabled or started. The example uses a dedicated `storagi` account and group, built code at `/opt/storagi` (including `server/dist` and `web/dist`), credentials at `/etc/storagi/environment`, and private writable data at `/var/lib/storagi`. These are example deployment locations, not observed host configuration. Only one process may write the data directory.
-
-Before any approved installation, provision the account/group and these directories, build both packages, and confirm `/usr/bin/node` is Node 22.22+ (or adjust `ExecStart`). The service account needs read/traverse access to the built code and dependencies, but should not own or write them. Keep `/etc/storagi` and its environment file root-owned and restricted (for example directory mode `0700`, file mode `0600`); the system service manager loads that file before switching to `User=storagi`. Precreate `/var/lib/storagi` owned by `storagi:storagi` with mode `0700` and set `DATA_DIR=/var/lib/storagi` in the environment. The service needs write access to that existing data directory; it does not need write access to `/var/lib`. `ReadWritePaths` permits writes through the unit's read-only filesystem sandbox, but does not create the directory or grant Unix permissions. `ProtectHome=true` blocks home-directory access, so code, dependencies and data must be available at the example system locations. Systemd directives use literal absolute paths; they do not expand shell `$HOME` variables.
-
-After adapting the template, run `systemd-analyze verify deploy/storagi.service`; syntax validation is separate from account/path permissions, real credentials and live startup acceptance. No account creation, service installation or start is performed by these instructions' implementation stage.
+[`deploy/storagi.service`](../deploy/storagi.service) is the system service: a dedicated `storagi` account and group, root-owned read-only releases under `/opt/storagi` with `current` pointing to one, credentials at `/etc/storagi/environment` (root, mode 0600; the system manager reads it before switching to `User=storagi`) and private writable data at `/var/lib/storagi` (`storagi:storagi`, mode 0700, `DATA_DIR=/var/lib/storagi`). The unit's sandbox makes everything else read-only and hides home folders, so code, dependencies and data must be at these system locations; systemd directives use literal absolute paths. Only one process may write the data directory. Installation, deploys and the migration from the earlier user service are in the [system-service guide](system-service.md).
 
 The service does not source shell profiles or automatically read a developer `.env` file. The Google flow-cookie encryption key is generated once and persisted privately in the same SQLite store; no additional key environment variable is needed. Keep the entire data directory private. Deleting/expiring a file removes it from the Inbox immediately; if an accepted download still has it open, its bytes remain counted until the last descriptor closes or its idle timeout fires. This prevents extra uploads from exceeding the budget while deleted data is still on disk.
 

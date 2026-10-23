@@ -7,8 +7,9 @@
     "test": "npm test --prefix server && npm test --prefix web",
     "typecheck": "npm run typecheck --prefix server && npm run typecheck --prefix web",
     "build": "npm run build --prefix server && npm run build --prefix web",
-    "check": "npm test && npm run test:acceptance && npm run typecheck && npm run build",
+    "check": "npm test && npm run test:acceptance && npm run test:deploy && npm run typecheck && npm run build",
     "start": "npm start --prefix server",
-    "test:acceptance": "server/node_modules/.bin/tsx --test scripts/acceptance-api.test.ts scripts/acceptance-review-fixes.test.ts"
+    "test:acceptance": "server/node_modules/.bin/tsx --test scripts/acceptance-api.test.ts scripts/acceptance-review-fixes.test.ts",
+    "test:deploy": "server/node_modules/.bin/tsx --test scripts/deploy.test.ts scripts/autodeploy.test.ts"
   }
 }
