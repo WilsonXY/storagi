@@ -16,13 +16,15 @@ test('an explicit refresh fetches even in a hidden tab (first load of a backgrou
   visible = false; const fetcher = vi.fn().mockResolvedValue(undefined), ar = new AutoRefresh(fetcher);
   await ar.now(); expect(fetcher).toHaveBeenCalledOnce(); await vi.advanceTimersByTimeAsync(120_000); expect(fetcher).toHaveBeenCalledOnce(); ar.destroy();
 });
-test('return threshold measures time away, and overlapping manual calls join the same request', async () => {
+test('return threshold measures time away, and a call during a fetch gets one fresh fetch after it', async () => {
   const fetcher = vi.fn().mockResolvedValue(undefined), ar = new AutoRefresh(fetcher);
   await vi.advanceTimersByTimeAsync(20_000); visible = false; visibility(); await vi.advanceTimersByTimeAsync(10_000);
   visible = true; visibility(); expect(fetcher).not.toHaveBeenCalled();
   visible = false; visibility(); await vi.advanceTimersByTimeAsync(10_001); visible = true; visibility(); await vi.advanceTimersByTimeAsync(0); expect(fetcher).toHaveBeenCalledTimes(1);
   let release!: () => void; fetcher.mockImplementation(() => new Promise<void>(r => { release = r; }));
-  const a = ar.now(), b = ar.now(); expect(a).toBe(b); expect(ar.busy).toBe(true); await vi.advanceTimersByTimeAsync(0); release(); await a; expect(ar.busy).toBe(false); expect(fetcher).toHaveBeenCalledTimes(2);
+  const a = ar.now(), b = ar.now(), c = ar.now(); expect(b).toBe(c); expect(ar.busy).toBe(true); await vi.advanceTimersByTimeAsync(0); release(); await a;
+  // A call made while a fetch is in flight gets one fresh fetch afterwards, so it never adopts a stale answer; extra calls share it.
+  await vi.advanceTimersByTimeAsync(0); expect(fetcher).toHaveBeenCalledTimes(3); release(); await b; expect(ar.busy).toBe(false); expect(fetcher).toHaveBeenCalledTimes(3);
   ar.destroy();
 });
 test('exposes failures and clears them on successful manual/after-upload refresh', async () => {

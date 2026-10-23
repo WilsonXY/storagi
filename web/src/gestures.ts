@@ -44,7 +44,7 @@ export function rowGestures(groups: HTMLElement, selection: Selection, order: ()
     if (old.swipe) finishSwipe(old.swipe, commit);
   }
   on(groups, 'pointerdown', (e: PointerEvent) => {
-    if (gesturePref() !== 'on' || e.button !== 0 || g || wheel) return;
+    if (gesturePref() !== 'on' || e.button !== 0 || g || wheel || settling) return;
     const row = (e.target as Element).closest<HTMLElement>('.row'); if (!row || engaged(row.dataset.id!)) return;
     g = { id: row.dataset.id!, pid: e.pointerId, touch: e.pointerType === 'touch', lead: !!(e.target as Element).closest('.lead'), x: e.clientX, y: e.clientY, at: e.clientY, mode: 'pending' };
     if (g.touch && !g.lead) { const current = g; g.hold = setTimeout(() => { if (g === current && g.mode === 'pending') { startPaint(); navigator.vibrate?.(8); } }, 400); }
@@ -66,7 +66,7 @@ export function rowGestures(groups: HTMLElement, selection: Selection, order: ()
   on(groups, 'contextmenu', (e: Event) => { if (g?.touch) e.preventDefault(); }, false);
   window.addEventListener('click', e => { if (eat) { eat = false; e.preventDefault(); e.stopPropagation(); } }, { capture: true, signal });
   on(groups, 'wheel', (e: WheelEvent) => {
-    if (gesturePref() !== 'on' || g || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    if (gesturePref() !== 'on' || g || settling || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
     if (!wheel) { const row = (e.target as Element).closest<HTMLElement>('.row'); if (!row || engaged(row.dataset.id!) || e.deltaX < 0) return; wheel = { swipe: startSwipe(row), dx: 0 }; }
     e.preventDefault(); wheel.dx = Math.min(0, wheel.dx - e.deltaX); slide(wheel.swipe, wheel.dx); clearTimeout(wheel.timer);
     wheel.timer = setTimeout(() => { const old = wheel!; wheel = undefined; finishSwipe(old.swipe, true); }, 140);

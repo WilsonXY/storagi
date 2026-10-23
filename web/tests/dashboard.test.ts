@@ -318,3 +318,22 @@ test('a download stream that drops puts the page offline', async () => {
   expect(document.title).toBe('Offline · Storagi'); expect(document.querySelector('.tr.error')).not.toBeNull();
   delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
 });
+test('a second swipe during the first swipe\'s exit animation cannot schedule a second delete', async () => {
+  vi.useFakeTimers();
+  const animate = vi.fn(() => ({ finished: new Promise(r => setTimeout(r, 200)) }));
+  Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
+  try {
+    const api = service(); await mount(api.fetcher);
+    const swipe = () => document.querySelector('[data-id="new-id"]')!.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 40 }));
+    swipe(); await vi.advanceTimersByTimeAsync(250); swipe(); await vi.advanceTimersByTimeAsync(600);
+    click('[data-undo="new-id"]'); await vi.advanceTimersByTimeAsync(7000);
+    expect(deletes(api.fetcher)).toEqual([]);
+  } finally { delete (HTMLElement.prototype as { animate?: unknown }).animate; }
+});
+test('once the grace ends the row says Deleting and offers no dead Undo', async () => {
+  vi.useFakeTimers(); const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => options?.method === 'DELETE' ? new Promise<Response>(() => {}) : api.fetcher(url));
+  await mount(fetcher as typeof api.fetcher); click('[data-del="new-id"]'); click('[data-confirm="new-id"]');
+  await vi.advanceTimersByTimeAsync(6300);
+  expect(document.querySelector('[data-undo="new-id"]')).toBeNull(); expect(document.querySelector('[data-id="new-id"] .m-quiet')?.textContent).toBe('Deleting');
+});

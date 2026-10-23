@@ -5,6 +5,7 @@ export class AutoRefresh extends EventTarget {
   private next = Date.now() + 60_000;
   private hiddenAt: number | null = document.visibilityState === 'visible' ? null : Date.now();
   private pending?: Promise<void>;
+  private again?: Promise<void>;
   private dead = false;
   private readonly timer = setInterval(() => {
     // Polling stops while the tab is hidden; now() itself always fetches (first load, manual, after an upload, offline retry).
@@ -21,7 +22,8 @@ export class AutoRefresh extends EventTarget {
   };
   get remaining() { return Math.max(0, Math.ceil((this.next - Date.now()) / 1000)); }
   now(): Promise<void> {
-    if (this.pending) return this.pending;
+    // A call during a fetch gets one fresh fetch after it, never the in-flight (possibly stale) answer; extra calls share it.
+    if (this.pending) return this.again ??= this.pending.then(() => { this.again = undefined; return this.now(); });
     if (this.dead) return Promise.resolve();
     this.busy = true;
     this.pending = (async () => {

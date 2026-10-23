@@ -60,7 +60,9 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   clear(); root.innerHTML = shelfHTML; active = true; $('#shelf-app').hidden = false;
   const app = $('#shelf-app'), sel = new Selection(), hidden = new Set<string>();
   let shelf: Shelf = { files: [], usedBytes: 0, reservedBytes: 0, budgetBytes: 0 }, sort: Sort = null, order: string[] = [], emptyMark = false;
-  const morph = new Map<string, { state: 'confirm' | 'deleted'; op?: ReturnType<typeof deferredDelete>; left?: number }>();
+  const morph = new Map<string, { state: 'confirm' | 'deleted' | 'deleting'; op?: ReturnType<typeof deferredDelete>; left?: number }>();
+  // A row counting down to its DELETE, or sending it: not selectable, and never deleted twice.
+  const counting = (id: string) => ['deleted', 'deleting'].includes(morph.get(id)?.state ?? '');
   const pending = new Set<ReturnType<typeof deferredDelete>>(), bulkOps = new Map<ReturnType<typeof deferredDelete>, string[]>(), downloads = new Set<() => void>();
   cleanups.push(() => { for (const op of pending) op.destroy(); for (const cancel of downloads) cancel(); });
   // A frozen or cached page would otherwise send its DELETEs the moment it wakes, with no Undo left.
@@ -106,7 +108,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const visible = () => sortFiles(shelf.files.filter(f => !hidden.has(f.id) && f.name.toLocaleLowerCase().includes($<HTMLInputElement>('#search').value.trim().toLocaleLowerCase())), sort);
   function renderInbox() {
     if (!active || gestures?.busy()) return;
-    const files = visible(), all = shelf.files.filter(f => !hidden.has(f.id)); order = files.filter(f => morph.get(f.id)?.state !== 'deleted').map(f => f.id);
+    const files = visible(), all = shelf.files.filter(f => !hidden.has(f.id)); order = files.filter(f => !counting(f.id)).map(f => f.id);
     const focus = (document.activeElement as HTMLElement)?.dataset.key;
     const names = new Map<string, number>(); for (const f of shelf.files) names.set(f.name, (names.get(f.name) ?? 0) + 1);
     $('#groups').innerHTML = [...groupFiles(files, sort)].map(([day, list]) => `<div class="group${sort ? ' flat' : ''}">${day ? `<h3>${esc(day)}</h3>` : ''}${list.map(f => row(f, (names.get(f.name) ?? 0) > 1)).join('')}</div>`).join('');
@@ -126,8 +128,8 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   function row(f: ShelfFile, duplicate: boolean) {
     const id = esc(f.id), n = esc(duplicate ? `${f.name} · copy ${shortId(f.id)}` : f.name), expired = +new Date(f.expiresAt) <= Date.now(), left = daysLeft(f), state = morph.get(f.id);
     const exp = expired ? 'Expired' : `${left} d left`, cls = expired ? 'gone' : left <= 3 ? 'soon' : '';
-    const actions = state?.state === 'confirm' ? `<div class="morph"><span class="m-ask">Delete copy?</span><button data-cancel="${id}" data-key="k-${id}">Cancel</button><button class="m-confirm" data-confirm="${id}">Delete</button></div>` : state?.state === 'deleted' ? `<div class="morph"><span class="m-ok">✓ Deleted</span><button data-undo="${id}" data-key="u-${id}">Undo</button><span class="m-clock" data-clock="${id}">${state.left}s</span></div>` : `${expired ? '' : `<a class="icon-btn" href="/api/files/${encodeURIComponent(f.id)}/download" download data-dl="${id}" data-key="d-${id}" draggable="false" aria-label="Download ${n}" title="Download">${downIcon}</a>`}<button class="icon-btn" data-del="${id}" data-key="x-${id}" aria-label="Delete ${n}" title="Delete this copy">${trashIcon}</button>`;
-    return `<div class="row${state?.state === 'deleted' ? ' ghost' : ''}" data-id="${id}"><label class="lead"><span class="ext">${esc(ext(f.name))}</span><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${esc(f.name)}">${esc(f.name)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone"><span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
+    const actions = state?.state === 'confirm' ? `<div class="morph"><span class="m-ask">Delete copy?</span><button data-cancel="${id}" data-key="k-${id}">Cancel</button><button class="m-confirm" data-confirm="${id}">Delete</button></div>` : state?.state === 'deleting' ? '<div class="morph"><span class="m-quiet"><i class="spin"></i>Deleting</span></div>' : state?.state === 'deleted' ? `<div class="morph"><span class="m-ok">✓ Deleted</span><button data-undo="${id}" data-key="u-${id}">Undo</button><span class="m-clock" data-clock="${id}">${state.left}s</span></div>` : `${expired ? '' : `<a class="icon-btn" href="/api/files/${encodeURIComponent(f.id)}/download" download data-dl="${id}" data-key="d-${id}" draggable="false" aria-label="Download ${n}" title="Download">${downIcon}</a>`}<button class="icon-btn" data-del="${id}" data-key="x-${id}" aria-label="Delete ${n}" title="Delete this copy">${trashIcon}</button>`;
+    return `<div class="row${counting(f.id) ? ' ghost' : ''}" data-id="${id}"><label class="lead"><span class="ext">${esc(ext(f.name))}</span><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${esc(f.name)}">${esc(f.name)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone"><span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
   }
   function focusKey(key: string) { Array.from(root.querySelectorAll<HTMLElement>('[data-key]')).find(el => el.dataset.key === key)?.focus(); }
   function syncRows() {
@@ -147,12 +149,10 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     $('#full-shelf').hidden = shelf.usedBytes + shelf.reservedBytes < shelf.budgetBytes;
   }
   function deleteFiles(ids: string[], bulk = false) {
-    if (bulk) {
-      // A row already counting down inline keeps its own Undo; earlier bulk batches fold into this one, with one fresh grace.
-      ids = ids.filter(id => morph.get(id)?.state !== 'deleted');
-      if (!ids.length) { sel.clear(); return; }
-      for (const [old, oldIds] of bulkOps) { old.destroy(); pending.delete(old); bulkOps.delete(old); ids = [...oldIds, ...ids]; }
-    }
+    // A row already counting down keeps its own Undo; earlier bulk batches fold into this one, with one fresh grace.
+    ids = ids.filter(id => !counting(id));
+    if (!ids.length) { if (bulk) sel.clear(); return; }
+    if (bulk) for (const [old, oldIds] of bulkOps) { old.destroy(); pending.delete(old); bulkOps.delete(old); ids = [...oldIds, ...ids]; }
     const restore = () => { pending.delete(op); bulkOps.delete(op); for (const id of ids) { hidden.delete(id); morph.delete(id); } if (active) { renderInbox(); renderSelection(); } };
     if (bulk) for (const id of ids) hidden.add(id);
     const op = deferredDelete(async () => {
@@ -165,7 +165,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
       }
       if (failed) throw failed;
     }, {
-      onTick: seconds => { for (const id of ids) { const state = morph.get(id); if (state) state.left = seconds; const c = Array.from(root.querySelectorAll<HTMLElement>('[data-clock]')).find(el => el.dataset.clock === id); if (c) c.textContent = `${seconds}s`; } },
+      onTick: seconds => { for (const id of ids) { const state = morph.get(id); if (state) state.left = seconds; if (state && seconds <= 0 && state.state === 'deleted') { state.state = 'deleting'; renderInbox(); } const c = Array.from(root.querySelectorAll<HTMLElement>('[data-clock]')).find(el => el.dataset.clock === id); if (c) c.textContent = `${seconds}s`; } },
       onUndo: restore, onCommit: () => { restore(); if (active) void auto.now(); }, onError: error => { restore(); if (active) { toast((error as Error).message); void auto.now(); } },
     });
     pending.add(op);
@@ -180,7 +180,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   listen($('#groups'), 'click', (e: MouseEvent) => {
     const t = e.target as HTMLElement, row = t.closest<HTMLElement>('.row'); if (!row) return;
     const id = row.dataset.id!, f = shelf.files.find(f => f.id === id)!;
-    if (t.closest('.lead')) { e.preventDefault(); if (morph.get(id)?.state === 'deleted') return; sel.toggle(id, order, e.shiftKey); queueMicrotask(() => { if (active) syncRows(); }); return; }
+    if (t.closest('.lead')) { e.preventDefault(); if (counting(id)) return; sel.toggle(id, order, e.shiftKey); queueMicrotask(() => { if (active) syncRows(); }); return; }
     const b = t.closest<HTMLElement>('[data-dl],[data-del],[data-cancel],[data-confirm],[data-undo]'); if (!b) return;
     if (b.hasAttribute('data-dl')) { download(e, f); return; } e.preventDefault();
     if (b.hasAttribute('data-del')) { morph.set(id, { state: 'confirm' }); renderInbox(); focusKey(`k-${id}`); }
