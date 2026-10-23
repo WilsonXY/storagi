@@ -20,7 +20,7 @@ export function createToast() {
     const iv = setInterval(() => { clock.textContent = `${Math.max(0, --left)}s`; }, 1000);
     const to = setTimeout(() => close(), options.ms ?? 4000);
     close = () => {
-      clearInterval(iv); clearTimeout(to); el.classList.add('out'); el.removeAttribute('id'); setTimeout(() => el.remove(), 300);
+      clearInterval(iv); clearTimeout(to); el.classList.add('out'); el.removeAttribute('id'); el.inert = true; el.querySelector('button')?.setAttribute('disabled', ''); setTimeout(() => el.remove(), 300);
       close = () => {}; undoing = false; const next = waiting.shift(); if (next) toast(...next);
     };
   };

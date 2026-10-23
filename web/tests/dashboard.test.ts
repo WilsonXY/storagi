@@ -153,10 +153,10 @@ test('streamed download has Cancel only and aborts the request and writable', as
   delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
 });
 
-test('phone downloads remain browser links even when a picker is available', async () => {
-  const picker = vi.fn(); Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: picker }); vi.stubGlobal('innerWidth', 390);
-  await mount(); let prevented = true; document.addEventListener('click', e => { prevented = e.defaultPrevented; e.preventDefault(); }, { once: true }); click('[data-dl="new-id"]');
-  expect(picker).not.toHaveBeenCalled(); expect(prevented).toBe(false); delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
+test('the download path follows the picker API, not the window width', async () => {
+  const picker = vi.fn(() => new Promise(() => {})); Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: picker }); vi.stubGlobal('innerWidth', 390);
+  await mount(); click('[data-dl="new-id"]');
+  expect(picker).toHaveBeenCalledOnce(); delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
 });
 
 test('settings persist switches, phone menu opens, and tabs and shortcuts change views', async () => {
@@ -280,4 +280,41 @@ test('delete failures: a single 404 counts as deleted; a 500 on one copy still d
   failNew = 500; click('#select-all'); click('#sel-delete'); await vi.advanceTimersByTimeAsync(6500);
   expect(deletes(fetcher)).toEqual(['/api/files/new-id', '/api/files/new-id', '/api/files/old-id']);
   expect(document.querySelector('#notice span')?.textContent).toBe('boom');
+});
+test('a bulk batch whose DELETEs have started is not folded into a later Undo', async () => {
+  vi.useFakeTimers(); const api = service(); let release!: () => void;
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => options?.method !== 'DELETE' ? api.fetcher(url)
+    : String(url).endsWith('/new-id') ? new Promise<Response>(r => { release = () => r(new Response(null, { status: 204 })); }) : new Response(null, { status: 204 }));
+  await mount(fetcher as typeof api.fetcher);
+  click('[data-id="new-id"] .lead'); click('#sel-delete'); await vi.advanceTimersByTimeAsync(6500);
+  click('[data-id="old-id"] .lead'); click('#sel-delete');
+  expect(document.querySelector('#notice span')?.textContent).toBe('1 copy deleted');
+  click('#notice button'); release(); await vi.advanceTimersByTimeAsync(7000);
+  expect(deletes(fetcher)).toEqual(['/api/files/new-id']);
+});
+test('a replaced Undo toast cannot be pressed while it fades out', async () => {
+  vi.useFakeTimers(); await mount();
+  click('[data-id="new-id"] .lead'); click('#sel-delete'); click('[data-id="old-id"] .lead'); click('#sel-delete');
+  const [old] = [...document.querySelectorAll<HTMLElement>('.toast')]; expect(old.id).toBe('');
+  expect(old.querySelector<HTMLButtonElement>('button')!.disabled).toBe(true);
+});
+test('rows counting down inline cannot be selected', async () => {
+  vi.useFakeTimers(); await mount();
+  click('[data-del="new-id"]'); click('[data-confirm="new-id"]'); click('#select-all');
+  expect(document.querySelector('#sel-count')?.textContent).toBe('1');
+  click('#sel-clear'); click('[data-id="new-id"] .lead'); expect(document.querySelector('#select-bar')!.classList.contains('out')).toBe(true);
+});
+test('a list body that fails after the headers puts the page offline', async () => {
+  const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => String(url) === '/api/files' ? new Response('<html>portal</html>') : api.fetcher(url));
+  await mount(fetcher as typeof api.fetcher);
+  expect(document.title).toBe('Offline · Storagi'); expect(document.querySelector<HTMLElement>('#offline')!.hidden).toBe(false);
+});
+test('a download stream that drops puts the page offline', async () => {
+  Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: vi.fn().mockResolvedValue({ createWritable: async () => ({ write: vi.fn(), close: vi.fn(), abort: vi.fn().mockResolvedValue(undefined) }) }) });
+  const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => String(url).endsWith('/download') ? new Response(new ReadableStream({ start(c) { c.error(new TypeError('network error')); } })) : api.fetcher(url));
+  await mount(fetcher as typeof api.fetcher); click('[data-dl="new-id"]'); await tick();
+  expect(document.title).toBe('Offline · Storagi'); expect(document.querySelector('.tr.error')).not.toBeNull();
+  delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
 });

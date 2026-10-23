@@ -92,7 +92,10 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 55 | Fix review round 2 suggestions | Coordinator | Completed; 4 RED→GREEN tests, check 32/70/11 PASS | [55](stages/55-frontend-review-2-fixes.md) |
 | 56 | Focused independent review of 55 | Fresh Claude Opus 5.5/high confirmed | FAIL; 1 blocking (older bulk/inline double delete) + 4 suggestions, fixed in 57 | [56](stages/56-frontend-review-round-3.md) |
 | 57 | Fix review round 3 findings | Coordinator | Completed; 3 RED→GREEN tests, check 32/74/11 PASS; not yet re-reviewed (review round limit reached, owner decides) | [57](stages/57-frontend-review-3-fixes.md) |
-| 58 | Owner-approved fourth focused review of 57 | Fresh Claude Opus 5.5/high | In progress | [58](stages/58-frontend-review-round-4.md) |
+| 58 | Owner-approved fourth focused review of 57 | Fresh Claude Opus 5.5/high confirmed | FAIL; 1 blocking (merge took a sending batch) + 4 suggestions | [58](stages/58-frontend-review-round-4.md) |
+| 59 | Owner-requested parallel full-branch review | Fresh Codex gpt-6-astra/high confirmed | FAIL; 4 blocking + 1 suggestion (2 blocking judged not to hold) | [59](stages/59-frontend-astra-review.md) |
+| 60 | Fix rounds 58/59 | Coordinator | Completed; 6 RED→GREEN tests, check 32/79/11 PASS | [60](stages/60-frontend-review-4-fixes.md) |
+| 61 | Re-review of 60 by both reviewers (owner's extra budget, round 1 of 2) | Fresh Claude Opus 5.5/high + Codex gpt-6-astra/high | In progress | [61](stages/61-frontend-review-round-5.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

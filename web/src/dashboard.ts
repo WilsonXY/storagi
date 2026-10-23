@@ -71,7 +71,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const stillPond = () => { if (mainPond) { mainPond.still = offline || reduced(); if (mainPond.still) mainPond.paintStill(); else mainPond.start(); } };
   cleanups.push(onMotionChange(stillPond));
   const auto = new AutoRefresh(async () => {
-    const result: Shelf = await (await request('/api/files')).json(); if (!active) return;
+    const result: Shelf = await (await request('/api/files')).json().catch(error => { setOffline(true); throw error; }); if (!active) return;
     const known = new Set(shelf.files.map(f => f.id)); const hadFiles = shelf.files.length > 0;
     shelf = result; for (const id of sel.ids) if (!shelf.files.some(f => f.id === id)) sel.ids.delete(id);
     renderInbox(); renderSelection(); renderUsage();
@@ -106,7 +106,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   const visible = () => sortFiles(shelf.files.filter(f => !hidden.has(f.id) && f.name.toLocaleLowerCase().includes($<HTMLInputElement>('#search').value.trim().toLocaleLowerCase())), sort);
   function renderInbox() {
     if (!active || gestures?.busy()) return;
-    const files = visible(), all = shelf.files.filter(f => !hidden.has(f.id)); order = files.map(f => f.id);
+    const files = visible(), all = shelf.files.filter(f => !hidden.has(f.id)); order = files.filter(f => morph.get(f.id)?.state !== 'deleted').map(f => f.id);
     const focus = (document.activeElement as HTMLElement)?.dataset.key;
     const names = new Map<string, number>(); for (const f of shelf.files) names.set(f.name, (names.get(f.name) ?? 0) + 1);
     $('#groups').innerHTML = [...groupFiles(files, sort)].map(([day, list]) => `<div class="group${sort ? ' flat' : ''}">${day ? `<h3>${esc(day)}</h3>` : ''}${list.map(f => row(f, (names.get(f.name) ?? 0) > 1)).join('')}</div>`).join('');
@@ -150,13 +150,13 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
     if (bulk) {
       // A row already counting down inline keeps its own Undo; earlier bulk batches fold into this one, with one fresh grace.
       ids = ids.filter(id => morph.get(id)?.state !== 'deleted');
-      for (const [old, oldIds] of bulkOps) { old.destroy(); pending.delete(old); bulkOps.delete(old); ids = [...oldIds, ...ids]; }
       if (!ids.length) { sel.clear(); return; }
+      for (const [old, oldIds] of bulkOps) { old.destroy(); pending.delete(old); bulkOps.delete(old); ids = [...oldIds, ...ids]; }
     }
     const restore = () => { pending.delete(op); bulkOps.delete(op); for (const id of ids) { hidden.delete(id); morph.delete(id); } if (active) { renderInbox(); renderSelection(); } };
     if (bulk) for (const id of ids) hidden.add(id);
     const op = deferredDelete(async () => {
-      let failed: unknown;
+      bulkOps.delete(op); let failed: unknown;
       for (const id of ids) {
         if (!active) return;
         try { await request(`/api/files/${encodeURIComponent(id)}`, 'DELETE'); }
@@ -180,7 +180,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   listen($('#groups'), 'click', (e: MouseEvent) => {
     const t = e.target as HTMLElement, row = t.closest<HTMLElement>('.row'); if (!row) return;
     const id = row.dataset.id!, f = shelf.files.find(f => f.id === id)!;
-    if (t.closest('.lead')) { e.preventDefault(); sel.toggle(id, order, e.shiftKey); queueMicrotask(() => { if (active) syncRows(); }); return; }
+    if (t.closest('.lead')) { e.preventDefault(); if (morph.get(id)?.state === 'deleted') return; sel.toggle(id, order, e.shiftKey); queueMicrotask(() => { if (active) syncRows(); }); return; }
     const b = t.closest<HTMLElement>('[data-dl],[data-del],[data-cancel],[data-confirm],[data-undo]'); if (!b) return;
     if (b.hasAttribute('data-dl')) { download(e, f); return; } e.preventDefault();
     if (b.hasAttribute('data-del')) { morph.set(id, { state: 'confirm' }); renderInbox(); focusKey(`k-${id}`); }
@@ -197,7 +197,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
   function browserDownload(f: ShelfFile) { const a = document.createElement('a'); a.href = `/api/files/${encodeURIComponent(f.id)}/download`; a.download = f.name; document.body.append(a); a.click(); a.remove(); }
   function download(event: MouseEvent, f: ShelfFile) {
     const picker = (window as Window & { showSaveFilePicker?: SavePicker }).showSaveFilePicker;
-    if (!picker || innerWidth <= 640) { toast('Downloading in your browser'); return; }
+    if (!picker) { toast('Downloading in your browser'); return; }
     event.preventDefault(); const handle = picker({ suggestedName: f.name }); // Must run synchronously in the user's click.
     void streamDownload(handle, f);
   }
@@ -214,7 +214,7 @@ export async function createDashboard(root: HTMLElement, dependencies = { fetch:
       t.size = Number(response.headers.get('Content-Length')) || f.size; t.state = 'downloading'; t.metrics.progress(0, t.size); transfers.render(t);
       const reader = response.body.getReader();
       while (true) {
-        const { done, value } = await reader.read(); if (done) break;
+        const { done, value } = await reader.read().catch(error => { if (!controller.signal.aborted) setOffline(true); throw error; }); if (done) break;
         if (controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
         await writable.write(value); t.sent += value.length; t.metrics.progress(t.sent, t.size); transfers.render(t);
       }
