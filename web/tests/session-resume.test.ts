@@ -117,7 +117,7 @@ test.each([401, 403])('HEAD %i keeps the stored fingerprint and fresh sign-in re
   await api.mount();
   select(file, new File(['queued'], 'must-not-start.zip'));
   await vi.waitFor(() => expect(document.querySelector('a[href="/auth/login"]')).not.toBeNull());
-  expect(document.querySelector('#files')).toBeNull();
+  expect(document.querySelector('#groups')).toBeNull();
   expect({ ...localStorage }).toEqual(storage);
   expect(await seed.findPreviousUploads()).toEqual(saved);
   expect(api.creations).toBe(1);
@@ -157,7 +157,7 @@ test.each(['network', 500] as const)('failed logout (%s) keeps file selection an
   const saved = await seed.findPreviousUploads();
   await api.mount();
   const picker = document.querySelector<HTMLInputElement>('#picker')!;
-  document.querySelector<HTMLButtonElement>('#logout')!.click();
+  document.querySelector<HTMLButtonElement>('#signout-confirm')!.click();
   await vi.waitFor(() => expect(document.querySelector('#notice')?.textContent).toContain(failure === 'network' ? 'Failed to fetch' : 'Logout failed'));
   expect(document.querySelector('#picker')).toBe(picker);
   expect(document.querySelector('a[href="/auth/login"]')).toBeNull();
@@ -167,7 +167,7 @@ test.each(['network', 500] as const)('failed logout (%s) keeps file selection an
   document.querySelector<HTMLButtonElement>('#choose')!.click();
   expect(choose).toHaveBeenCalledOnce();
   select(file, new File(['queued'], 'next.zip'));
-  await vi.waitFor(() => expect([...document.querySelectorAll('.transfer-status')].map(row => row.textContent)).toEqual([
+  await vi.waitFor(() => expect([...document.querySelectorAll('.tr-status')].map(row => row.textContent)).toEqual([
     'On your shelf · 12 B / 12 B', 'On your shelf · 6 B / 6 B',
   ]));
   expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH', 'POST', 'PATCH']);
@@ -190,9 +190,9 @@ test.each([204, 401, 403])('logout %i locks the shelf and stops active/queued tr
     await vi.waitFor(() => expect(api.requests.map(request => request.method)).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH']));
     const storage = { ...localStorage };
     const abortedBefore = api.aborts.length;
-    document.querySelector<HTMLButtonElement>('#logout')!.click();
+    document.querySelector<HTMLButtonElement>('#signout-confirm')!.click();
     await vi.waitFor(() => expect(document.querySelector('a[href="/auth/login"]')).not.toBeNull());
-    expect(document.querySelector('#files')).toBeNull();
+    expect(document.querySelector('#groups')).toBeNull();
     expect(api.aborts.slice(abortedBefore)).toEqual([{ method: 'PATCH', url: saved[0].uploadUrl }]);
     // Even a retained input cannot add work after the authenticated view is removed.
     Object.defineProperty(picker, 'files', { configurable: true, value: [new File(['late'], 'late.zip')] });

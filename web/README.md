@@ -24,10 +24,11 @@ TMPDIR="$HOME/.cache/storagi/tmp" npm run test:preview
 
 Loopback-only `http://127.0.0.1:5174`, strict port. The dashboard is real; service/authentication/files are synthetic and labelled in the page banner. Do not treat this as real Google/service/deployment proof. The separate `tests/vite.mock.config.ts` is never loaded by production build. No production authentication bypass exists. Do not leave this test server running when finished.
 
-The harness starts authenticated with sample Inbox metadata, including duplicate filenames. Fixture downloads contain labelled synthetic text, **not** the represented large files. Newly uploaded synthetic files (up to 64 MiB) are kept in memory and download their actual bytes. PATCH responses wait 600 ms so pause/resume can be exercised. Synthetic state is erased on process exit.
+The harness starts authenticated with sample Inbox metadata, including duplicate filenames. Fixture downloads send Content-Length for streamed progress and contain labelled synthetic text, **not** the represented large files. Newly uploaded synthetic files (up to 64 MiB) are kept in memory and download their actual bytes. PATCH responses wait 600 ms so pause/resume can be exercised. Synthetic state is erased on process exit.
 
 Browser `fetch` controls (test server only):
 
+- `POST /__test/offline`, JSON `{ "offline": true }` (or false): every `/api/*` request returns 503 while offline. Use Retry now or wait for the ten-second countdown to recover after clearing it.
 - `POST /__test/reset`: reset authenticated session, sample files, budget, failures and partials.
 - `GET /__test/state`: inspect synthetic budget/reservations, partial IDs/sizes/offsets and the latest 100 upload requests (method/path/offset), without file contents or credentials.
 - `POST /__test/session`, JSON `{ "authenticated": false }`: simulate session expiry. Refresh the page or attempt a transfer to observe the lock screen. Synthetic Google login immediately unlocks this harness.
@@ -36,3 +37,5 @@ Browser `fetch` controls (test server only):
 - `POST /__test/resume-auth`, JSON `{ "status": 401 }` (or 403): expire the session on the next upload HEAD, returning that status once while retaining the partial. Synthetic Google login preserves partials; reset clears them. For resume proof: upload/pause after a chunk, record state and browser tus storage, arm this control, reload/reselect, check login and unchanged reservation/fingerprint, sign in/reselect, then verify HEAD/PATCH use the original ID/offset with no extra POST. Repeat for 403. Use synthetic files up to 64 MiB.
 
 Synthetic files/artifacts only. Acceptance screenshots should retain the synthetic banner. Useful viewport checks: 390×844, 728×900, 1440×1000. Interactions: search a missing name and clear it; compare duplicate suffixes; open/cancel/confirm delete; download; upload a 24 MiB synthetic file, pause/resume, cancel; reselect after reload; expire the mock session; exhaust quota. Coordinator owns actual integrated service checks and review/PR.
+
+Single downloads use a save picker and streamed progress when available on desktop Chromium; phones and browsers without that API use browser downloads. Selection downloads use ordinary links; browsers may ask to allow multiple downloads. Streamed downloads have Cancel, with no pause/resume.

@@ -69,7 +69,7 @@ test('halts every upload and clears private content when the session expires', a
   mocks.uploads[0].options.onError!(Object.assign(new Error('unauthorized'), { originalResponse: { getStatus: () => 401 } }));
   await tick();
   expect(document.querySelector('a[href="/auth/login"]')).not.toBeNull();
-  expect(document.querySelector('#files')).toBeNull();
+  expect(document.querySelector('#groups')).toBeNull();
   expect(mocks.uploads).toHaveLength(1);
   expect(mocks.uploads[0].abort).toHaveBeenCalledWith(false);
 });

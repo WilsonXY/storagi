@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Storagi Redesign</title>
+  <link rel="icon" type="image/svg+xml" href="shared/brand/favicon.svg">
+  <link rel="icon" href="shared/brand/favicon.ico" sizes="48x48">
+  <link rel="apple-touch-icon" href="shared/brand/apple-touch-icon.png">
+  <link rel="stylesheet" href="shared/tokens.css">
+  <style>
+    .page { max-width: 1200px; margin: 0 auto; padding: 0 24px 96px; }
+    .pond { position: relative; height: 340px; margin: 0 -24px; }
+    .pond canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .pond .head { position: absolute; left: 24px; right: 24px; bottom: 36px; display: grid; gap: 18px; justify-items: start; }
+    .brand { display: flex; align-items: center; gap: 10px; padding-top: 22px; position: relative; font-weight: 500; font-size: 15px; }
+    h1 { font-weight: 300; font-size: clamp(34px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.02em; }
+    .lede { max-width: 620px; color: var(--muted); font-size: 16px; }
+    section { margin-top: 88px; }
+    h2 { font-weight: 500; font-size: 24px; letter-spacing: -0.01em; }
+    .screens { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 24px; margin-top: 24px; align-items: start; }
+    .screens .wide { grid-column: 1 / -1; }
+    .shot { display: block; border-radius: 10px; overflow: hidden; background: var(--raised); box-shadow: 0 0 0 1px var(--border); }
+    .shot img { display: block; width: 100%; height: auto; }
+    figure { margin: 0; display: grid; gap: 8px; }
+    figcaption { color: var(--muted); font-size: 13px; }
+    .before { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; }
+    .before ul { display: grid; gap: 10px; color: var(--muted); }
+    .before li b { color: var(--text); font-weight: 500; }
+    .docs { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    footer { margin-top: 96px; color: var(--faint); font-size: 12px; }
+    footer a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+    @media (max-width: 760px) {
+      .screens, .before { grid-template-columns: 1fr; }
+      .screens .phone { max-width: 220px; }
+      .pond { height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="pond">
+      <canvas id="pond" aria-hidden="true"></canvas>
+      <div class="brand"><img src="shared/brand/favicon.svg" alt="" width="28" height="28">storagi</div>
+      <div class="head">
+        <h1>The new Storagi</h1>
+        <p class="lede">True black on T3 Code's theme, your koi as the mark, ASCII where it carries meaning. The prototype runs on sample files and a simulated host.</p>
+        <a class="btn btn-primary" href="final/index.html">Open the prototype</a>
+      </div>
+    </header>
+
+    <section aria-labelledby="s-title">
+      <h2 id="s-title">Screens</h2>
+      <div class="screens">
+        <figure><a class="shot" href="final/index.html?state=shelf"><img src="shots/final-desktop.webp" alt="The shelf at desktop width: sidebar, drop box under the koi pond, the Inbox, and the transfers panel" loading="lazy"></a><figcaption>The shelf</figcaption></figure>
+        <figure class="phone"><a class="shot" href="final/index.html?state=shelf"><img src="shots/final-phone.webp" alt="The shelf on a phone" loading="lazy"></a><figcaption>On a phone</figcaption></figure>
+        <figure class="wide"><a class="shot" href="final/index.html?state=locked"><img src="shots/final-locked.webp" alt="The locked screen: a card with the static-band koi, Your shelf is locked, and Continue with Google, over the koi pond" loading="lazy"></a><figcaption>Locked</figcaption></figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="b-title">
+      <h2 id="b-title">Where it started</h2>
+      <div class="before">
+        <a class="shot" href="shots/before-desktop.webp"><img src="shots/before-desktop.webp" alt="The previous Storagi shelf: cream page, serif title, drop box and storage card above the fold, Inbox below it" loading="lazy"></a>
+        <ul>
+          <li><b>6 fails, 2 warnings</b> from the taste inspector.</li>
+          <li><b>The Inbox started below the fold.</b></li>
+          <li><b>No speed, time left or download progress.</b></li>
+          <li><b>Manual refresh, one file at a time, delete without undo.</b></li>
+        </ul>
+      </div>
+      <div class="docs">
+        <a class="btn btn-outline" href="AUDIT.md">Audit</a>
+        <a class="btn btn-outline" href="REFERENCES.md">References</a>
+        <a class="btn btn-outline" href="HANDOFF.md">Implementation brief</a>
+      </div>
+    </section>
+
+    <footer>
+      Leon Sans 2.0 by Jongmin Kim and JetBrains Mono by JetBrains, both under the <a href="shared/fonts/LeonSans-OFL.txt">SIL Open Font License 1.1</a>. Ideas borrowed from stackedlol, Kevser, Elia Kuratli and Emil Kowalski, credited in the references.
+    </footer>
+  </div>
+
+  <script type="module">
+    import { KoiPond } from './shared/koi.js';
+    const pond = document.getElementById('pond');
+    new KoiPond(pond, { count: 4, size: [140, 220], opacity: 0.85, avoid: () => { const h = document.querySelector('.head').getBoundingClientRect(), r = pond.getBoundingClientRect(); return [{ x: h.left - r.left, y: h.top - r.top, w: h.width, h: h.height, dim: 0.22 }]; } });
+  </script>
+</body>
+</html>
