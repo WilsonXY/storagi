@@ -143,6 +143,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 106 | Deeper public DNS investigation and evidence-backed test coordination | Coordinator | DNS+public TLS PASS by32min without mutation; owner Tailscale-off browser PASS; exact upstream delay cause unobserved | [106](stages/106-public-dns-investigation.md) |
 | 107 | Independent client announcement/source and upstream cause investigation | Distinct diagnosis task, runtime-reported Codex gpt-6.1-sol/high | Completed; source announcement retained/retried, no local change at recovery; no corrective mutation needed | [107](stages/107-funnel-announcement-investigation.md) |
 | 108 | Permanent Tailscale node unit, owner-run move guide, experiment cleanup | Coordinator (Claude Opus 5.5) | Completed in repo; unit verify + seccomp/address-family sandbox run PASS; move owner-run, not yet done | [108](stages/108-dedicated-tailscale-node.md) |
+| 109 | Independent review of 108 | Fresh Codex gpt-6.1-sol/high, confirmed | FAIL; 2 blocking guide-order/guard findings + 2 suggestions, all fixed in 108 | [109](stages/109-tailscale-node-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

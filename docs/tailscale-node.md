@@ -28,7 +28,7 @@ sudo systemctl enable --now tailscaled-storagi.service
 sock=/run/tailscale-storagi/tailscaled.sock
 ```
 
-Check: `systemctl is-active tailscaled-storagi.service` is `active`; `tailscale --socket=$sock status` says `Logged out.`; `sudo systemd-analyze security tailscaled-storagi.service | tail -1` prints a score.
+Check: `systemctl is-active tailscaled-storagi.service` is `active`; `tailscale --socket=$sock status` says `Logged out.`
 
 **2. Enrol it as `storagi`.**
 
@@ -70,7 +70,7 @@ dig +short "$new" @1.1.1.1                           # repeat every few minutes 
 curl -s -o /dev/null -w '%{http_code}\n' "https://$new/"   # 400: Storagi answers but refuses this address until step 6
 ```
 
-**5. Google sign-in.** In the Google Cloud console, open Storagi's OAuth client and add `https://storagi.<tailnet>.ts.net/auth/callback` to **Authorized redirect URIs**. Keep the old one until step 8. Google can take a few minutes to apply it.
+**5. Google sign-in.** In the Google Cloud console, open Storagi's OAuth client and add `https://storagi.<tailnet>.ts.net/auth/callback` to **Authorized redirect URIs**. Keep the old one until step 7. Google can take a few minutes to apply it.
 
 **6. Switch the origin.** Downtime starts here.
 
@@ -91,9 +91,24 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Host: $new" http://127.0.0.1:8787/a
 curl -s -o /dev/null -w '%{http_code}\n' "https://$new/"                                    # 200
 ```
 
-Then on the phone with Tailscale off, open `https://storagi.<tailnet>.ts.net`. Sign in again: sessions belong to the old address. Upload a small file, download it and compare, then download a large one (500 MB or more) and note the speed against the old 1.6-1.7 MB/s average. Delete both.
+Then on the phone with Tailscale off, open `https://storagi.<tailnet>.ts.net`. Sign in again: sessions belong to the old address. Upload a small file, download it and compare, then download a large one (500 MB or more) and note the speed against the old 1.6-1.7 MB/s average. Delete both. If any step-6 check fails, roll back (below) instead of going on.
 
-**7. Rollback, valid until step 8.**
+**7. Retire the old address**, only after every step-6 check passed. This ends the rollback path. `serve --https=443 off` removes everything on the host's port 443, so first make sure it still holds only Storagi:
+
+```sh
+tailscale serve status --json | python3 -c 'import json,sys; h=[v["Handlers"] for k,v in json.load(sys.stdin)["Web"].items() if k.endswith(":443")]; print("only-storagi" if h==[{"/":{"Proxy":"http://127.0.0.1:8787"}}] else "STOP: %s" % h)'
+```
+
+Go on only if it prints `only-storagi`; on `STOP`, something else now uses the host's port 443, so leave it and report it.
+
+```sh
+tailscale serve --https=443 off                     # prefix sudo if refused
+sudo rm /etc/storagi/environment.before-node
+```
+
+Check: `tailscale serve status --json` has no `:443` entry under `Web` or `AllowFunnel`, and the host's listener count is one less than in step 0. The old address no longer reaches Storagi. In the Google console, remove the old redirect URI.
+
+**Rollback, only if step 6 failed** (before step 7):
 
 ```sh
 sudo cp -p /etc/storagi/environment.before-node /etc/storagi/environment
@@ -101,15 +116,6 @@ sudo systemctl restart storagi.service
 ```
 
 The old address works again at once, because its Funnel mapping is still on. The new node can stay; `sudo systemctl disable --now tailscaled-storagi.service` stops it.
-
-**8. Retire the old address**, only after every step-6 check passed. This ends the rollback path.
-
-```sh
-tailscale serve --https=443 off                     # the host node's mapping only; prefix sudo if refused
-sudo rm /etc/storagi/environment.before-node
-```
-
-Check: `tailscale serve status --json` has no `:443` entry under `Web` or `AllowFunnel`, and the host's listener count is one less than in step 0. The old address no longer reaches Storagi. In the Google console, remove the old redirect URI.
 
 ## Running it
 
