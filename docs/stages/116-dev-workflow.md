@@ -1,6 +1,6 @@
 # 116: Gitleaks and Prettier development workflow
 
-- Status: implemented; coordinator's independent review/publication pending
+- Status: completed; reviewed in [117](117-dev-workflow-review.md)
 - Started: 2026-10-25 (Asia/Kuala_Lumpur)
 - Coordinator thread: `42d785a3-6c60-4ddc-8d8b-c6f10923031b`
 - Owner: distinct delegated implementation task; coordinator integrates and publishes.

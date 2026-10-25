@@ -114,7 +114,7 @@ before(() => {
   write(
     `${src}/build.sh`,
     [
-      'mkdir -p server/dist/src server/node_modules/better-sqlite3 server/node_modules/.bin web/dist web/node_modules/vite',
+      'mkdir -p server/dist/src server/node_modules/better-sqlite3 server/node_modules/.bin web/dist web/node_modules/vite node_modules/prettier',
       'echo "console.log(1)" > server/dist/src/main.js',
       'cp server/src/config.js server/dist/src/config.js',
       'echo "module.exports = class { prepare() { return { get: () => 1 }; } };" > server/node_modules/better-sqlite3/index.js',
@@ -122,6 +122,7 @@ before(() => {
       'echo "<!doctype html>" > web/dist/index.html',
       '[ ! -f "$EXTERNAL_LINK" ] || ln -s "$EXTERNAL_LINK" server/dist/src/main.js.map',
       'echo dev > web/node_modules/vite/index.js',
+      'echo dev > node_modules/prettier/index.js',
       '',
     ].join('\n'),
   );
@@ -602,6 +603,7 @@ test(
       lstatSync(`${release}/server/node_modules/.bin/fake`).isSymbolicLink(),
     );
     assert.ok(!existsSync(`${release}/web/node_modules`));
+    assert.ok(!existsSync(`${release}/node_modules`));
     assert.equal(f.serviceCwd(), `${release}/server`);
     assert.match(f.log('prestart.log'), /verify-release: v1\.1\.0 .* ok/);
     // The installed unit is never written; no daemon-reload; the system manager, not a user manager.

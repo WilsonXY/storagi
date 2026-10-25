@@ -150,8 +150,8 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 113 | Independent re-review of 111 after 112's fixes | Fresh Codex gpt-6.1-sol/high, confirmed | PASS; no findings | [113](stages/113-tailscale-node-rollout-review-2.md) |
 | 114 | Allow browsers to save public bookmark icons | Distinct implementation task; coordinator integration | Completed; RED→GREEN, 286 checks/types/builds and built-icon HTTP smoke PASS; 115 review PASS | [114](stages/114-bookmark-icons.md) |
 | 115 | Independent review of bookmark icon caching | Owner-requested fresh GPT-6-Astra/high, own session confirmed | PASS; no findings, read-only invariants and cleanup PASS | [115](stages/115-bookmark-icons-review.md) |
-| 116 | Add local and CI Gitleaks/Prettier workflow, initial mechanical formatting | Distinct implementation task; coordinator integration | Implemented; 286 checks/types/builds and negative probes PASS, review pending | [116](stages/116-dev-workflow.md) |
-| 117 | Independent review of Gitleaks/Prettier workflow | Owner-requested fresh GPT-6-Astra/high | Planned after committed implementation and verification | [117](stages/117-dev-workflow-review.md) |
+| 116 | Add local and CI Gitleaks/Prettier workflow, initial mechanical formatting | Distinct implementation task; coordinator integration | Completed; 286 checks/types/builds and negative probes PASS, reviewed in 117 | [116](stages/116-dev-workflow.md) |
+| 117 | Independent review of Gitleaks/Prettier workflow | Astra/high requested but unavailable (`model_not_found`); fresh Claude Opus 5.5/high per owner routing | PASS; low finding + 2 suggestions fixed, check PASS | [117](stages/117-dev-workflow-review.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

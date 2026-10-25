@@ -7,7 +7,7 @@
     "format": "prettier --write \"{server,web,scripts}/**/*.{ts,js,mjs,css,html}\"",
     "format:check": "prettier --check \"{server,web,scripts}/**/*.{ts,js,mjs,css,html}\"",
     "secrets:check": "gitleaks git --pre-commit --staged --redact .",
-    "secrets:history": "gitleaks git --log-opts=--all --redact .",
+    "secrets:history": "gitleaks git --redact .",
     "test": "npm test --prefix server && npm test --prefix web",
     "typecheck": "npm run typecheck --prefix server && npm run typecheck --prefix web",
     "build": "npm run build --prefix server && npm run build --prefix web",
