@@ -40,7 +40,7 @@ echo "deploy: building $tag ($commit) in $staging"
 git -C "$repo" archive "$commit" | tar -x -C "$staging"
 (cd "$staging" && npm run setup && npm run check)
 (cd "$staging/server" && npm prune --omit=dev)
-rm -rf "$staging/web/node_modules"
+rm -rf "$staging/node_modules" "$staging/web/node_modules"
 # The node the unit runs must load the native SQLite binding.
 node=$(sed -n 's/^ExecStart=\([^ ]*\) .*/\1/p' "$staging/deploy/storagi.service")
 (cd "$staging/server" && "$node" -e "new (require('better-sqlite3'))(':memory:').prepare('select 1').get()")

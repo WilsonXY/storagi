@@ -3,7 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "setup": "npm ci --prefix server && npm ci --prefix web",
+    "setup": "npm ci && npm ci --prefix server && npm ci --prefix web",
+    "format": "prettier --write \"{server,web,scripts}/**/*.{ts,js,mjs,css,html}\"",
+    "format:check": "prettier --check \"{server,web,scripts}/**/*.{ts,js,mjs,css,html}\"",
+    "secrets:check": "gitleaks git --pre-commit --staged --redact .",
+    "secrets:history": "gitleaks git --redact .",
     "test": "npm test --prefix server && npm test --prefix web",
     "typecheck": "npm run typecheck --prefix server && npm run typecheck --prefix web",
     "build": "npm run build --prefix server && npm run build --prefix web",
@@ -11,5 +15,8 @@
     "start": "npm start --prefix server",
     "test:acceptance": "server/node_modules/.bin/tsx --test scripts/acceptance-api.test.ts scripts/acceptance-review-fixes.test.ts",
     "test:deploy": "server/node_modules/.bin/tsx --test scripts/deploy.test.ts scripts/autodeploy.test.ts"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10"
   }
 }
