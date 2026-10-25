@@ -1,0 +1,13 @@
+# Build output, dependencies and recorded evidence.
+node_modules/
+dist/
+coverage/
+artifacts/
+design/explorations/shots/
+
+# Encoded/generated brand data and binary font/icon assets.
+web/src/mark.ts
+web/public/
+web/src/fonts/
+design/explorations/shared/brand/
+design/explorations/shared/fonts/

@@ -4,16 +4,19 @@ These instructions cover a new installation. The approved Funnel access is recor
 
 ## Build and verify
 
-Use Node 22.22 or newer on Node 22 (matching the verified host) and npm. The two packages have committed lockfiles. From the repository root:
+Use Node 22.22 or newer on Node 22 (matching the verified host) and npm. The root development tools and both application packages have committed lockfiles. From the repository root:
 
 ```sh
 mkdir -p "$HOME/.cache/storagi/tmp"
 export TMPDIR="$HOME/.cache/storagi/tmp"
 npm run setup
+npm run format:check
 npm run check
 ```
 
 The root check runs behavior/security and independent HTTP acceptance tests, deploy-script tests, TypeScript checks and both builds sequentially. There is no separate lint configuration. Tests use temporary synthetic objects and a signed test OIDC provider; they never require owner files or real Google credentials. Browser mock checks are separate and are not proof of real Google login.
+
+See [formatting and staged secret checks](../README.md#formatting-and-secret-checks) for the pinned formatter, verified Gitleaks installation and checks to run before committing. CI also scans full Git history.
 
 ## Required Google configuration
 
