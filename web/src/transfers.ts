@@ -192,7 +192,14 @@ export function setupTransfers(
         ? 'Let go to put them on the shelf'
         : 'Drop files to put them on the shelf';
     },
-    drop: add,
+    drop: (files, folders) => {
+      add(files);
+      if (folders.length)
+        hooks.notice(
+          `Folders can't be uploaded. Zip ${folders.join(', ')} first.`,
+          true,
+        );
+    },
   });
   async function act(item: Item, action: string) {
     if (stopped) return;

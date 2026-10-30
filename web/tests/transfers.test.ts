@@ -183,3 +183,29 @@ test('refreshes reserved storage when the server creates a partial upload', asyn
     '16 MiB reserved',
   );
 });
+
+test('a dropped folder is refused with a notice; files dropped beside it still upload', async () => {
+  await mount();
+  const entry = (isDirectory: boolean, file: File) => ({
+    kind: 'file',
+    getAsFile: () => file,
+    webkitGetAsEntry: () => ({ isDirectory }),
+  });
+  const folder = new File([], 'posters');
+  const file = new File(['x'], 'posters.zip');
+  const drop = new Event('drop', { cancelable: true });
+  Object.defineProperty(drop, 'dataTransfer', {
+    value: {
+      types: ['Files'],
+      files: [folder, file],
+      items: [entry(true, folder), entry(false, file)],
+    },
+  });
+  window.dispatchEvent(drop);
+  await tick();
+  expect(drop.defaultPrevented).toBe(true);
+  expect(mocks.uploads).toHaveLength(1);
+  expect(document.querySelector('#notice span')?.textContent).toBe(
+    "Folders can't be uploaded. Zip posters first.",
+  );
+});
