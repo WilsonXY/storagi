@@ -5,7 +5,7 @@ type Options = {
   onTick?: (seconds: number) => void;
   onError?: (error: unknown) => void;
 };
-// The real DELETE is deferred, so closing the page during the grace keeps the server copy.
+// The real DELETE is deferred until the grace ends, or until flush() (the page is closing).
 export function deferredDelete(
   remove: () => Promise<unknown>,
   { grace = 6000, onCommit, onUndo, onTick, onError }: Options = {},
@@ -33,6 +33,9 @@ export function deferredDelete(
       done = true;
       clearInterval(timer);
       onUndo?.();
+    },
+    flush() {
+      void commit();
     },
     destroy() {
       done = true;

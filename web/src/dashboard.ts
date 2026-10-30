@@ -213,10 +213,10 @@ export async function createDashboard(
     for (const op of pending) op.destroy();
     for (const cancel of downloads) cancel();
   });
-  // A frozen or cached page would otherwise send its DELETEs the moment it wakes, with no Undo left.
+  // Refreshing or leaving during the grace counts as not undoing: send the DELETEs now (keepalive outlives the page).
   listen(window, 'pagehide', () => {
     gestures.cancel();
-    for (const op of [...pending]) op.undo();
+    for (const op of [...pending]) op.flush();
     closeToast();
   });
   const transfers = createTransferView(root);
@@ -291,6 +291,7 @@ export async function createDashboard(
         method,
         credentials: 'same-origin',
         headers: method === 'GET' ? {} : { 'X-CSRF-Token': session.csrfToken },
+        keepalive: method === 'DELETE',
         ...(signal ? { signal } : {}),
       });
     } catch (error) {
@@ -513,19 +514,22 @@ export async function createDashboard(
     const op = deferredDelete(
       async () => {
         bulkOps.delete(op);
+        if (!active) return;
         let failed: unknown;
-        for (const id of ids) {
-          if (!active) return;
-          try {
-            await request(`/api/files/${encodeURIComponent(id)}`, 'DELETE');
-          } catch (error) {
-            if (![404, 410].includes((error as { status?: number }).status!)) {
-              failed ??= error;
-              continue;
-            }
-          }
-          shelf.files = shelf.files.filter((f) => f.id !== id);
-        }
+        // All at once: only requests started before unload are sent.
+        const results = await Promise.allSettled(
+          ids.map((id) =>
+            request(`/api/files/${encodeURIComponent(id)}`, 'DELETE'),
+          ),
+        );
+        results.forEach((result, i) => {
+          if (
+            result.status === 'rejected' &&
+            ![404, 410].includes((result.reason as { status?: number }).status!)
+          )
+            failed ??= result.reason;
+          else shelf.files = shelf.files.filter((f) => f.id !== ids[i]);
+        });
         if (failed) throw failed;
       },
       {

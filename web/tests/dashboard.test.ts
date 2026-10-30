@@ -540,18 +540,27 @@ test('a dashboard opened in a background tab still loads its list', async () => 
     delete (document as { visibilityState?: unknown }).visibilityState;
   }
 });
-test('leaving the page restores pending deletes instead of sending them on wake', async () => {
+test('leaving the page sends pending deletes at once, inline and bulk, so they survive unload', async () => {
   vi.useFakeTimers();
   const api = service();
   await mount(api.fetcher);
   click('[data-del="new-id"]');
   click('[data-confirm="new-id"]');
+  click('[data-id="old-id"] .lead');
+  click('#sel-delete');
   window.dispatchEvent(new Event('pagehide'));
+  const sent = (api.fetcher.mock.calls as unknown[][]).filter(
+    (c) => (c[1] as RequestInit | undefined)?.method === 'DELETE',
+  );
+  expect(sent.map((c) => String(c[0])).sort()).toEqual([
+    '/api/files/new-id',
+    '/api/files/old-id',
+  ]);
+  for (const c of sent)
+    expect(c[1]).toEqual(expect.objectContaining({ keepalive: true }));
   await vi.advanceTimersByTimeAsync(10_000);
-  expect(
-    api.fetcher.mock.calls.filter((c) => String(c[0]).includes('/new-id')),
-  ).toHaveLength(0);
-  expect(document.querySelector('[data-del="new-id"]')).not.toBeNull();
+  expect(deletes(api.fetcher)).toHaveLength(2);
+  expect(document.querySelector('[data-undo]')).toBeNull();
 });
 test('an Undo toast is not pushed away by a later notice; the notice waits', async () => {
   vi.useFakeTimers();

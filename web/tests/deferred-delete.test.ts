@@ -47,3 +47,18 @@ test('reports rejected deletion without an unhandled timer rejection or a succes
   expect(onError).toHaveBeenCalledWith(error);
   expect(onCommit).not.toHaveBeenCalled();
 });
+test('flush sends the delete now and ends the grace', async () => {
+  vi.useFakeTimers();
+  const remove = vi.fn().mockResolvedValue(undefined),
+    onUndo = vi.fn(),
+    onTick = vi.fn();
+  const deletion = deferredDelete(remove, { onUndo, onTick });
+  deletion.flush();
+  expect(remove).toHaveBeenCalledOnce();
+  deletion.flush();
+  deletion.undo();
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(remove).toHaveBeenCalledOnce();
+  expect(onUndo).not.toHaveBeenCalled();
+  expect(onTick).not.toHaveBeenCalled();
+});
