@@ -10,7 +10,6 @@ type Gesture = {
   y: number;
   at: number;
   mode: 'pending' | 'paint' | 'swipe';
-  hold?: ReturnType<typeof setTimeout>;
   swipe?: Swipe;
 };
 export function rowGestures(
@@ -26,6 +25,7 @@ export function rowGestures(
     wheel:
       | { swipe: Swipe; dx: number; timer?: ReturnType<typeof setTimeout> }
       | undefined,
+    tap: { id: string; at: number } | undefined,
     eat = false,
     frame = 0,
     settling = false,
@@ -125,9 +125,12 @@ export function rowGestures(
     if (!g) return;
     const old = g;
     g = undefined;
-    clearTimeout(old.hold);
     cancelAnimationFrame(frame);
     document.body.classList.remove('painting');
+    tap =
+      commit && old.touch && !old.lead && old.mode === 'pending'
+        ? { id: old.id, at: Date.now() }
+        : undefined;
     if (old.mode !== 'pending') {
       eat = true;
       setTimeout(() => {
@@ -155,14 +158,16 @@ export function rowGestures(
       at: e.clientY,
       mode: 'pending',
     };
-    if (g.touch && !g.lead) {
-      const current = g;
-      g.hold = setTimeout(() => {
-        if (g === current && g.mode === 'pending') {
-          startPaint();
-          navigator.vibrate?.(8);
-        }
-      }, 400);
+    // Touch: tap a row, then touch it again and drag (like a touchpad's tap-and-drag) to select.
+    if (
+      g.touch &&
+      !g.lead &&
+      tap?.id === g.id &&
+      Date.now() - tap.at < 350 &&
+      !(e.target as Element).closest('a, button')
+    ) {
+      startPaint();
+      navigator.vibrate?.(8);
     }
   });
   on(window, 'pointermove', (e: PointerEvent) => {
@@ -171,7 +176,6 @@ export function rowGestures(
       dy = e.clientY - g.y;
     if (g.mode === 'pending') {
       if (Math.hypot(dx, dy) < 8) return;
-      clearTimeout(g.hold);
       const sideways = Math.abs(dx) > Math.abs(dy) * 1.2;
       if (!g.lead && sideways && dx < 0) {
         g.mode = 'swipe';
@@ -193,14 +197,16 @@ export function rowGestures(
   on(window, 'pointercancel', (e: PointerEvent) => {
     if (g?.pid === e.pointerId) end();
   });
-  on(
-    groups,
-    'touchmove',
-    (e: TouchEvent) => {
-      if (g && g.mode !== 'pending') e.preventDefault();
-    },
-    false,
-  );
+  // Painting from touchstart on stops Chrome from scrolling the page instead (and sending pointercancel).
+  for (const type of ['touchstart', 'touchmove'])
+    on(
+      groups,
+      type,
+      (e: TouchEvent) => {
+        if (g && g.mode !== 'pending') e.preventDefault();
+      },
+      false,
+    );
   on(
     groups,
     'contextmenu',

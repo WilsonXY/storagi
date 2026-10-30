@@ -1025,6 +1025,38 @@ test('confirming a delete in the middle of a drag-select drops that row from the
   pointer(window, 'pointerup', 30);
   expect(document.querySelector('#sel-count')?.textContent).toBe('1');
 });
+test('on touch, a double tap on a row then a drag selects; a slow second tap scrolls', async () => {
+  vi.useFakeTimers();
+  await mount();
+  const name = rows()[0].querySelector('.name')!;
+  const touch = (target: EventTarget, type: string, y: number) =>
+    target.dispatchEvent(
+      Object.assign(
+        new MouseEvent(type, {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: y,
+        }),
+        { pointerId: 2, pointerType: 'touch' },
+      ),
+    );
+  const count = () => document.querySelector('#sel-count')?.textContent ?? '0';
+  touch(name, 'pointerdown', 0);
+  touch(window, 'pointerup', 0);
+  await vi.advanceTimersByTimeAsync(500);
+  touch(name, 'pointerdown', 0);
+  touch(window, 'pointermove', 40);
+  touch(window, 'pointerup', 40);
+  expect(count()).toBe('0');
+  touch(name, 'pointerdown', 0);
+  touch(window, 'pointerup', 0);
+  await vi.advanceTimersByTimeAsync(150);
+  touch(name, 'pointerdown', 0);
+  touch(window, 'pointermove', 40);
+  touch(window, 'pointerup', 40);
+  expect(count()).toBe('2');
+});
 test('a swipe that replaces the focused Delete button moves focus to its Undo', async () => {
   vi.useFakeTimers();
   await mount();
