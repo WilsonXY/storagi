@@ -20,6 +20,7 @@ test('signed OIDC identity, PKCE, state/nonce, allowlist, replay and session rev
     assert.equal(request.searchParams.get('code_challenge_method'), 'S256');
     assert.ok(request.searchParams.get('state'));
     assert.ok(request.searchParams.get('nonce'));
+    assert.deepEqual(auth.profile(), { name: null, picture: null });
     id.set({ nonce: request.searchParams.get('nonce')! });
     const result = await auth.callback(
       begin.token,
@@ -29,6 +30,11 @@ test('signed OIDC identity, PKCE, state/nonce, allowlist, replay and session rev
       ),
     );
     assert.equal(auth.session(result.token)?.csrf, result.csrf);
+    const ada = {
+      name: 'Ada Lovelace',
+      picture: 'https://lh3.googleusercontent.com/a/photo',
+    };
+    assert.deepEqual(auth.profile(), ada);
     assert.ok(id.verifier());
     assert.equal(
       await oidc.calculatePKCECodeChallenge(id.verifier()),
@@ -81,6 +87,28 @@ test('signed OIDC identity, PKCE, state/nonce, allowlist, replay and session rev
         new URL('https://shelf.example/auth/callback?code=x&state=wrong'),
       ),
     );
+    // Rejected logins, including another account, leave the profile alone.
+    assert.deepEqual(auth.profile(), ada);
+    const relogin = await auth.begin(),
+      again = new URL(relogin.url).searchParams;
+    id.set({
+      sub: '123',
+      tamper: false,
+      expired: false,
+      audience: 'synthetic-client',
+      issuer: 'https://accounts.google.com',
+      nonce: again.get('nonce')!,
+      name: null,
+      picture: 'https://evil.example/lh3.googleusercontent.com/a/photo',
+    });
+    await auth.callback(
+      relogin.token,
+      new URL(
+        'https://shelf.example/auth/callback?code=x&state=' +
+          again.get('state'),
+      ),
+    );
+    assert.deepEqual(auth.profile(), { name: null, picture: null });
   } finally {
     storage.close();
     await rm(dir, { recursive: true, force: true });

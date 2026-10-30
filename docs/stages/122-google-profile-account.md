@@ -1,6 +1,6 @@
 # 122: Show the owner's Google name and photo in the sidebar
 
-- Status: in progress; independent review is stage123
+- Status: completed; independent stage123 review PASS, its suggestions fixed
 - Started / last updated: 2026-10-30 (Asia/Kuala_Lumpur)
 - Coordinator thread: T3 worktree `t3-6b130295`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
@@ -28,6 +28,7 @@
 Private logs and screenshots are in `"$HOME/.cache/storagi/tmp"` and `"$HOME/.cache/storagi/proof-122"`, outside Git.
 
 - `npm run format:check` PASS. `npm run check` exit 0: 33 server, 90 web, 11 HTTP acceptance and 154 deploy tests, both typechecks and builds.
+- Gitleaks was not installed when `b5f0ef8` was committed, so `secrets:check` did not run; Gitleaks 8.30.1 was then installed with its checksum verified and `gitleaks git` over `c171d26..b5f0ef8` found no leaks. The follow-up commit passed `secrets:check`.
 - Mock preview (loopback 5174, synthetic data) in headless Chromium at 1280×900 and 390×844 (phone menu opened): the sidebar shows "Synthetic Owner" and the 28 px round photo; at desktop width the name is cut with an ellipsis. The preview was stopped afterwards.
 
 ## Findings and limitations
@@ -36,4 +37,4 @@ Not tried with a real Google login: the real photo URL, the Google consent scree
 
 ## Handoff
 
-The coordinator commits, runs the stage123 review, fixes its findings and opens the PR. No merge, tag or deployment.
+Commits: `b5f0ef8`, then a follow-up with stage123's fixes. The coordinator opens the PR and watches CI. No merge, tag or deployment.
