@@ -976,7 +976,7 @@
   opacity: 0;
   transform: translateX(8px);
 }
-/* gestures: rows keep vertical scrolling on touch; the checkbox column is the drag-to-select handle */
+/* gestures: rows keep vertical scrolling on touch (double tap and drag selects); the checkbox column is the drag-to-select handle */
 .app.gestures #groups .row {
   touch-action: pan-y;
   user-select: none;

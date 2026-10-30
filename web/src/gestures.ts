@@ -6,11 +6,11 @@ type Gesture = {
   pid: number;
   touch: boolean;
   lead: boolean;
+  body: boolean; // on the row itself, not its checkbox, link or buttons
   x: number;
   y: number;
   at: number;
   mode: 'pending' | 'paint' | 'swipe';
-  hold?: ReturnType<typeof setTimeout>;
   swipe?: Swipe;
 };
 export function rowGestures(
@@ -26,6 +26,7 @@ export function rowGestures(
     wheel:
       | { swipe: Swipe; dx: number; timer?: ReturnType<typeof setTimeout> }
       | undefined,
+    tap: { id: string; at: number } | undefined,
     eat = false,
     frame = 0,
     settling = false,
@@ -119,15 +120,18 @@ export function rowGestures(
     selection.beginDrag(g.id, order());
     document.body.classList.add('painting');
     paint();
-    frame = requestAnimationFrame(scrollEdge);
   }
   function end(commit = false) {
     if (!g) return;
     const old = g;
     g = undefined;
-    clearTimeout(old.hold);
     cancelAnimationFrame(frame);
+    frame = 0;
     document.body.classList.remove('painting');
+    tap =
+      commit && old.touch && old.body && old.mode === 'pending'
+        ? { id: old.id, at: Date.now() }
+        : undefined;
     if (old.mode !== 'pending') {
       eat = true;
       setTimeout(() => {
@@ -150,19 +154,16 @@ export function rowGestures(
       pid: e.pointerId,
       touch: e.pointerType === 'touch',
       lead: !!(e.target as Element).closest('.lead'),
+      body: !(e.target as Element).closest('.lead, a, button'),
       x: e.clientX,
       y: e.clientY,
       at: e.clientY,
       mode: 'pending',
     };
-    if (g.touch && !g.lead) {
-      const current = g;
-      g.hold = setTimeout(() => {
-        if (g === current && g.mode === 'pending') {
-          startPaint();
-          navigator.vibrate?.(8);
-        }
-      }, 400);
+    // Touch: tap a row, then touch it again and drag (like a touchpad's tap-and-drag) to select.
+    if (g.touch && g.body && tap?.id === g.id && Date.now() - tap.at < 350) {
+      startPaint();
+      navigator.vibrate?.(8);
     }
   });
   on(window, 'pointermove', (e: PointerEvent) => {
@@ -171,7 +172,6 @@ export function rowGestures(
       dy = e.clientY - g.y;
     if (g.mode === 'pending') {
       if (Math.hypot(dx, dy) < 8) return;
-      clearTimeout(g.hold);
       const sideways = Math.abs(dx) > Math.abs(dy) * 1.2;
       if (!g.lead && sideways && dx < 0) {
         g.mode = 'swipe';
@@ -184,7 +184,12 @@ export function rowGestures(
     }
     if (!g) return;
     g.at = e.clientY;
-    if (g.mode === 'paint') paint();
+    if (g.mode === 'paint') {
+      paint();
+      // Edge scrolling waits for a drag, so a double tap near an edge stays a tap.
+      if (!frame && Math.hypot(dx, dy) >= 8)
+        frame = requestAnimationFrame(scrollEdge);
+    }
     if (g.swipe) slide(g.swipe, dx);
   });
   on(window, 'pointerup', (e: PointerEvent) => {
@@ -193,14 +198,16 @@ export function rowGestures(
   on(window, 'pointercancel', (e: PointerEvent) => {
     if (g?.pid === e.pointerId) end();
   });
-  on(
-    groups,
-    'touchmove',
-    (e: TouchEvent) => {
-      if (g && g.mode !== 'pending') e.preventDefault();
-    },
-    false,
-  );
+  // Painting from touchstart on stops Chrome from scrolling the page instead (and sending pointercancel).
+  for (const type of ['touchstart', 'touchmove'])
+    on(
+      groups,
+      type,
+      (e: TouchEvent) => {
+        if (g && g.mode !== 'pending') e.preventDefault();
+      },
+      false,
+    );
   on(
     groups,
     'contextmenu',
