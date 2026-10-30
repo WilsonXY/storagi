@@ -313,6 +313,7 @@ test('direct checkbox clicks stay checked and shift selection selects a range', 
   box.click();
   expect(box.checked).toBe(false);
   box.click();
+  expect(box.checked).toBe(true);
   document.querySelector('[data-id="old-id"] .lead')!.dispatchEvent(
     new MouseEvent('click', {
       bubbles: true,
