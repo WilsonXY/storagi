@@ -143,7 +143,16 @@ async function handle(
     return send(response, 204);
   }
   if (path === '/api/session')
-    return send(response, 200, { authenticated: true, csrfToken: csrf });
+    return send(response, 200, {
+      authenticated: true,
+      csrfToken: csrf,
+      name: 'Synthetic Owner',
+      picture:
+        'data:image/svg+xml,' +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28"><rect width="28" height="28" fill="#2f7d6d"/><text x="14" y="19" font-size="13" text-anchor="middle" fill="#fff">SO</text></svg>',
+        ),
+    });
   if (path === '/api/files')
     return send(response, 200, {
       files: files.map(({ data: _data, ...file }) => file),

@@ -34,7 +34,7 @@ export async function startEnrollment(config: oidc.Configuration, port = 8989) {
       nonce,
       verifier,
     }).then(
-      (sub) => {
+      ({ sub }) => {
         res.writeHead(200, {
           'Content-Type': 'text/plain',
           'Cache-Control': 'no-store',

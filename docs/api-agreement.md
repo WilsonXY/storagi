@@ -4,7 +4,7 @@ One Node 22+ process, TypeScript; maintained `openid-client` for Google OIDC and
 
 Same-origin endpoints (all JSON errors `{error: string}`):
 
-- GET `/api/session`: 200 `{authenticated: true, csrfToken: string}` or 401. No owner identity leaks.
+- GET `/api/session`: 200 `{authenticated: true, csrfToken: string, name: string|null, picture: string|null}` or 401. `name` and `picture` come from the owner's last Google login (`profile` scope) and are only sent to an owner session; `picture` is only ever a `https://lh3.googleusercontent.com/` URL.
 - GET `/auth/login`, GET `/auth/callback`, POST `/auth/logout` (CSRF token).
 - GET `/api/files?q=...`: `{files: [{id, name, size, uploadedAt, expiresAt}], usedBytes, reservedBytes, budgetBytes}`. ISO timestamps; completed Inbox files only, newest first. UUID suffix displayed in UI to distinguish repeated names.
 - GET `/api/files/:id/download`: protected attachment; byte ranges supported.
