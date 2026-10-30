@@ -213,10 +213,14 @@ export async function createDashboard(
     for (const op of pending) op.destroy();
     for (const cancel of downloads) cancel();
   });
-  // Refreshing or leaving during the grace counts as not undoing: send the DELETEs now (keepalive outlives the page).
+  // Refreshing or leaving during the grace counts as not undoing: send the DELETEs now, with keepalive so they outlive the page.
+  // ponytail: Chromium allows 256 keepalive requests per frame; beyond that the rest are dropped and those copies stay. A bulk-delete endpoint lifts it.
+  let leaving = false;
   listen(window, 'pagehide', () => {
     gestures.cancel();
+    leaving = true;
     for (const op of [...pending]) op.flush();
+    leaving = false;
     closeToast();
   });
   const transfers = createTransferView(root);
@@ -291,7 +295,7 @@ export async function createDashboard(
         method,
         credentials: 'same-origin',
         headers: method === 'GET' ? {} : { 'X-CSRF-Token': session.csrfToken },
-        keepalive: method === 'DELETE',
+        keepalive: leaving,
         ...(signal ? { signal } : {}),
       });
     } catch (error) {

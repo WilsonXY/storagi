@@ -60,5 +60,5 @@ test('flush sends the delete now and ends the grace', async () => {
   await vi.advanceTimersByTimeAsync(10_000);
   expect(remove).toHaveBeenCalledOnce();
   expect(onUndo).not.toHaveBeenCalled();
-  expect(onTick).not.toHaveBeenCalled();
+  expect(onTick.mock.calls).toEqual([[0]]);
 });

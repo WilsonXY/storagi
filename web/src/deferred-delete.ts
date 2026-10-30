@@ -35,6 +35,8 @@ export function deferredDelete(
       onUndo?.();
     },
     flush() {
+      if (done) return;
+      onTick?.(0);
       void commit();
     },
     destroy() {
