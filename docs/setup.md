@@ -20,7 +20,7 @@ See [formatting and staged secret checks](../README.md#formatting-and-secret-che
 
 ## Required Google configuration
 
-Create a Google OAuth web client in an owner-controlled Google project. Use only the `openid` identity scope. Register exactly `<PUBLIC_ORIGIN>/auth/callback` for the chosen final HTTPS origin. Google's test-user list is not Storagi authorization. The owner must explicitly configure their permanent Google `sub`; no visitor can enroll themselves through the application.
+Create a Google OAuth web client in an owner-controlled Google project. Storagi requests the `openid` and `profile` scopes; `profile` only supplies the owner's name and photo for the sidebar. Register exactly `<PUBLIC_ORIGIN>/auth/callback` for the chosen final HTTPS origin. Google's test-user list is not Storagi authorization. The owner must explicitly configure their permanent Google `sub`; no visitor can enroll themselves through the application.
 
 The checked-in server environment example documents required values. Store the completed environment outside Git, readable only by the service owner; never put credentials in issues, stage records, screenshots or a PR. Required values are `PUBLIC_ORIGIN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OWNER_GOOGLE_SUB` and absolute `DATA_DIR`. Default budget is 214748364800 bytes (200 GiB), with 1 GiB additional filesystem headroom and loopback port 8787. DATA_DIR must be persistent storage outside the public web directory and outside `/tmp`.
 

@@ -73,6 +73,45 @@ test('locked pond contains a static decoy and never renders private shelf data',
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
+test('account shows the Google name and swaps in the photo once it loads', async () => {
+  const fetcher = vi.fn(
+    async (url: RequestInfo | URL) =>
+      new Response(
+        JSON.stringify(
+          String(url) === '/api/session'
+            ? {
+                authenticated: true,
+                csrfToken: 'test-csrf',
+                name: 'Ada Lovelace',
+                picture: 'https://lh3.googleusercontent.com/a/photo',
+              }
+            : listing,
+        ),
+      ),
+  );
+  const photos: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        photos.push(this);
+      }
+    },
+  );
+  await mount(fetcher);
+  expect(document.querySelector('#account-name')?.textContent).toBe(
+    'Ada Lovelace',
+  );
+  const avatar = document.querySelector('#avatar')!;
+  expect(avatar.textContent).toBe('A');
+  expect(avatar.querySelector('img')).toBeNull();
+  const [photo] = photos;
+  expect(photo.src).toBe('https://lh3.googleusercontent.com/a/photo');
+  photo.dispatchEvent(new Event('load'));
+  expect(avatar.querySelector('img')).toBe(photo);
+});
+
 test('shelf groups local days, labels duplicates, searches safely and retains sorting after refresh', async () => {
   const api = service();
   await mount(api.fetcher);

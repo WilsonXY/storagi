@@ -125,7 +125,12 @@ export async function createDashboard(
   const loader = orbitLoader(56);
   $('#loader').prepend(loader);
   cleanups.push(() => loader.destroy());
-  let session: { authenticated: boolean; csrfToken: string };
+  let session: {
+    authenticated: boolean;
+    csrfToken: string;
+    name?: string | null;
+    picture?: string | null;
+  };
   try {
     const response = await dependencies.fetch('/api/session', {
       credentials: 'same-origin',
@@ -163,6 +168,18 @@ export async function createDashboard(
   root.innerHTML = shelfHTML;
   active = true;
   $('#shelf-app').hidden = false;
+  const avatar = $('#avatar');
+  if (session.name) {
+    $('#account-name').textContent = session.name;
+    avatar.textContent = [...session.name][0];
+  }
+  if (session.picture) {
+    // Swap in only once loaded, so a failed photo leaves the initial.
+    const photo = new Image();
+    photo.alt = '';
+    photo.onload = () => avatar.replaceChildren(photo);
+    photo.src = session.picture;
+  }
   const app = $('#shelf-app'),
     sel = new Selection(),
     hidden = new Set<string>();

@@ -16,7 +16,7 @@ test('signed OIDC identity, PKCE, state/nonce, allowlist, replay and session rev
   try {
     const begin = await auth.begin();
     const request = new URL(begin.url);
-    assert.equal(request.searchParams.get('scope'), 'openid');
+    assert.equal(request.searchParams.get('scope'), 'openid profile');
     assert.equal(request.searchParams.get('code_challenge_method'), 'S256');
     assert.ok(request.searchParams.get('state'));
     assert.ok(request.searchParams.get('nonce'));
@@ -97,10 +97,11 @@ test('authenticated login navigation retains the current session without startin
     assert.equal(result.status, 302);
     assert.equal(result.headers.get('location'), '/');
     assert.equal(result.headers.get('set-cookie'), null);
-    assert.equal(
-      (await f.request('/api/session', { headers: f.headers })).status,
-      200,
-    );
+    const session = await f.request('/api/session', { headers: f.headers });
+    assert.equal(session.status, 200);
+    const body = await session.json();
+    assert.equal(body.name, 'Ada Lovelace');
+    assert.equal(body.picture, 'https://lh3.googleusercontent.com/a/photo');
   } finally {
     await f.close();
   }

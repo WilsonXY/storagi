@@ -32,7 +32,11 @@ export async function identity() {
     if (String(url).endsWith('/jwks')) return Response.json({ keys: [jwk] });
     verifier =
       new URLSearchParams(String(options?.body)).get('code_verifier') || '';
-    let token = await new SignJWT({ nonce })
+    let token = await new SignJWT({
+      nonce,
+      name: 'Ada Lovelace',
+      picture: 'https://lh3.googleusercontent.com/a/photo',
+    })
       .setProtectedHeader({ alg: 'RS256', kid: 'synthetic' })
       .setSubject(sub)
       .setIssuer(issuer)
