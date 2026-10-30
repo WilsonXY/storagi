@@ -1,10 +1,10 @@
 # 124: Stop the list header and day labels from highlighting
 
-- Status: completed; reviewed in stage125
+- Status: completed; stage125 review PASS, its two record findings fixed
 - Started / last updated: 2026-10-30 (Asia/Kuala_Lumpur)
 - Coordinator thread: `224920a4-69b6-459c-83da-d9d3bc88f27b`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
-- Provider/model/effort: coordinator Claude Opus 5.5 (T3 reports `claude-opus-5-5`)
+- Provider/model/effort: coordinator Claude Opus 5.5 (T3 reports `claude-opus-5-5`, effort high, in this thread's `orchestrator_capabilities` inherited options)
 - Workspace/branch and starting commit: `fix/unselectable-list-labels`, `c171d26`
 - Scope and acceptance criteria: the owner sent a screenshot with the Name/Size/Expires header and the day labels ("Today", "Saturday", "23 Oct") boxed, one of them highlighted, and asked to "make these unhighlight-able". Text selection must not include them; nothing else changes. Run `npm run check`, check formatting and reproduce in Chromium.
 
