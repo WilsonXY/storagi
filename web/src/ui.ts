@@ -116,13 +116,14 @@ export function fileDrop(options: {
         if (!options.enabled()) return end();
         if (type === 'drop') {
           end();
-          // A dropped folder arrives as an empty File; only its entry tells them apart.
+          // A dropped folder arrives as a File; only its entry tells them apart.
+          // Without the entry API, everything is treated as a file.
           const files: File[] = [],
             folders: string[] = [];
           for (const item of Array.from(e.dataTransfer!.items)) {
             const file = item.kind === 'file' && item.getAsFile();
             if (!file) continue;
-            if (item.webkitGetAsEntry()?.isDirectory) folders.push(file.name);
+            if (item.webkitGetAsEntry?.()?.isDirectory) folders.push(file.name);
             else files.push(file);
           }
           options.drop(files, folders);

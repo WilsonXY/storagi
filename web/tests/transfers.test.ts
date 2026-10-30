@@ -4,6 +4,7 @@ import { createDashboard } from '../src/dashboard';
 
 const mocks = vi.hoisted(() => ({
   uploads: [] as {
+    file: File;
     options: UploadOptions;
     start: ReturnType<typeof vi.fn>;
     abort: ReturnType<typeof vi.fn>;
@@ -21,7 +22,7 @@ vi.mock('tus-js-client', () => ({
       ]);
     resumeFromPreviousUpload = vi.fn();
     constructor(
-      _file: File,
+      public file: File,
       public options: UploadOptions,
     ) {
       mocks.uploads.push(this);
@@ -184,28 +185,47 @@ test('refreshes reserved storage when the server creates a partial upload', asyn
   );
 });
 
-test('a dropped folder is refused with a notice; files dropped beside it still upload', async () => {
-  await mount();
-  const entry = (isDirectory: boolean, file: File) => ({
-    kind: 'file',
-    getAsFile: () => file,
-    webkitGetAsEntry: () => ({ isDirectory }),
-  });
-  const folder = new File([], 'posters');
-  const file = new File(['x'], 'posters.zip');
-  const drop = new Event('drop', { cancelable: true });
-  Object.defineProperty(drop, 'dataTransfer', {
+function drop(...entries: [File, { isDirectory: boolean } | undefined][]) {
+  const event = new Event('drop', { cancelable: true });
+  Object.defineProperty(event, 'dataTransfer', {
     value: {
       types: ['Files'],
-      files: [folder, file],
-      items: [entry(true, folder), entry(false, file)],
+      files: entries.map(([file]) => file),
+      items: entries.map(([file, entry]) => ({
+        kind: 'file',
+        getAsFile: () => file,
+        // undefined entry: a browser without the entry API
+        ...(entry && { webkitGetAsEntry: () => entry }),
+      })),
     },
   });
-  window.dispatchEvent(drop);
+  window.dispatchEvent(event);
+  return event;
+}
+test('a dropped folder is refused with a notice; files dropped beside it still upload', async () => {
+  await mount();
+  const zip = new File(['x'], 'posters.zip');
+  const event = drop(
+    [new File([], 'posters'), { isDirectory: true }],
+    [zip, { isDirectory: false }],
+  );
   await tick();
-  expect(drop.defaultPrevented).toBe(true);
-  expect(mocks.uploads).toHaveLength(1);
+  expect(event.defaultPrevented).toBe(true);
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([zip]);
+  expect(
+    [...document.querySelectorAll('.tr-name')].map((n) => n.textContent),
+  ).toEqual(['posters.zip']);
   expect(document.querySelector('#notice span')?.textContent).toBe(
     "Folders can't be uploaded. Zip posters first.",
   );
+  mocks.uploads[0].options.onSuccess!({} as never);
+  await tick();
+  expect(mocks.uploads).toHaveLength(1);
+});
+test('without the entry API a drop still uploads its files', async () => {
+  await mount();
+  const zip = new File(['x'], 'posters.zip');
+  drop([zip, undefined]);
+  await tick();
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([zip]);
 });
