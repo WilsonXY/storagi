@@ -152,6 +152,7 @@ Implementation coordinator: `/root`, [Implement Storagi with Documented Agent St
 | 115 | Independent review of bookmark icon caching | Owner-requested fresh GPT-6-Astra/high, own session confirmed | PASS; no findings, read-only invariants and cleanup PASS | [115](stages/115-bookmark-icons-review.md) |
 | 116 | Add local and CI Gitleaks/Prettier workflow, initial mechanical formatting | Distinct implementation task; coordinator integration | Completed; 286 checks/types/builds and negative probes PASS, reviewed in 117 | [116](stages/116-dev-workflow.md) |
 | 117 | Independent review of Gitleaks/Prettier workflow | Astra/high requested but unavailable (`model_not_found`); fresh Claude Opus 5.5/high per owner routing | PASS; low finding + 2 suggestions fixed, check PASS | [117](stages/117-dev-workflow-review.md) |
+| 118 | Keep row checkboxes in step with the selection after direct clicks | Coordinator (Claude Opus 5.5), trivial fix | Completed; RED→GREEN and browser reproduction PASS | [118](stages/118-checkbox-state.md) |
 
 Rows follow execution order; record numbers are preserved from the original plan. Every task/native session, actual model/effort proof, scope, handoff, failure and command result is in its record. Shared implementation used disjoint package scopes; review rounds used committed baselines and fresh isolated worktrees with verified read-only invariants and cleanup.
 

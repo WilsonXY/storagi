@@ -304,12 +304,15 @@ test('initial connection failure offers a loading-screen retry', async () => {
 
 test('direct checkbox clicks stay checked and shift selection selects a range', async () => {
   await mount();
-  click('[data-id="new-id"] .check');
-  await tick();
-  expect(
-    document.querySelector<HTMLInputElement>('[data-id="new-id"] .check')!
-      .checked,
-  ).toBe(true);
+  const box = document.querySelector<HTMLInputElement>(
+    '[data-id="new-id"] .check',
+  )!;
+  // Checked before any microtask: a real click runs them before the browser restores a cancelled box.
+  box.click();
+  expect(box.checked).toBe(true);
+  box.click();
+  expect(box.checked).toBe(false);
+  box.click();
   document.querySelector('[data-id="old-id"] .lead')!.dispatchEvent(
     new MouseEvent('click', {
       bubbles: true,

@@ -578,12 +578,9 @@ export async function createDashboard(
     const id = row.dataset.id!,
       f = shelf.files.find((f) => f.id === id)!;
     if (t.closest('.lead')) {
-      e.preventDefault();
-      if (counting(id)) return;
-      sel.toggle(id, selectable(), e.shiftKey);
-      queueMicrotask(() => {
-        if (active) syncRows();
-      });
+      // A cancelled click on the box itself would restore its old state after syncRows, so only the label's click is cancelled.
+      if (counting(id) || !t.matches('.check')) e.preventDefault();
+      if (!counting(id)) sel.toggle(id, selectable(), e.shiftKey);
       return;
     }
     const b = t.closest<HTMLElement>(
