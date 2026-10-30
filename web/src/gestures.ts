@@ -6,6 +6,7 @@ type Gesture = {
   pid: number;
   touch: boolean;
   lead: boolean;
+  body: boolean; // on the row itself, not its checkbox, link or buttons
   x: number;
   y: number;
   at: number;
@@ -119,16 +120,16 @@ export function rowGestures(
     selection.beginDrag(g.id, order());
     document.body.classList.add('painting');
     paint();
-    frame = requestAnimationFrame(scrollEdge);
   }
   function end(commit = false) {
     if (!g) return;
     const old = g;
     g = undefined;
     cancelAnimationFrame(frame);
+    frame = 0;
     document.body.classList.remove('painting');
     tap =
-      commit && old.touch && !old.lead && old.mode === 'pending'
+      commit && old.touch && old.body && old.mode === 'pending'
         ? { id: old.id, at: Date.now() }
         : undefined;
     if (old.mode !== 'pending') {
@@ -153,19 +154,14 @@ export function rowGestures(
       pid: e.pointerId,
       touch: e.pointerType === 'touch',
       lead: !!(e.target as Element).closest('.lead'),
+      body: !(e.target as Element).closest('.lead, a, button'),
       x: e.clientX,
       y: e.clientY,
       at: e.clientY,
       mode: 'pending',
     };
     // Touch: tap a row, then touch it again and drag (like a touchpad's tap-and-drag) to select.
-    if (
-      g.touch &&
-      !g.lead &&
-      tap?.id === g.id &&
-      Date.now() - tap.at < 350 &&
-      !(e.target as Element).closest('a, button')
-    ) {
+    if (g.touch && g.body && tap?.id === g.id && Date.now() - tap.at < 350) {
       startPaint();
       navigator.vibrate?.(8);
     }
@@ -188,7 +184,12 @@ export function rowGestures(
     }
     if (!g) return;
     g.at = e.clientY;
-    if (g.mode === 'paint') paint();
+    if (g.mode === 'paint') {
+      paint();
+      // Edge scrolling waits for a drag, so a double tap near an edge stays a tap.
+      if (!frame && Math.hypot(dx, dy) >= 8)
+        frame = requestAnimationFrame(scrollEdge);
+    }
     if (g.swipe) slide(g.swipe, dx);
   });
   on(window, 'pointerup', (e: PointerEvent) => {

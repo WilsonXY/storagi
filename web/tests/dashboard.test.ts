@@ -997,7 +997,12 @@ test('leaving the page before a touchpad swipe is released cancels it instead of
   expect(deletes(api.fetcher)).toEqual([]);
   expect(document.querySelector('[data-undo="new-id"]')).toBeNull();
 });
-const pointer = (target: EventTarget, type: string, y: number) =>
+const pointer = (
+  target: EventTarget,
+  type: string,
+  y: number,
+  pointerType = 'mouse',
+) =>
   target.dispatchEvent(
     Object.assign(
       new MouseEvent(type, {
@@ -1006,7 +1011,7 @@ const pointer = (target: EventTarget, type: string, y: number) =>
         clientX: 10,
         clientY: y,
       }),
-      { pointerId: 1, pointerType: 'mouse' },
+      { pointerId: 1, pointerType },
     ),
   );
 test('confirming a delete in the middle of a drag-select drops that row from the selection for good', async () => {
@@ -1025,37 +1030,56 @@ test('confirming a delete in the middle of a drag-select drops that row from the
   pointer(window, 'pointerup', 30);
   expect(document.querySelector('#sel-count')?.textContent).toBe('1');
 });
-test('on touch, a double tap on a row then a drag selects; a slow second tap scrolls', async () => {
+test('on touch, a quick second tap on a row paints from it; a slow one or a button tap first does not', async () => {
   vi.useFakeTimers();
   await mount();
-  const name = rows()[0].querySelector('.name')!;
-  const touch = (target: EventTarget, type: string, y: number) =>
-    target.dispatchEvent(
-      Object.assign(
-        new MouseEvent(type, {
-          bubbles: true,
-          button: 0,
-          clientX: 10,
-          clientY: y,
-        }),
-        { pointerId: 2, pointerType: 'touch' },
-      ),
-    );
+  // Rows 60 px tall from y=700; jsdom's innerHeight is 768, so both rows sit in the bottom edge-scroll band.
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+    function (this: Element) {
+      const top = 700 + rows().indexOf(this as HTMLElement) * 60;
+      return { top, bottom: top + 60 } as DOMRect;
+    },
+  );
+  const scroll = vi.spyOn(window, 'scrollBy').mockImplementation(() => {});
+  const name = (i: number) => rows()[i].querySelector('.name')!;
   const count = () => document.querySelector('#sel-count')?.textContent ?? '0';
-  touch(name, 'pointerdown', 0);
-  touch(window, 'pointerup', 0);
+  const touch = (target: EventTarget, type: string, y: number) =>
+    pointer(target, type, y, 'touch');
+  const tap = (target: Element, y: number) => {
+    touch(target, 'pointerdown', y);
+    touch(window, 'pointerup', y);
+  };
+  const touchstartCancelled = (target: Element) =>
+    !target.dispatchEvent(
+      new Event('touchstart', { bubbles: true, cancelable: true }),
+    );
+  tap(name(0), 730);
   await vi.advanceTimersByTimeAsync(500);
-  touch(name, 'pointerdown', 0);
-  touch(window, 'pointermove', 40);
-  touch(window, 'pointerup', 40);
+  touch(name(0), 'pointerdown', 730);
+  expect(touchstartCancelled(name(0))).toBe(false);
+  touch(window, 'pointermove', 790);
+  touch(window, 'pointerup', 790);
+  tap(rows()[0].querySelector('[data-del]')!, 730);
+  touch(name(0), 'pointerdown', 730);
+  touch(window, 'pointermove', 790);
+  touch(window, 'pointerup', 790);
   expect(count()).toBe('0');
-  touch(name, 'pointerdown', 0);
-  touch(window, 'pointerup', 0);
+  tap(name(0), 730);
   await vi.advanceTimersByTimeAsync(150);
-  touch(name, 'pointerdown', 0);
-  touch(window, 'pointermove', 40);
-  touch(window, 'pointerup', 40);
+  touch(name(0), 'pointerdown', 730);
+  expect(touchstartCancelled(name(0))).toBe(true);
+  touch(window, 'pointermove', 790);
+  touch(window, 'pointerup', 790);
   expect(count()).toBe('2');
+  // A double tap without a drag toggles one row, even in the edge band: edge scrolling waits for a drag.
+  scroll.mockClear();
+  tap(name(1), 790);
+  await vi.advanceTimersByTimeAsync(150);
+  touch(name(1), 'pointerdown', 790);
+  await vi.advanceTimersByTimeAsync(200);
+  touch(window, 'pointerup', 790);
+  expect(count()).toBe('1');
+  expect(scroll).not.toHaveBeenCalled();
 });
 test('a swipe that replaces the focused Delete button moves focus to its Undo', async () => {
   vi.useFakeTimers();
