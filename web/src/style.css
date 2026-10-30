@@ -789,6 +789,12 @@
   font-size: 12px;
   color: var(--faint);
 }
+/* column headings and day labels are chrome, not content: never highlight them */
+.list-head,
+.group h3 {
+  user-select: none;
+  -webkit-user-select: none;
+}
 .list-head .all {
   display: grid;
   place-items: center;
