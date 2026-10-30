@@ -100,7 +100,7 @@ export class Auth {
     });
     const url = oidc.buildAuthorizationUrl(this.config, {
       redirect_uri: this.origin + '/auth/callback',
-      scope: 'openid',
+      scope: 'openid profile',
       state,
       nonce,
       code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
@@ -117,7 +117,7 @@ export class Auth {
         .get(digest)
     )
       throw new HttpError(401, 'Login already used');
-    const sub = await verifyIdentity(this.config, url, flow);
+    const { sub, name, picture } = await verifyIdentity(this.config, url, flow);
     if (sub !== this.ownerSub)
       throw new HttpError(403, 'Account is not authorized');
     const sessionToken = random(),
@@ -152,6 +152,9 @@ export class Auth {
           this.storage.now() + 7 * DAY,
           this.ownerSub,
         );
+      this.storage.db
+        .prepare('INSERT OR REPLACE INTO profile VALUES (?,?,?)')
+        .run(sub, name, picture);
     })();
     return { token: sessionToken, csrf };
   }
@@ -163,6 +166,14 @@ export class Auth {
       )
       .get(hash(token), this.storage.now(), this.ownerSub) as
       Session | undefined;
+  }
+  profile() {
+    return (this.storage.db
+      .prepare('SELECT name,picture FROM profile WHERE sub=?')
+      .get(this.ownerSub) ?? { name: null, picture: null }) as {
+      name: string | null;
+      picture: string | null;
+    };
   }
   revoke(token: string): void {
     this.storage.db
@@ -190,7 +201,7 @@ export async function verifyIdentity(
   config: oidc.Configuration,
   url: URL,
   flow: { state: string; nonce: string; verifier: string },
-): Promise<string> {
+): Promise<{ sub: string; name: string | null; picture: string | null }> {
   oidc.enableNonRepudiationChecks(config);
   const tokens = await oidc.authorizationCodeGrant(config, url, {
     pkceCodeVerifier: flow.verifier,
@@ -198,7 +209,16 @@ export async function verifyIdentity(
     expectedNonce: flow.nonce,
     idTokenExpected: true,
   });
-  const sub = tokens.claims()?.sub;
-  if (!sub) throw new HttpError(401, 'Missing verified identity');
-  return sub;
+  const claims = tokens.claims();
+  if (!claims?.sub) throw new HttpError(401, 'Missing verified identity');
+  const text = (value: unknown) => (typeof value === 'string' ? value : null);
+  // Only Google's photo host, which the CSP allows.
+  const picture = text(claims.picture);
+  return {
+    sub: claims.sub,
+    name: text(claims.name),
+    picture: picture?.startsWith('https://lh3.googleusercontent.com/')
+      ? picture
+      : null,
+  };
 }

@@ -73,6 +73,57 @@ test('locked pond contains a static decoy and never renders private shelf data',
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
+test('account shows the Google name as text and swaps in the photo only once it loads', async () => {
+  const photos: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        photos.push(this);
+      }
+    },
+  );
+  const account = async (name: string) => {
+    await mount(
+      vi.fn(
+        async (url: RequestInfo | URL) =>
+          new Response(
+            JSON.stringify(
+              String(url) === '/api/session'
+                ? {
+                    authenticated: true,
+                    csrfToken: 'test-csrf',
+                    name,
+                    picture: 'https://lh3.googleusercontent.com/a/photo',
+                  }
+                : listing,
+            ),
+          ),
+      ),
+    );
+    return document.querySelector('#avatar')!;
+  };
+  let avatar = await account('Ada Lovelace');
+  expect(document.querySelector('#account-name')?.textContent).toBe(
+    'Ada Lovelace',
+  );
+  expect(avatar.textContent).toBe('A');
+  expect(avatar.querySelector('img')).toBeNull();
+  expect(photos.at(-1)!.src).toBe('https://lh3.googleusercontent.com/a/photo');
+  photos.at(-1)!.dispatchEvent(new Event('load'));
+  expect(avatar.querySelector('img')).toBe(photos.at(-1));
+  dispose();
+  avatar = await account('<img src=x onerror=alert(1)>');
+  expect(document.querySelector('#account-name')?.textContent).toBe(
+    '<img src=x onerror=alert(1)>',
+  );
+  expect(document.querySelector('#account-name img')).toBeNull();
+  photos.at(-1)!.dispatchEvent(new Event('error'));
+  expect(avatar.textContent).toBe('<');
+  expect(avatar.querySelector('img')).toBeNull();
+});
+
 test('shelf groups local days, labels duplicates, searches safely and retains sorting after refresh', async () => {
   const api = service();
   await mount(api.fetcher);

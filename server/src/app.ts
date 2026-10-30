@@ -198,7 +198,7 @@ export async function createApp(config: Config, options: AppOptions = {}) {
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+      "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https://lh3.googleusercontent.com; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
     );
     const url = new URL(req.url || '/', config.origin),
       method = req.method || 'GET',
@@ -254,7 +254,11 @@ export async function createApp(config: Config, options: AppOptions = {}) {
           throw new HttpError(403, 'CSRF validation failed');
       }
       if (url.pathname === '/api/session' && method === 'GET') {
-        json(res, 200, { authenticated: true, csrfToken: session.csrf });
+        json(res, 200, {
+          authenticated: true,
+          csrfToken: session.csrf,
+          ...auth.profile(),
+        });
         return;
       }
       if (url.pathname === '/auth/logout' && method === 'POST') {

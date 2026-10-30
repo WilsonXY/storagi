@@ -28,11 +28,17 @@ export async function identity() {
   let audience = 'synthetic-client';
   let issuer = 'https://accounts.google.com';
   let verifier = '';
+  let name: string | null = 'Ada Lovelace';
+  let picture: string | null = 'https://lh3.googleusercontent.com/a/photo';
   config[oidc.customFetch] = async (url, options) => {
     if (String(url).endsWith('/jwks')) return Response.json({ keys: [jwk] });
     verifier =
       new URLSearchParams(String(options?.body)).get('code_verifier') || '';
-    let token = await new SignJWT({ nonce })
+    let token = await new SignJWT({
+      nonce,
+      name: name ?? undefined,
+      picture: picture ?? undefined,
+    })
       .setProtectedHeader({ alg: 'RS256', kid: 'synthetic' })
       .setSubject(sub)
       .setIssuer(issuer)
@@ -56,6 +62,8 @@ export async function identity() {
       expired?: boolean;
       audience?: string;
       issuer?: string;
+      name?: string | null;
+      picture?: string | null;
     }) => {
       nonce = values.nonce ?? nonce;
       sub = values.sub ?? sub;
@@ -63,6 +71,8 @@ export async function identity() {
       expired = values.expired ?? expired;
       audience = values.audience ?? audience;
       issuer = values.issuer ?? issuer;
+      if (values.name !== undefined) name = values.name;
+      if (values.picture !== undefined) picture = values.picture;
     },
     verifier: () => verifier,
   };
