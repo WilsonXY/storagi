@@ -91,7 +91,7 @@ export function createToast() {
 export function fileDrop(options: {
   enabled: () => boolean;
   on: (over: boolean) => void;
-  drop: (files: File[]) => void;
+  drop: (files: File[], folders: string[]) => void;
 }) {
   const events = new AbortController();
   let active = false,
@@ -116,7 +116,17 @@ export function fileDrop(options: {
         if (!options.enabled()) return end();
         if (type === 'drop') {
           end();
-          options.drop(Array.from(e.dataTransfer!.files));
+          // A dropped folder arrives as a File; only its entry tells them apart.
+          // Without the entry API, everything is treated as a file.
+          const files: File[] = [],
+            folders: string[] = [];
+          for (const item of Array.from(e.dataTransfer!.items)) {
+            const file = item.kind === 'file' && item.getAsFile();
+            if (!file) continue;
+            if (item.webkitGetAsEntry?.()?.isDirectory) folders.push(file.name);
+            else files.push(file);
+          }
+          options.drop(files, folders);
         } else {
           set(true);
           clearTimeout(timer);
