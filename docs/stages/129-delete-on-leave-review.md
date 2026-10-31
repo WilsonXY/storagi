@@ -14,7 +14,7 @@ The reviewer checked credentials, CSRF, 404/410 handling, first-error selection,
 2. P2: `flush()` did not emit the zero tick, so a page restored from the back/forward cache before the DELETE answered still showed "Undo 6s", and Undo did nothing. **Fixed:** `flush()` emits the zero tick, so rows switch to "Deleting"; a test holds the DELETEs unanswered and checks that no Undo is left.
 3. Suggestion: the unload test still passed with sequential bulk DELETEs. **Fixed:** the test holds every DELETE unanswered and checks that a folded two-file bulk batch and an inline delete all start at once.
 
-The reviewer did not run browser navigation, real keepalive-limit delivery, server tests or the full project check; finding 1 is source-backed. Stage126 covers the Chromium reload and close check.
+The reviewer did not run browser navigation, real keepalive-limit delivery, server tests or the full project check; finding 1 is source-backed. Stage128 covers the Chromium reload and close check.
 
 ## Handoff
 
