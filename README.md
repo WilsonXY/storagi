@@ -1,27 +1,61 @@
 # Storagi
 
-A personal, self-hosted temporary file shelf for transferring artifacts between devices over LAN and the internet.
+Storagi is a personal, self-hosted file shelf for moving files between devices. Upload a file from one device, then open the same bookmarked dashboard on another device, on the home network or anywhere else, and download it.
 
-**Status:** implemented, verified and independently reviewed, including a 2 GiB+1 local restart/hash check. An owner-approved service is enabled with Google owner authorization and Tailscale Funnel; automatic crash recovery was verified. It ran as an owner user service; [stage67](docs/stages/67-system-account.md) moves it to a sandboxed system account through an owner-run migration. The owner confirmed Google owner login, rejection of another account and Inbox access with Tailscale disconnected on the browsing device; public relay checks passed. The owner reports the first real-device file test works and accepts boot autostart as working from the reviewed configuration, waiving a physical reboot test. Power/lid behavior is already configured and working by owner report. Exact WAN throughput/hash/resume measurements were not supplied. See the [rollout record](docs/stages/31-funnel-rollout.md) for evidence and limitations.
+It is temporary transfer storage, not an archive. Each server copy is deleted 30 days after upload, and the original stays on the device it came from.
 
-The first version implements:
+## Features
 
-- A custom, extensible web dashboard for Windows, Fedora KDE, and Android browsers.
-- Deliberate uploads, a shared Inbox, newest-first browsing, filename search, downloads, and file management.
-- Multi-GB ZIP and MP4 transfers using an existing resumable upload component.
-- Automatic deletion of server copies 30 days after upload, with originals retained on their source devices.
-- A 200 GiB storage budget that refuses further uploads when full and preserves separate files with repeated filenames.
-- Google login restricted to the owner's account, enforced by the server for all file operations.
-- Tailscale Funnel as the browser-only access candidate, falling back to private Tailscale access if Funnel has blockers.
-- Hosting on the existing machine with a $0 additional hosting/service budget.
+- A custom web dashboard for desktop and phone browsers, built for Windows, Fedora KDE and Android.
+- Uploads only happen when you choose files, through the file picker or drag and drop.
+- One shared Inbox, newest first, with filename search, sorting, downloads and file management.
+- Resumable multi-GB uploads (ZIP, MP4 and anything else) over the tus protocol.
+- A 200 GiB storage budget. When it is full, uploads are refused; nothing unexpired is deleted to make room.
+- Repeated filenames are kept as separate files, never overwritten.
+- Sign-in with Google, restricted to the owner's account. The server checks it on every file operation, including direct file URLs. There is no password login, open registration or first-visitor ownership.
+- Hosted on an existing home machine with $0 of extra hosting or service cost, reachable from any browser through Tailscale Funnel.
 
-Read [the complete design, decisions, research, and feasibility record](docs/design-and-feasibility.md) before making implementation changes. It distinguishes agreed requirements from proposals and unverified assumptions.
+## Status
 
-Implementation agents must follow [AGENTS.md](AGENTS.md) and maintain [the implementation log and stage records](docs/implementation-log.md).
+Storagi is in use. It runs as a sandboxed system service under a dedicated `storagi` account and is served through Tailscale Funnel from its own Tailscale node. New `v*` release tags are deployed automatically once their CI passes.
 
-## Build and check
+What has been checked:
 
-Use Node 22.22+ and npm. On this host, keep temporary artifacts under the home directory:
+- Automated tests, independent HTTP acceptance and independent code reviews, recorded per stage in the [implementation log](docs/implementation-log.md).
+- A local 2 GiB + 1 byte upload, restart and SHA-256 check.
+- The owner confirmed Google sign-in, rejection of another Google account, and Inbox access from a browsing device with Tailscale disconnected. Public relay checks passed.
+- The owner's first real file transfer between devices worked.
+- Automatic crash recovery was verified under the earlier user service, and the system unit keeps the same restart settings. The owner accepted boot autostart from the reviewed configuration and waived a reboot test.
+
+Not yet measured: real WAN throughput, hashes and resume behaviour for large files, and interruptions on physical Windows, Fedora and Android devices. See the [rollout record](docs/stages/31-funnel-rollout.md), the [host rollout](docs/stages/74-host-rollout.md) and [verification](docs/verification.md) for evidence and limits.
+
+## How it works
+
+| Part      | Built with                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| Server    | Node 22 and TypeScript; `openid-client` for Google sign-in, `@tus/server` for resumable uploads |
+| Storage   | Files on disk; SQLite (`better-sqlite3`) for metadata, sessions and quota reservations          |
+| Dashboard | Plain TypeScript, Vite and `tus-js-client`                                                      |
+| Hosting   | A systemd service on loopback port 8787, published over HTTPS by Tailscale Funnel               |
+
+One server process owns the data directory. The design, the alternatives considered and why they were rejected are in the [design and feasibility record](docs/design-and-feasibility.md).
+
+## Repository layout
+
+| Path       | Contents                                                    |
+| ---------- | ----------------------------------------------------------- |
+| `server/`  | The service: authentication, uploads, storage and expiry    |
+| `web/`     | The dashboard                                               |
+| `scripts/` | Acceptance tests, deploy and auto-deploy scripts            |
+| `deploy/`  | systemd units and the sudoers rule used on the host         |
+| `docs/`    | Setup, operation, verification, design record and stage log |
+| `design/`  | Visual design explorations for the dashboard                |
+
+## Development
+
+### Build and check
+
+You need Node 22.22 or newer (on Node 22) and npm. On this host, keep temporary files under the home directory, because `/tmp` is small:
 
 ```sh
 mkdir -p "$HOME/.cache/storagi/tmp"
@@ -31,13 +65,15 @@ npm run format:check
 npm run check
 ```
 
-The check runs package tests, independent HTTP acceptance, deploy-script tests, TypeScript checks and production builds. The app reuses openid-client for Google OIDC and the tus Node server/client for disk-backed resumable transfers; SQLite keeps metadata, sessions and quota reservations. One process owns the data directory.
+`npm run setup` installs the root development tools and both packages from their lockfiles. `npm run check` runs the package tests, the independent HTTP acceptance tests, the deploy-script tests, both TypeScript checks and both production builds. Tests use synthetic files and a signed test identity provider; they never need real files or Google credentials.
+
+To run the built app, see [setup](docs/setup.md). It needs real Google OAuth credentials, the owner's verified Google account ID (`sub`), an HTTPS origin and a private, persistent data directory, and it refuses to start without them.
 
 ### Formatting and secret checks
 
-`npm run setup` installs the root development tools and both packages from their lockfiles. Run `npm run format` to format handwritten server/web TypeScript, tests, CSS, HTML and JavaScript acceptance scripts; `npm run format:check` checks the same files without changing them. Both use local Prettier **3.9.10**, also installed by CI. Encoded brand data, icons, fonts, build output and evidence are excluded in `.prettierignore`. Historical design explorations and prose are outside the source-formatting command. Prettier cannot wrap every untagged HTML template; manual template changes require separate DOM/interaction verification.
+`npm run format` formats the handwritten TypeScript, tests, CSS, HTML and JavaScript scripts in `server/`, `web/` and `scripts/`; `npm run format:check` checks the same files without changing them. Both use the local Prettier **3.9.10**, which CI also installs. Encoded brand data, icons, fonts, build output and evidence are excluded in `.prettierignore`, and prose and the design explorations are not formatted. Prettier cannot wrap every untagged HTML template, so verify the DOM and interactions separately after changing one by hand.
 
-Install the official Gitleaks **8.30.1** binary once. This Linux x64 example matches CI and verifies the archive against the pinned SHA-256 from the [official release](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1):
+Secret scanning uses Gitleaks **8.30.1**. Install the official binary once. This Linux x64 example matches CI and verifies the archive against the SHA-256 from the [official release](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1):
 
 ```sh
 mkdir -p "$HOME/.cache/storagi/gitleaks-8.30.1"
@@ -54,7 +90,7 @@ export PATH="$HOME/.cache/storagi/gitleaks-8.30.1:$PATH"
 gitleaks version # 8.30.1
 ```
 
-For other platforms, choose the matching archive and verify its checksum from that release. Run from the repository root before each commit:
+On other platforms, download the matching archive from the same release and verify its checksum. Then, from the repository root, before each commit:
 
 ```sh
 git add <files>
@@ -62,12 +98,32 @@ npm run secrets:check
 git commit
 ```
 
-`secrets:check` scans staged changes only, so stage new files and repeat after any edits. It can also be called from a local pre-commit hook; hooks are not installed automatically. `npm run secrets:history` scans all available Git history; CI fetches full history and runs this command on pull requests and main, alongside formatting and existing correctness checks. A local history scan in a shallow checkout covers only downloaded history. Both commands retain Gitleaks' default rules and redact output. No license token, baseline or allowlist is required. Never commit secret reports; investigate findings privately, rotate any real exposed credentials, and use only evidenced, narrow false-positive exceptions. Gitleaks honours inline `gitleaks:allow` comments and any `.gitleaks.toml` or `.gitleaksignore`, so treat any of them in a change as needing explicit review. Keep the local version, CI version and checksum together when updating Gitleaks.
+- `npm run secrets:check` scans staged changes only, so stage new files and run it again after any edit. You can call it from your own pre-commit hook; none is installed for you.
+- `npm run secrets:history` scans all Git history you have. CI fetches full history and runs it on pull requests and `main`, alongside the formatting and correctness checks. In a shallow clone it only covers what was downloaded.
+- Both use Gitleaks' default rules and redact their output. No licence token, baseline or allowlist is needed.
+- Never commit a secret report. Investigate findings privately, rotate any credential that was really exposed, and add only narrow, evidenced false-positive exceptions. Gitleaks honours inline `gitleaks:allow` comments, `.gitleaks.toml` and `.gitleaksignore`, so any change that adds one needs explicit review.
+- When updating Gitleaks, change the local version, the CI version and the checksum together.
 
-Tool guidance: [Prettier installation and CI](https://prettier.io/docs/install), [Gitleaks CLI and scanning modes](https://github.com/gitleaks/gitleaks/tree/v8.30.1#usage).
+Tool references: [Prettier installation and CI](https://prettier.io/docs/install), [Gitleaks usage](https://github.com/gitleaks/gitleaks/tree/v8.30.1#usage).
 
-See [setup and deployment preparation](docs/setup.md), [repeatable verification and its limits](docs/verification.md), and the [implementation stage index](docs/implementation-log.md). Storagi runs as a [sandboxed system service under a dedicated `storagi` account](docs/system-service.md), deployed from owner-created tags with `scripts/deploy.sh` and the root helper `storagi-promote`, by hand or by the [auto-deploy timer](docs/auto-deploy.md) once a tag's CI passes; that guide also has the owner-run migration from the earlier user service (superseded, history in stages39–66). The owner-approved private startup and subsequent Funnel activation are recorded in stages29–31; unrelated host services, mappings and power settings were preserved.
+## Deployment
 
-Production startup requires explicit Google OAuth credentials, the owner's verified permanent Google subject, an HTTPS origin and a private persistent data directory. It fails closed without these; there is no password fallback, open registration or first-visitor ownership.
+Storagi runs as `storagi.service`, a sandboxed system service under a dedicated `storagi` account. Releases are built from owner-created `v*` tags with `scripts/deploy.sh` and switched in by the root helper `storagi-promote`, either by hand or by the auto-deploy timer once the tag's CI passes. The earlier user service is superseded; its history is in stages 39–66.
 
-A true custom app domain is deferred; see the [feasibility assessment](docs/custom-domain-feasibility.md). An owner-run guide moves Storagi's Funnel address to [its own Tailscale node](docs/tailscale-node.md), so other apps' Serve changes on the host can't replace it.
+| Guide                                              | Covers                                                                           |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [Setup](docs/setup.md)                             | Google OAuth client, owner enrollment, environment and service settings          |
+| [System service](docs/system-service.md)           | Layout, sandbox, manual deploys and the migration from the user service          |
+| [Auto-deploy](docs/auto-deploy.md)                 | The tag-driven deploy timer, its threat model, install and releases              |
+| [Tailscale node](docs/tailscale-node.md)           | Serving Storagi from its own node, so other apps' Serve changes can't replace it |
+| [Custom domain](docs/custom-domain-feasibility.md) | Why a custom app domain is deferred                                              |
+
+Exposure was approved by the owner; the private start-up and Funnel activation are recorded in stages 29–31. Unrelated host services, network mappings and power settings were left untouched.
+
+## Working on Storagi
+
+Read the [design and feasibility record](docs/design-and-feasibility.md) before changing behaviour; it separates agreed requirements from proposals and unverified assumptions. Agents must follow [AGENTS.md](AGENTS.md) and record their work in the [implementation log and stage records](docs/implementation-log.md).
+
+## License
+
+[MIT](LICENSE)
