@@ -46,20 +46,6 @@ type SavePicker = (options: {
   suggestedName: string;
 }) => Promise<{ createWritable: () => Promise<Writable> }>;
 let previous = () => {};
-// Deletes sent while the page was closing; the next visit resends any the browser dropped.
-const leftKey = 'storagi.leftDeletes';
-function leftDeletes(): string[] {
-  try {
-    const ids: unknown = JSON.parse(localStorage.getItem(leftKey) || '[]');
-    return Array.isArray(ids)
-      ? ids.filter((id): id is string => typeof id === 'string')
-      : [];
-  } catch {
-    return [];
-  }
-}
-const gone = (error: unknown) =>
-  [404, 410].includes((error as { status?: number }).status!);
 export async function createDashboard(
   root: HTMLElement,
   dependencies = { fetch: globalThis.fetch.bind(globalThis) },
@@ -228,18 +214,10 @@ export async function createDashboard(
     for (const cancel of downloads) cancel();
   });
   // Refreshing or leaving during the grace counts as not undoing: send the DELETEs now, with keepalive so they outlive the page.
-  // Chromium allows 256 keepalive requests per frame and drops the rest, so the ids are also kept for the next visit to resend.
+  // ponytail: Chromium allows 256 keepalive requests per frame; beyond that the rest are dropped and those copies stay. A bulk-delete endpoint lifts it.
   let leaving = false;
   listen(window, 'pagehide', () => {
     gestures.cancel();
-    const left = shelf.files.map((f) => f.id).filter(counting);
-    if (left.length)
-      try {
-        localStorage.setItem(
-          leftKey,
-          JSON.stringify([...new Set([...leftDeletes(), ...left])]),
-        );
-      } catch {}
     leaving = true;
     for (const op of [...pending]) op.flush();
     leaving = false;
@@ -549,7 +527,10 @@ export async function createDashboard(
           ),
         );
         results.forEach((result, i) => {
-          if (result.status === 'rejected' && !gone(result.reason))
+          if (
+            result.status === 'rejected' &&
+            ![404, 410].includes((result.reason as { status?: number }).status!)
+          )
             failed ??= result.reason;
           else shelf.files = shelf.files.filter((f) => f.id !== ids[i]);
         });
@@ -971,23 +952,6 @@ export async function createDashboard(
   );
   tab('inbox');
   panel(true);
-  const left = leftDeletes();
-  if (left.length) {
-    const results = await Promise.allSettled(
-      left.map((id) =>
-        request(`/api/files/${encodeURIComponent(id)}`, 'DELETE'),
-      ),
-    );
-    const keep = left.filter(
-      (_, i) =>
-        results[i].status === 'rejected' &&
-        !gone((results[i] as PromiseRejectedResult).reason),
-    );
-    try {
-      if (keep.length) localStorage.setItem(leftKey, JSON.stringify(keep));
-      else localStorage.removeItem(leftKey);
-    } catch {}
-  }
   await auto.now();
   return destroy;
 }

@@ -27,7 +27,6 @@ const tick = async () => {
 let dispose = () => {};
 afterEach(() => {
   dispose();
-  localStorage.removeItem('storagi.leftDeletes');
   vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.replaceChildren();
@@ -582,49 +581,6 @@ test('leaving the page sends pending deletes at once, inline and folded bulk, so
   expect(deletes(fetcher)).toHaveLength(3);
   expect(document.querySelector('[data-undo]')).toBeNull();
   expect(document.querySelector('#notice button')).toBeNull();
-});
-test('leaving the page remembers its pending deletes for the next visit', async () => {
-  vi.useFakeTimers();
-  const api = service();
-  await mount(api.fetcher);
-  click('[data-del="new-id"]');
-  click('[data-confirm="new-id"]');
-  click('[data-id="old-id"] .lead');
-  click('#sel-delete');
-  window.dispatchEvent(new Event('pagehide'));
-  expect(
-    JSON.parse(localStorage.getItem('storagi.leftDeletes')!).sort(),
-  ).toEqual(['new-id', 'old-id']);
-});
-test('the next visit resends deletes left over from leaving before the list loads, keeping only failures', async () => {
-  localStorage.setItem(
-    'storagi.leftDeletes',
-    JSON.stringify(['old-id', 'gone-id', 'down-id', 7]),
-  );
-  const api = service();
-  const fetcher = vi.fn(
-    async (url: RequestInfo | URL, options?: RequestInit) =>
-      options?.method !== 'DELETE'
-        ? api.fetcher(url)
-        : String(url).endsWith('/old-id')
-          ? new Response(null, { status: 204 })
-          : new Response('{}', {
-              status: String(url).endsWith('/gone-id') ? 404 : 503,
-            }),
-  );
-  await mount(fetcher as typeof api.fetcher);
-  const calls = (fetcher.mock.calls as unknown[][]).map((c) => String(c[0]));
-  expect(deletes(fetcher).sort()).toEqual([
-    '/api/files/down-id',
-    '/api/files/gone-id',
-    '/api/files/old-id',
-  ]);
-  expect(calls.lastIndexOf('/api/files')).toBeGreaterThan(
-    calls.indexOf('/api/files/old-id'),
-  );
-  expect(JSON.parse(localStorage.getItem('storagi.leftDeletes')!)).toEqual([
-    'down-id',
-  ]);
 });
 test('a delete whose grace simply runs out does not use keepalive', async () => {
   vi.useFakeTimers();
