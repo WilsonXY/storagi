@@ -1,6 +1,6 @@
-# 126: Leaving the page during Undo deletes for real
+# 128: Leaving the page during Undo deletes for real
 
-- Status: completed; stage127 review FAIL (two P2s and a suggestion), all fixed here
+- Status: completed; stage129 review FAIL (two P2s and a suggestion), all fixed here
 - Started / last updated: 2026-10-31 (Asia/Kuala_Lumpur)
 - Coordinator thread: `a17f8d53-6344-4999-8ff8-d4a3521e6708`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
@@ -10,6 +10,9 @@
 
 ## Changes
 
+Stage numbers 126 and 127 were taken by the folder-drop fix merged to `main` first; this change was renumbered to 128 and 129 when `main` was merged in.
+
+
 - `web/src/deferred-delete.ts`: `flush()` ends the grace, emits the zero tick (inline rows switch to "Deleting", so no Undo is left), and runs the delete now; later `undo()` and `flush()` are no-ops.
 - `web/src/dashboard.ts`: `pagehide` calls `flush()` instead of `undo()`. The DELETEs sent from `pagehide` use `keepalive: true`, so the browser finishes them after the page is gone; DELETEs sent when the grace simply runs out do not, so ordinary deletes are not subject to keepalive limits. A bulk batch sends its DELETEs in parallel rather than one after another, because only requests started before unload are sent. The 404/410 handling and the first-error report are unchanged. The server takes a lock per file, so parallel deletes of different files do not contend.
 - Tests: `deferred-delete.test.ts` covers `flush`; the stage51 `dashboard.test.ts` test "leaving the page restores pending deletes" is replaced by one that holds every DELETE unanswered and checks that `pagehide` starts the inline DELETE and both files of a folded bulk batch at once, all with `keepalive`, and that no row Undo or Undo toast is left (as after a back/forward-cache restore). Another test checks that a delete whose grace runs out does not use `keepalive`.
@@ -18,9 +21,9 @@
 
 Private logs and scripts are in `"$HOME/.cache/storagi/tmp"` and `"$HOME/.cache/storagi/repro"` (`leave-126.mjs`), outside Git.
 
-- RED→GREEN: both new tests failed before the change (no DELETE sent on `pagehide`, no `flush`), and pass after it. The three tests added for the stage127 findings failed on `2b42e0b` (Undo left on the row, `keepalive` on an ordinary delete, no zero tick from `flush`) and pass after the fixes.
+- RED→GREEN: both new tests failed before the change (no DELETE sent on `pagehide`, no `flush`), and pass after it. The three tests added for the stage129 findings failed on `2b42e0b` (Undo left on the row, `keepalive` on an ordinary delete, no zero tick from `flush`) and pass after the fixes.
 - Headless Chromium 1248 against `test:preview` (loopback 5174, synthetic data, `leave-126.log`): an inline delete, reloaded 1 s into the grace, is gone from the server and the list; a two-row bulk delete, with the tab closed 0.5 s into the grace, is gone from the server (5 → 2 files); Undo followed by a reload keeps the file.
-- `npm run format:check` PASS. `npm run check` exit 0: 33 server, 91 web, 11 HTTP acceptance and 154 deploy tests, both typechecks and builds (`check-126.log`). After the stage127 fixes: 33 server, 92 web, 11 HTTP and 154 deploy tests, typechecks and builds PASS (`check-126b.log`), and the Chromium reproduction gives the same results (`leave-126b.log`).
+- `npm run format:check` PASS. `npm run check` exit 0: 33 server, 91 web, 11 HTTP acceptance and 154 deploy tests, both typechecks and builds (`check-126.log`). After the stage129 fixes: 33 server, 92 web, 11 HTTP and 154 deploy tests, typechecks and builds PASS (`check-126b.log`), and the Chromium reproduction gives the same results (`leave-126b.log`).
 
 ## Findings and limitations
 
@@ -31,4 +34,4 @@ Private logs and scripts are in `"$HOME/.cache/storagi/tmp"` and `"$HOME/.cache/
 
 ## Handoff
 
-The coordinator commits, runs the stage127 review and opens the PR. No merge, tag or deployment.
+The coordinator commits, runs the stage129 review and opens the PR. No merge, tag or deployment.
