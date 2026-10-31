@@ -13,7 +13,7 @@ It is temporary transfer storage, not an archive. Each server copy is deleted 30
 - A 200 GiB storage budget. When it is full, uploads are refused; nothing unexpired is deleted to make room.
 - Repeated filenames are kept as separate files, never overwritten.
 - Sign-in with Google, restricted to the owner's account. The server checks it on every file operation, including direct file URLs. There is no password login, open registration or first-visitor ownership.
-- Hosted on an existing home machine with $0 of extra hosting or service cost, reachable from any browser through Tailscale Funnel.
+- Hosted on an existing home machine with $0 of extra hosting or service cost, reachable from any browser through Tailscale Funnel. Private Tailscale access is the accepted fallback if Funnel runs into a blocker.
 
 ## Status
 
@@ -25,9 +25,9 @@ What has been checked:
 - A local 2 GiB + 1 byte upload, restart and SHA-256 check.
 - The owner confirmed Google sign-in, rejection of another Google account, and Inbox access from a browsing device with Tailscale disconnected. Public relay checks passed.
 - The owner's first real file transfer between devices worked.
-- Automatic crash recovery was verified under the earlier user service, and the system unit keeps the same restart settings. The owner accepted boot autostart from the reviewed configuration and waived a reboot test.
+- Automatic crash recovery was verified under the earlier user service, and the system unit keeps the same restart settings. The owner accepted boot autostart from the reviewed configuration and waived a reboot test, and reports that the host's power and lid settings were already configured and working.
 
-Not yet measured: real WAN throughput, hashes and resume behaviour for large files, and interruptions on physical Windows, Fedora and Android devices. See the [rollout record](docs/stages/31-funnel-rollout.md), the [host rollout](docs/stages/74-host-rollout.md) and [verification](docs/verification.md) for evidence and limits.
+Not yet measured: controlled WAN throughput (the owner has only reported downloads of about 1.6–1.7 MB/s on average, before the move to Storagi's own node, in [stage101](docs/stages/101-tunnel-investigation.md)), hashes and resume behaviour for large real files, and interruptions on physical Windows, Fedora and Android devices. See the [rollout record](docs/stages/31-funnel-rollout.md), the [host rollout](docs/stages/74-host-rollout.md) and [verification](docs/verification.md) for evidence and limits.
 
 ## How it works
 
