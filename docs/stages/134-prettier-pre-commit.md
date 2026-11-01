@@ -1,6 +1,6 @@
 # 134: Format staged files with Prettier on every commit
 
-- Status: completed; stage135 review FAIL, both P2s fixed; re-review in [136](136-prettier-pre-commit-review-2.md)
+- Status: completed; stage135 review FAIL, both P2s fixed; stage136 re-review FAIL, its P2 fixed
 - Started / last updated: 2026-11-01 (Asia/Kuala_Lumpur)
 - Coordinator thread: `0e80096f-63b6-4cae-b8f7-22bdc83ba2f8`
 - Agent/task/thread identifiers: none; the coordinator made this small tooling change itself, without delegating
@@ -17,7 +17,7 @@
 
 ## Changes
 
-- `.githooks/pre-commit`: selects staged added, copied, modified and renamed files with Git pathspecs equal to `{server,web,scripts}/**/*.{ts,js,mjs,css,html}`, passes them NUL-separated to Prettier `--write` and then to `git --literal-pathspecs add`. After stage135 it no longer reads names from shell text: the first version silently skipped names Git quotes (`café.ts`, quotes, tabs), and its `git add` read `probe[1].ts` as a pattern that also staged `probe1.ts`.
+- `.githooks/pre-commit`: selects staged added, copied, modified and renamed files with Git pathspecs equal to `{server,web,scripts}/**/*.{ts,js,mjs,css,html}`, passes them NUL-separated to Prettier `--write` and then to `git --literal-pathspecs add`. After stage135 it no longer reads names from shell text: the first version silently skipped names Git quotes (`café.ts`, quotes, tabs), and its `git add` read `probe[1].ts` as a pattern that also staged `probe1.ts`. After stage136 it also clears inherited `GIT_*_PATHSPECS` modes, which `git --literal-pathspecs commit` and similar pass to hooks and which stopped the patterns matching.
 - `package.json`: `prepare` script.
 - `README.md`: the hook, its whole-file staging and `--no-verify` in the formatting section, `.githooks/` in the layout table, and the secrets note no longer says no hook is installed.
 
@@ -30,6 +30,7 @@ Probes ran in a throwaway clone outside the repository, using this worktree's `n
 - Only `README.md` staged: hook exited 0 without running Prettier.
 - File name with a space (`web/src/a b.css`): formatted and committed.
 - After the stage135 fixes: `café "q".ts` and a name containing a tab were formatted and committed; with only `probe[1].ts` staged and unstaged edits in `probe1.ts`, the commit held only `probe[1].ts` and `probe1.ts` stayed unstaged. Prettier given `probe[1].ts` formatted that file only. The earlier probes above were repeated and passed.
+- After the stage136 fix: `git --literal-pathspecs commit`, `--noglob-pathspecs`, `--glob-pathspecs` and `--icase-pathspecs` each committed a nested `server/deep/*.ts` formatted; the bracket, `café.ts` and documentation-only probes passed again and `dash -n` PASS. This one-line fix was verified by the coordinator only, with no third review round.
 - Staged TypeScript syntax error: Prettier reported it and the commit was refused.
 - `node_modules` removed: commit refused with the setup message.
 - Commit from the `web/` subdirectory: formatted correctly.
@@ -43,4 +44,4 @@ Probes ran in a throwaway clone outside the repository, using this worktree's `n
 
 ## Handoff
 
-Stage135 reviewed `6a45e8d`; stage136 re-reviews the fixes. The coordinator opens the PR; no merge, tag or deployment.
+Stage135 reviewed `6a45e8d` and stage136 reviewed `fe0ee0d`; the coordinator fixed and verified the stage136 finding. The coordinator opens the PR; no merge, tag or deployment.

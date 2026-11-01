@@ -21,4 +21,4 @@ The coordinator reproduced both findings' fixes in its own throwaway clone (stag
 
 ## Handoff
 
-Read-only invariants checked by the coordinator afterwards: this worktree's HEAD `6a45e8d` and status unchanged by the reviewer, `core.hooksPath` unchanged, remote heads identical to before. The reviewer's worktree was still at `6a45e8d` with a clean status; it and its branch were removed. Stage136 reviews the fixes.
+Read-only invariants checked by the coordinator afterwards: this worktree's HEAD `6a45e8d` and status unchanged by the reviewer, `core.hooksPath` unchanged, remote heads identical to before. The reviewer's worktree was still at `6a45e8d` with a clean status; it and its branch were removed. Stage136 reviewed the fixes.
