@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "setup": "npm ci && npm ci --prefix server && npm ci --prefix web",
+    "prepare": "[ ! -e .git ] || git config core.hooksPath .githooks",
     "format": "prettier --write \"{server,web,scripts}/**/*.{ts,js,mjs,css,html}\"",
     "format:check": "prettier --check \"{server,web,scripts}/**/*.{ts,js,mjs,css,html}\"",
     "secrets:check": "gitleaks git --pre-commit --staged --redact .",

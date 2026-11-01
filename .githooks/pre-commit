@@ -1,0 +1,13 @@
+#!/bin/sh
+# Formats staged files with the repository's Prettier, covering the same files as `npm run format`.
+# Installed by `npm run setup`. Re-stages each formatted file whole.
+set -eu
+files=$(git diff --cached --name-only --diff-filter=ACMR |
+  grep -E '^(server|web|scripts)/.*\.(ts|js|mjs|css|html)$') || exit 0
+prettier=node_modules/.bin/prettier
+[ -x "$prettier" ] || { echo 'pre-commit: Prettier is missing; run npm run setup' >&2; exit 1; }
+IFS='
+'
+set -f
+"$prettier" --write --log-level warn $files
+git add -- $files
