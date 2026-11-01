@@ -42,14 +42,15 @@ One server process owns the data directory. The design, the alternatives conside
 
 ## Repository layout
 
-| Path       | Contents                                                    |
-| ---------- | ----------------------------------------------------------- |
-| `server/`  | The service: authentication, uploads, storage and expiry    |
-| `web/`     | The dashboard                                               |
-| `scripts/` | Acceptance tests, deploy and auto-deploy scripts            |
-| `deploy/`  | systemd units and the sudoers rule used on the host         |
-| `docs/`    | Setup, operation, verification, design record and stage log |
-| `design/`  | Visual design explorations for the dashboard                |
+| Path         | Contents                                                    |
+| ------------ | ----------------------------------------------------------- |
+| `server/`    | The service: authentication, uploads, storage and expiry    |
+| `web/`       | The dashboard                                               |
+| `scripts/`   | Acceptance tests, deploy and auto-deploy scripts            |
+| `deploy/`    | systemd units and the sudoers rule used on the host         |
+| `docs/`      | Setup, operation, verification, design record and stage log |
+| `design/`    | Visual design explorations for the dashboard                |
+| `.githooks/` | The pre-commit hook that formats staged files               |
 
 ## Development
 
@@ -72,6 +73,8 @@ To run the built app, see [setup](docs/setup.md). It needs real Google OAuth cre
 ### Formatting and secret checks
 
 `npm run format` formats the handwritten TypeScript, tests, CSS, HTML and JavaScript scripts in `server/`, `web/` and `scripts/`; `npm run format:check` checks the same files without changing them. Both use the local Prettier **3.9.10**, which CI also installs. Encoded brand data, icons, fonts, build output and evidence are excluded in `.prettierignore`, and prose and the design explorations are not formatted. Prettier cannot wrap every untagged HTML template, so verify the DOM and interactions separately after changing one by hand.
+
+`npm run setup` also installs a pre-commit hook (`.githooks/pre-commit`, via `git config core.hooksPath`) that runs the same Prettier on the staged files from that set and stages the result. It stages each formatted file whole, so a partly staged file is committed in full. Skip it once with `git commit --no-verify`; CI still checks formatting.
 
 Secret scanning uses Gitleaks **8.30.1**. Install the official binary once. This Linux x64 example matches CI and verifies the archive against the SHA-256 from the [official release](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1):
 
@@ -98,7 +101,7 @@ npm run secrets:check
 git commit
 ```
 
-- `npm run secrets:check` scans staged changes only, so stage new files and run it again after any edit. You can call it from your own pre-commit hook; none is installed for you.
+- `npm run secrets:check` scans staged changes only, so stage new files and run it again after any edit. The installed pre-commit hook does not run it.
 - `npm run secrets:history` scans all Git history you have. CI fetches full history and runs it on pull requests and `main`, alongside the formatting and correctness checks. In a shallow clone it only covers what was downloaded.
 - Both use Gitleaks' default rules and redact their output. No licence token, baseline or allowlist is needed.
 - Never commit a secret report. Investigate findings privately, rotate any credential that was really exposed, and add only narrow, evidenced false-positive exceptions. Gitleaks honours inline `gitleaks:allow` comments, `.gitleaks.toml` and `.gitleaksignore`, so any change that adds one needs explicit review.
