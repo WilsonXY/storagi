@@ -677,7 +677,7 @@ test('a failed disk write aborts the download request', async () => {
   delete (window as Window & { showSaveFilePicker?: unknown })
     .showSaveFilePicker;
 });
-test('a touchpad sideways swipe deletes through the same six-second Undo', async () => {
+test('a touchpad sideways swipe deletes through the same four-second Undo', async () => {
   vi.useFakeTimers();
   const api = service();
   await mount(api.fetcher);
@@ -687,6 +687,9 @@ test('a touchpad sideways swipe deletes through the same six-second Undo', async
   );
   await vi.advanceTimersByTimeAsync(400);
   expect(document.querySelector('[data-undo="new-id"]')).not.toBeNull();
+  expect(document.querySelector('[data-clock="new-id"]')?.textContent).toBe(
+    '4s',
+  );
   click('[data-undo="new-id"]');
   await vi.advanceTimersByTimeAsync(7000);
   expect(
