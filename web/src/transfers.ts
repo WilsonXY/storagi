@@ -190,7 +190,7 @@ export function setupTransfers(
       root.querySelector('#composer')!.classList.toggle('dragging', over);
       root.querySelector('.composer-text')!.textContent = over
         ? 'Let go to put them on the shelf'
-        : 'Drop files to put them on the shelf';
+        : 'Drop or paste files to put them on the shelf';
     },
     drop: (files, folders) => {
       add(files);

@@ -185,20 +185,27 @@ test('refreshes reserved storage when the server creates a partial upload', asyn
   );
 });
 
-function drop(...entries: [File, { isDirectory: boolean } | undefined][]) {
-  const event = new Event('drop', { cancelable: true });
-  Object.defineProperty(event, 'dataTransfer', {
-    value: {
-      types: ['Files'],
-      files: entries.map(([file]) => file),
-      items: entries.map(([file, entry]) => ({
-        kind: 'file',
-        getAsFile: () => file,
-        // undefined entry: a browser without the entry API
-        ...(entry && { webkitGetAsEntry: () => entry }),
-      })),
+type Entry = [File, { isDirectory: boolean } | undefined];
+const drop = (...entries: Entry[]) => transfer('drop', ...entries);
+const paste = (...entries: Entry[]) => transfer('paste', ...entries);
+function transfer(type: 'drop' | 'paste', ...entries: Entry[]) {
+  const event = new Event(type, { cancelable: true });
+  Object.defineProperty(
+    event,
+    type === 'drop' ? 'dataTransfer' : 'clipboardData',
+    {
+      value: {
+        types: entries.length ? ['Files'] : ['text/plain'],
+        files: entries.map(([file]) => file),
+        items: entries.map(([file, entry]) => ({
+          kind: 'file',
+          getAsFile: () => file,
+          // undefined entry: a browser without the entry API
+          ...(entry && { webkitGetAsEntry: () => entry }),
+        })),
+      },
     },
-  });
+  );
   window.dispatchEvent(event);
   return event;
 }
@@ -228,4 +235,25 @@ test('without the entry API a drop still uploads its files', async () => {
   drop([zip, undefined]);
   await tick();
   expect(mocks.uploads.map((upload) => upload.file)).toEqual([zip]);
+});
+test('pasted files upload, and a pasted folder is refused like a dropped one', async () => {
+  await mount();
+  const shot = new File(['x'], 'image.png');
+  const event = paste(
+    [shot, { isDirectory: false }],
+    [new File([], 'posters'), { isDirectory: true }],
+  );
+  await tick();
+  expect(event.defaultPrevented).toBe(true);
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([shot]);
+  expect(document.querySelector('#notice span')?.textContent).toBe(
+    "Folders can't be uploaded. Zip posters first.",
+  );
+});
+test('pasting text is left alone', async () => {
+  await mount();
+  const event = paste();
+  await tick();
+  expect(event.defaultPrevented).toBe(false);
+  expect(mocks.uploads).toHaveLength(0);
 });
