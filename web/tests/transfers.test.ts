@@ -273,8 +273,18 @@ test('a clipboard with text and a file pastes text into a field, and uploads the
   await tick();
   expect(typed.defaultPrevented).toBe(false);
   expect(mocks.uploads).toHaveLength(0);
+  // A checkbox can't take text, so the file uploads.
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  document.body.append(checkbox);
+  expect(mixed(checkbox).defaultPrevented).toBe(true);
+  await tick();
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([shot]);
+  checkbox.remove();
+  mocks.uploads[0].options.onSuccess!({} as never);
+  await tick();
   const uploaded = mixed(document.body);
   await tick();
   expect(uploaded.defaultPrevented).toBe(true);
-  expect(mocks.uploads.map((upload) => upload.file)).toEqual([shot]);
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([shot, shot]);
 });

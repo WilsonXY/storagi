@@ -144,10 +144,13 @@ export function fileDrop(options: {
     (e) => {
       const types = e.clipboardData?.types ?? [];
       // Text pasted into a field stays text, even when the clipboard also holds a file.
-      const typing =
-        e.target instanceof Element &&
-        !!e.target.closest('input,textarea,[contenteditable]') &&
-        types.includes('text/plain');
+      const t = e.target,
+        typing =
+          types.includes('text/plain') &&
+          (t instanceof HTMLTextAreaElement ||
+            (t instanceof HTMLInputElement &&
+              /^(text|search|url|tel|email|password|number)$/.test(t.type)) ||
+            (t instanceof HTMLElement && t.isContentEditable));
       if (!types.includes('Files') || typing || !options.enabled()) return;
       e.preventDefault();
       deliver(e.clipboardData!);
