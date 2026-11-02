@@ -33,3 +33,15 @@ export function setGesturePref(value: Gestures) {
     localStorage.setItem('storagi.gestures', value);
   } catch {}
 }
+export function previewPref(): 'on' | 'off' {
+  try {
+    return localStorage.getItem('storagi.previews') === 'off' ? 'off' : 'on';
+  } catch {
+    return 'on';
+  }
+}
+export function setPreviewPref(value: 'on' | 'off') {
+  try {
+    localStorage.setItem('storagi.previews', value);
+  } catch {}
+}

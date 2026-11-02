@@ -19,6 +19,8 @@ import {
   reduced,
   gesturePref,
   setGesturePref,
+  previewPref,
+  setPreviewPref,
   onMotionChange,
 } from './preferences';
 import { KoiPond, KoiMark, orbitLoader } from './koi';
@@ -637,6 +639,60 @@ export async function createDashboard(
       focusKey(`x-${id}`);
     }
   });
+  // Resting the mouse on an image row previews it. Browsers sniff <img> content, so the download URL works despite its octet-stream type.
+  // ponytail: loaded images stay in memory for the session, because downloads are no-store; add an LRU if a session hovers hundreds of large images.
+  const previewBox = $('#hover-preview'),
+    previews = new Map<string, HTMLImageElement>();
+  let previewId = '',
+    previewTimer: ReturnType<typeof setTimeout> | undefined;
+  const hidePreview = () => {
+    clearTimeout(previewTimer);
+    previewId = '';
+    previewBox.hidden = true;
+  };
+  cleanups.push(hidePreview);
+  function showPreview(id: string) {
+    const loaded = previews.get(id);
+    if (loaded) {
+      previewBox.replaceChildren(loaded);
+      previewBox.hidden = false;
+      return;
+    }
+    const img = new Image();
+    img.alt = '';
+    img.onload = () => {
+      previews.set(id, img);
+      if (previewId === id) showPreview(id);
+    };
+    img.src = `/api/files/${encodeURIComponent(id)}/download`;
+  }
+  listen($('#groups'), 'pointermove', (e: PointerEvent) => {
+    const id = (e.target as Element).closest<HTMLElement>('.row')?.dataset.id,
+      f = shelf.files.find((f) => f.id === id);
+    if (
+      !f ||
+      e.pointerType !== 'mouse' ||
+      e.buttons ||
+      previewPref() === 'off' ||
+      counting(f.id) ||
+      +new Date(f.expiresAt) <= Date.now() ||
+      !/\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(f.name)
+    )
+      return hidePreview();
+    // Beside the cursor, flipped to the other side near the window's right or bottom edge.
+    const w = previewBox.offsetWidth || 320,
+      h = previewBox.offsetHeight || 240;
+    previewBox.style.left = `${e.clientX + 16 + w > innerWidth ? e.clientX - 16 - w : e.clientX + 16}px`;
+    previewBox.style.top = `${e.clientY + 16 + h > innerHeight ? Math.max(8, e.clientY - 16 - h) : e.clientY + 16}px`;
+    if (previewId === f.id) return;
+    hidePreview();
+    previewId = f.id;
+    // A short pause, so sweeping the mouse across the list does not start a download per row.
+    previewTimer = setTimeout(() => showPreview(f.id), 300);
+  });
+  listen($('#groups'), 'pointerleave', hidePreview);
+  listen($('#groups'), 'pointerdown', hidePreview);
+  listen(window, 'scroll', hidePreview);
   listen($('.list-head'), 'click', (e: MouseEvent) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-sort]');
     if (b) {
@@ -839,6 +895,10 @@ export async function createDashboard(
       'aria-checked',
       String(gesturePref() === 'on'),
     );
+    $('#preview-switch').setAttribute(
+      'aria-checked',
+      String(previewPref() === 'on'),
+    );
     app.classList.toggle('gestures', gesturePref() === 'on');
     if (saved === 'koi')
       $('#koi-saved').textContent =
@@ -850,10 +910,17 @@ export async function createDashboard(
         gesturePref() === 'on'
           ? 'Saved · swipe gestures on'
           : 'Saved · swipe gestures off';
+    if (saved === 'preview')
+      $('#preview-saved').textContent =
+        previewPref() === 'on' ? 'Saved · previews on' : 'Saved · previews off';
   }
   listen($('#koi-switch'), 'click', () => {
     setMotionPref(reduced() ? 'swim' : 'static');
     switches('koi');
+  });
+  listen($('#preview-switch'), 'click', () => {
+    setPreviewPref(previewPref() === 'on' ? 'off' : 'on');
+    switches('preview');
   });
   listen($('#gesture-switch'), 'click', () => {
     setGesturePref(gesturePref() === 'on' ? 'off' : 'on');

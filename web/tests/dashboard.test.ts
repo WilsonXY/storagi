@@ -1183,3 +1183,79 @@ test('a swipe that replaces the focused Delete button moves focus to its Undo', 
     'new-id',
   );
 });
+test('a mouse resting on an image row previews it once loaded, reuses it, and the setting turns previews off', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = {
+    id: 'img-id',
+    name: 'Photo.JPG',
+    size: 4096,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  };
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files: [...listing.files, photo] },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const move = (id: string, pointerType = 'mouse', buttons = 0) =>
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType,
+        buttons,
+      }),
+    );
+  move('new-id');
+  move('img-id', 'touch');
+  move('img-id', 'mouse', 1);
+  vi.advanceTimersByTime(1000);
+  expect(images).toHaveLength(0);
+  move('img-id');
+  vi.advanceTimersByTime(100);
+  expect(images).toHaveLength(0);
+  vi.advanceTimersByTime(300);
+  expect(images).toHaveLength(1);
+  expect(images[0].getAttribute('src')).toBe('/api/files/img-id/download');
+  expect(box.hidden).toBe(true);
+  images[0].dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  expect(box.firstElementChild).toBe(images[0]);
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(box.hidden).toBe(true);
+  move('img-id');
+  vi.advanceTimersByTime(400);
+  expect(box.hidden).toBe(false);
+  expect(images).toHaveLength(1);
+  groups.dispatchEvent(new Event('pointerleave'));
+  click('#nav-settings');
+  click('#preview-switch');
+  expect(localStorage.getItem('storagi.previews')).toBe('off');
+  expect(document.querySelector('#preview-saved')?.textContent).toBe(
+    'Saved · previews off',
+  );
+  click('.nav-item[data-tab="inbox"]');
+  move('img-id');
+  vi.advanceTimersByTime(1000);
+  expect(box.hidden).toBe(true);
+  localStorage.clear();
+});
