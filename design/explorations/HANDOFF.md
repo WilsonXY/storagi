@@ -37,7 +37,7 @@ The bar at the bottom of the page switches between states: Locked, Loading, Shel
 | Inbox list, counts, storage meter | `GET /api/files` → files plus `usedBytes`, `reservedBytes`, `budgetBytes`. Group rows by the day in the browser's local time zone. |
 | Uploads | The existing tus queue in `web/src/transfers.ts`: one at a time, pause/resume/cancel, resume by choosing the same file again, CSRF on mutations. Add speed and ETA from `onProgress`. |
 | Downloads with speed | **Open decision** (see `REFERENCES.md`). Plain links leave progress to the browser. In-page progress needs a `fetch` stream plus `showSaveFilePicker`, which only Chromium has; Firefox-based browsers (possibly the owner's "Zen" on Linux) fall back to a plain link. Ask the owner before choosing. |
-| Delete with Undo | The client waits 6 s, then sends `DELETE /api/files/:id`. Leaving the page inside that window keeps the file. |
+| Delete with Undo | The client waits 4 s, then sends `DELETE /api/files/:id`. Leaving the page inside that window keeps the file. |
 | Sign-out pop-up | `POST /auth/logout` with the CSRF token, then the locked screen. |
 | Auto-refresh | Every 60 s while the tab is visible; refresh straight away when the tab returns after more than 10 s away, and after each finished upload. Keep the old list on screen while refreshing. Show "Updated HH:MM · next in Ns" (just HH:MM on phones). |
 | Offline | When a request fails: the pinned red banner, a retry every 10 s with a countdown plus "Retry now", the red status pill, the pond grey and still, the list dimmed, and the tab title "Offline · Storagi". |
@@ -45,7 +45,7 @@ The bar at the bottom of the page switches between states: Locked, Loading, Shel
 | Settings → Swipe gestures | `localStorage['storagi.gestures']` is `on` (default) or `off`; it turns both row gestures on or off. |
 | Sorting | Client-side over the loaded list: Name (natural order, case-insensitive), Size, Expires; ascending first, then flipping on each click; ties fall back to newest first. Sorted, the list is one run without day headings; the header's × returns to newest first in day groups. Keep the sort across auto-refreshes. |
 | Drag to select | Every row between the first and the one under the pointer takes the first row's new state; rows the drag leaves go back. Mouse and touchpad: from anywhere on a row. Touch: from the checkbox column (`touch-action: none`), or after a 0.4 s hold on the row (rows keep `touch-action: pan-y`; a non-passive `touchmove` stops the scroll once a gesture has started). Do not re-render the rows mid-drag; update their state in place. |
-| Swipe to delete | Past about a third of the row's width, letting go deletes with the same 6 s Undo as the inline delete. Pointer drag for mouse and touch; a touchpad's two-finger sideways swipe arrives as `wheel` events with `deltaX` (call `preventDefault` so the browser does not go back). |
+| Swipe to delete | Past about a third of the row's width, letting go deletes with the same 4 s Undo as the inline delete. Pointer drag for mouse and touch; a touchpad's two-finger sideways swipe arrives as `wheel` events with `deltaX` (call `preventDefault` so the browser does not go back). |
 | Pond waves | Client-only: `KoiPond`'s `splashTarget`/`canSplash` options and `splash(x, y)`. |
 
 ## Constraints the prototype does not face
