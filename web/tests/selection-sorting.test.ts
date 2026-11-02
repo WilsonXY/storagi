@@ -81,6 +81,20 @@ test('sorts naturally, ascending first, toggles direction, and keeps newest-firs
   expect(sortFiles(files, null).map((f) => f.id)).toEqual(['c', 'a', 'b']);
   expect(files[0].id).toBe('a');
 });
+test('sorts by file type, files without one first, newest first within a type', () => {
+  const typed = [
+    { id: 'z', name: 'a.zip', size: 1, uploadedAt: 1, expiresAt: 1 },
+    { id: 'j1', name: 'b.JPG', size: 1, uploadedAt: 2, expiresAt: 1 },
+    { id: 'n', name: 'README', size: 1, uploadedAt: 3, expiresAt: 1 },
+    { id: 'j2', name: 'c.jpg', size: 1, uploadedAt: 4, expiresAt: 1 },
+  ];
+  expect(sortFiles(typed, nextSort(null, 'type')).map((f) => f.id)).toEqual([
+    'n',
+    'j2',
+    'j1',
+    'z',
+  ]);
+});
 test('unsorted groups use local dates; sorted files form one run', () => {
   expect([...groupFiles(files, null, '2026-03-09T06:00:00Z').keys()]).toEqual([
     'Today',

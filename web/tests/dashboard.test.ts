@@ -333,8 +333,12 @@ test('hostile filenames stay text and expired copies have no download', async ()
     await mount();
     const row = document.querySelector('[data-id="old-id"]')!;
     expect(row.querySelector('strong')?.textContent).toBe(
+      '<img src=x onerror=alert(1)>',
+    );
+    expect(row.querySelector('strong')?.getAttribute('title')).toBe(
       listing.files[0].name,
     );
+    expect(row.querySelector('.cell.type')?.textContent).toBe('zip');
     expect(row.querySelector('img')).toBeNull();
     expect(row.querySelector('[data-dl]')).toBeNull();
     expect(row.textContent).toContain('Expired');

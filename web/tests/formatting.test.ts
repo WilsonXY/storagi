@@ -6,7 +6,7 @@ import {
   clock,
   relDay,
   daysLeft,
-  ext,
+  splitName,
   shortId,
   finishAt,
 } from '../src/formatting';
@@ -23,8 +23,12 @@ test('formats IEC bytes, rates, durations and identifiers', () => {
   expect(duration(3661)).toBe('1h 01m');
   expect(daysLeft({ expiresAt: 2 * 86_400_000 }, 0)).toBe(2);
   expect(daysLeft({ expiresAt: 0 }, 1)).toBe(0);
-  expect(ext('REPORT.PDF')).toBe('pdf');
-  expect(ext('README')).toBe('file');
+  expect(splitName('REPORT.PDF')).toEqual(['REPORT', 'pdf']);
+  expect(splitName('backup.tar.gz')).toEqual(['backup.tar', 'gz']);
+  expect(splitName('README')).toEqual(['README', '']);
+  expect(splitName('.env')).toEqual(['.env', '']);
+  expect(splitName('notes.')).toEqual(['notes.', '']);
+  expect(splitName('Plan v2.final draft')).toEqual(['Plan v2.final draft', '']);
   expect(shortId('123456789')).toBe('456789');
 });
 

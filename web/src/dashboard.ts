@@ -2,7 +2,7 @@ import shelfHTML from './shelf.html?raw';
 import lockedHTML from './locked.html?raw';
 import { setupTransfers } from './transfers';
 import { createTransferView } from './transfer-view';
-import { bytes, clock, daysLeft, ext, shortId } from './formatting';
+import { bytes, clock, daysLeft, shortId, splitName } from './formatting';
 import { AutoRefresh, OfflineRetry } from './refresh';
 import { Selection } from './selection';
 import {
@@ -417,7 +417,8 @@ export async function createDashboard(
       n = esc(duplicate ? `${f.name} · copy ${shortId(f.id)}` : f.name),
       expired = +new Date(f.expiresAt) <= Date.now(),
       left = daysLeft(f),
-      state = morph.get(f.id);
+      state = morph.get(f.id),
+      [base, type] = splitName(f.name);
     const exp = expired ? 'Expired' : `${left} d left`,
       cls = expired ? 'gone' : left <= 3 ? 'soon' : '';
     const actions =
@@ -428,7 +429,7 @@ export async function createDashboard(
           : state?.state === 'deleted'
             ? `<div class="morph"><span class="m-ok">✓ Deleted</span><button data-undo="${id}" data-key="u-${id}">Undo</button><span class="m-clock" data-clock="${id}">${state.left}s</span></div>`
             : `${expired ? '' : `<a class="icon-btn" href="/api/files/${encodeURIComponent(f.id)}/download" download data-dl="${id}" data-key="d-${id}" draggable="false" aria-label="Download ${n}" title="Download">${downIcon}</a>`}<button class="icon-btn" data-del="${id}" data-key="x-${id}" aria-label="Delete ${n}" title="Delete this copy">${trashIcon}</button>`;
-    return `<div class="row${counting(f.id) ? ' ghost' : ''}" data-id="${id}"><label class="lead"><span class="ext">${esc(ext(f.name))}</span><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${esc(f.name)}">${esc(f.name)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone"><span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
+    return `<div class="row${counting(f.id) ? ' ghost' : ''}" data-id="${id}"><label class="lead"><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${esc(f.name)}">${esc(base)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell type">${esc(type)}</span><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone">${type ? `<span>${esc(type)}</span>` : ''}<span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
   }
   function focusKey(key: string) {
     Array.from(root.querySelectorAll<HTMLElement>('[data-key]'))
@@ -957,6 +958,7 @@ export async function createDashboard(
 }
 const sortWords: Record<SortKey, [string, string, string]> = {
   name: ['Name', 'A to Z', 'Z to A'],
+  type: ['Type', 'A to Z', 'Z to A'],
   size: ['Size', 'smallest first', 'largest first'],
   expires: ['Expires', 'soonest first', 'latest first'],
 };
