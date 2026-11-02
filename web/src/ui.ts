@@ -142,10 +142,15 @@ export function fileDrop(options: {
   window.addEventListener(
     'paste',
     (e) => {
-      if (!e.clipboardData?.types.includes('Files') || !options.enabled())
-        return;
+      const types = e.clipboardData?.types ?? [];
+      // Text pasted into a field stays text, even when the clipboard also holds a file.
+      const typing =
+        e.target instanceof Element &&
+        !!e.target.closest('input,textarea,[contenteditable]') &&
+        types.includes('text/plain');
+      if (!types.includes('Files') || typing || !options.enabled()) return;
       e.preventDefault();
-      deliver(e.clipboardData);
+      deliver(e.clipboardData!);
     },
     { signal: events.signal },
   );

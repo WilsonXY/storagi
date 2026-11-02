@@ -186,16 +186,23 @@ test('refreshes reserved storage when the server creates a partial upload', asyn
 });
 
 type Entry = [File, { isDirectory: boolean } | undefined];
-const drop = (...entries: Entry[]) => transfer('drop', ...entries);
-const paste = (...entries: Entry[]) => transfer('paste', ...entries);
-function transfer(type: 'drop' | 'paste', ...entries: Entry[]) {
-  const event = new Event(type, { cancelable: true });
+const drop = (...entries: Entry[]) => transfer('drop', entries);
+const paste = (...entries: Entry[]) => transfer('paste', entries);
+function transfer(
+  type: 'drop' | 'paste',
+  entries: Entry[],
+  { text = !entries.length, target = window as EventTarget } = {},
+) {
+  const event = new Event(type, { cancelable: true, bubbles: true });
   Object.defineProperty(
     event,
     type === 'drop' ? 'dataTransfer' : 'clipboardData',
     {
       value: {
-        types: entries.length ? ['Files'] : ['text/plain'],
+        types: [
+          ...(entries.length ? ['Files'] : []),
+          ...(text ? ['text/plain'] : []),
+        ],
         files: entries.map(([file]) => file),
         items: entries.map(([file, entry]) => ({
           kind: 'file',
@@ -206,7 +213,7 @@ function transfer(type: 'drop' | 'paste', ...entries: Entry[]) {
       },
     },
   );
-  window.dispatchEvent(event);
+  target.dispatchEvent(event);
   return event;
 }
 test('a dropped folder is refused with a notice; files dropped beside it still upload', async () => {
@@ -256,4 +263,18 @@ test('pasting text is left alone', async () => {
   await tick();
   expect(event.defaultPrevented).toBe(false);
   expect(mocks.uploads).toHaveLength(0);
+});
+test('a clipboard with text and a file pastes text into a field, and uploads the file elsewhere', async () => {
+  await mount();
+  const shot = new File(['x'], 'image.png');
+  const mixed = (target: EventTarget) =>
+    transfer('paste', [[shot, { isDirectory: false }]], { text: true, target });
+  const typed = mixed(document.querySelector('#search')!);
+  await tick();
+  expect(typed.defaultPrevented).toBe(false);
+  expect(mocks.uploads).toHaveLength(0);
+  const uploaded = mixed(document.body);
+  await tick();
+  expect(uploaded.defaultPrevented).toBe(true);
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([shot]);
 });
