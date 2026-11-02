@@ -1618,7 +1618,8 @@ body.painting * {
   .row .meta-phone {
     grid-area: meta;
     display: flex !important;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 0 10px;
     font: 13px var(--mono);
     color: var(--faint);
   }

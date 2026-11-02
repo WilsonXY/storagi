@@ -81,7 +81,7 @@ test('sorts naturally, ascending first, toggles direction, and keeps newest-firs
   expect(sortFiles(files, null).map((f) => f.id)).toEqual(['c', 'a', 'b']);
   expect(files[0].id).toBe('a');
 });
-test('sorts by file type, files without one first, newest first within a type', () => {
+test('sorts by file type: none first A to Z, the whole order reversed Z to A, newest first within a type', () => {
   const typed = [
     { id: 'z', name: 'a.zip', size: 1, uploadedAt: 1, expiresAt: 1 },
     { id: 'j1', name: 'b.JPG', size: 1, uploadedAt: 2, expiresAt: 1 },
@@ -93,6 +93,12 @@ test('sorts by file type, files without one first, newest first within a type', 
     'j2',
     'j1',
     'z',
+  ]);
+  expect(sortFiles(typed, { key: 'type', dir: -1 }).map((f) => f.id)).toEqual([
+    'z',
+    'j2',
+    'j1',
+    'n',
   ]);
 });
 test('unsorted groups use local dates; sorted files form one run', () => {
