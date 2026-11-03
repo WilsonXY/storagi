@@ -7,7 +7,7 @@ It is temporary transfer storage, not an archive. Each server copy is deleted 30
 ## Features
 
 - A custom web dashboard for desktop and phone browsers, built for Windows, Fedora KDE and Android.
-- Uploads only happen when you choose files, through the file picker or drag and drop.
+- Uploads only happen when you choose files, through the file picker, drag and drop, or pasting copied files (Ctrl+V or Cmd+V).
 - One shared Inbox, newest first, with filename search, sorting, downloads and file management.
 - Resumable multi-GB uploads (ZIP, MP4 and anything else) over the tus protocol.
 - A 200 GiB storage budget. When it is full, uploads are refused; nothing unexpired is deleted to make room.

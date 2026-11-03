@@ -185,21 +185,35 @@ test('refreshes reserved storage when the server creates a partial upload', asyn
   );
 });
 
-function drop(...entries: [File, { isDirectory: boolean } | undefined][]) {
-  const event = new Event('drop', { cancelable: true });
-  Object.defineProperty(event, 'dataTransfer', {
-    value: {
-      types: ['Files'],
-      files: entries.map(([file]) => file),
-      items: entries.map(([file, entry]) => ({
-        kind: 'file',
-        getAsFile: () => file,
-        // undefined entry: a browser without the entry API
-        ...(entry && { webkitGetAsEntry: () => entry }),
-      })),
+type Entry = [File, { isDirectory: boolean } | undefined];
+const drop = (...entries: Entry[]) => transfer('drop', entries);
+const paste = (...entries: Entry[]) => transfer('paste', entries);
+function transfer(
+  type: 'drop' | 'paste',
+  entries: Entry[],
+  { text = !entries.length, target = window as EventTarget } = {},
+) {
+  const event = new Event(type, { cancelable: true, bubbles: true });
+  Object.defineProperty(
+    event,
+    type === 'drop' ? 'dataTransfer' : 'clipboardData',
+    {
+      value: {
+        types: [
+          ...(entries.length ? ['Files'] : []),
+          ...(text ? ['text/plain'] : []),
+        ],
+        files: entries.map(([file]) => file),
+        items: entries.map(([file, entry]) => ({
+          kind: 'file',
+          getAsFile: () => file,
+          // undefined entry: a browser without the entry API
+          ...(entry && { webkitGetAsEntry: () => entry }),
+        })),
+      },
     },
-  });
-  window.dispatchEvent(event);
+  );
+  target.dispatchEvent(event);
   return event;
 }
 test('a dropped folder is refused with a notice; files dropped beside it still upload', async () => {
@@ -228,4 +242,130 @@ test('without the entry API a drop still uploads its files', async () => {
   drop([zip, undefined]);
   await tick();
   expect(mocks.uploads.map((upload) => upload.file)).toEqual([zip]);
+});
+// jsdom has no modal dialogs: open and close by the attribute. Like a browser, close fires its event a task later.
+HTMLDialogElement.prototype.showModal = function () {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function () {
+  if (!this.open) return;
+  this.open = false;
+  setTimeout(() => this.dispatchEvent(new Event('close')));
+};
+const confirmBox = () =>
+  document.querySelector<HTMLDialogElement>('#paste-confirm')!;
+const listed = () =>
+  [...confirmBox().querySelectorAll('li')].map((li) => li.textContent);
+const press = (id: string) =>
+  document.querySelector<HTMLButtonElement>(id)!.click();
+test('pasted files wait for confirmation, and a pasted folder is refused like a dropped one', async () => {
+  await mount();
+  const shot = new File(['x'], 'image.png');
+  const event = paste(
+    [shot, { isDirectory: false }],
+    [new File([], 'posters'), { isDirectory: true }],
+  );
+  await tick();
+  expect(event.defaultPrevented).toBe(true);
+  expect(document.querySelector('#notice span')?.textContent).toBe(
+    "Folders can't be uploaded. Zip posters first.",
+  );
+  expect(confirmBox().open).toBe(true);
+  expect(confirmBox().querySelector('#paste-title')!.textContent).toBe(
+    'Upload 1 pasted file?',
+  );
+  expect(listed()).toEqual(['image.png1 B']);
+  expect(mocks.uploads).toHaveLength(0);
+  press('#paste-upload');
+  await tick();
+  expect(confirmBox().open).toBe(false);
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([shot]);
+});
+test('cancelling or dismissing a paste uploads nothing; a second paste joins the open list', async () => {
+  await mount();
+  const a = new File(['x'], 'a.png'),
+    b = new File(['yy'], 'b.zip');
+  paste([a, { isDirectory: false }]);
+  paste([b, { isDirectory: false }]);
+  await tick();
+  expect(confirmBox().querySelector('#paste-title')!.textContent).toBe(
+    'Upload 2 pasted files?',
+  );
+  expect(listed()).toEqual(['a.png1 B', 'b.zip2 B']);
+  press('#paste-cancel');
+  await tick();
+  expect(confirmBox().open).toBe(false);
+  // Escape closes a modal dialog without a button.
+  paste([a, { isDirectory: false }]);
+  await tick();
+  expect(listed()).toEqual(['a.png1 B']);
+  confirmBox().close();
+  press('#paste-upload');
+  await tick();
+  expect(mocks.uploads).toHaveLength(0);
+});
+test('a pasted file name is shown as text, never as markup', async () => {
+  await mount();
+  paste([new File(['x'], '<img src=x onerror=alert(1)>.png'), undefined]);
+  await tick();
+  expect(confirmBox().querySelector('img')).toBeNull();
+  expect(listed()[0]).toContain('<img src=x onerror=alert(1)>.png');
+});
+test('pasting text is left alone', async () => {
+  await mount();
+  const event = paste();
+  await tick();
+  expect(event.defaultPrevented).toBe(false);
+  expect(confirmBox().open).toBe(false);
+});
+test('a clipboard with text and a file pastes text into a field, and offers the file elsewhere', async () => {
+  await mount();
+  const shot = new File(['x'], 'image.png');
+  const mixed = (target: EventTarget) =>
+    transfer('paste', [[shot, { isDirectory: false }]], { text: true, target });
+  const typed = mixed(document.querySelector('#search')!);
+  await tick();
+  expect(typed.defaultPrevented).toBe(false);
+  expect(confirmBox().open).toBe(false);
+  // A checkbox can't take text, so the file is offered.
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  document.body.append(checkbox);
+  expect(mixed(checkbox).defaultPrevented).toBe(true);
+  await tick();
+  expect(confirmBox().open).toBe(true);
+  press('#paste-cancel');
+  checkbox.remove();
+  expect(mixed(document.body).defaultPrevented).toBe(true);
+  await tick();
+  expect(confirmBox().open).toBe(true);
+  expect(mocks.uploads).toHaveLength(0);
+});
+test('dashboard shortcuts stay quiet while the paste confirmation is open', async () => {
+  await mount();
+  const picker = vi.spyOn(
+    document.querySelector<HTMLInputElement>('#picker')!,
+    'click',
+  );
+  paste([new File(['x'], 'a.png'), undefined]);
+  await tick();
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'u' }));
+  expect(picker).not.toHaveBeenCalled();
+  press('#paste-cancel');
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'u' }));
+  expect(picker).toHaveBeenCalledOnce();
+});
+test('a paste right after Cancel starts a fresh list that survives the late close event', async () => {
+  await mount();
+  const a = new File(['x'], 'a.png'),
+    b = new File(['yy'], 'b.png');
+  paste([a, undefined]);
+  await tick();
+  press('#paste-cancel');
+  paste([b, undefined]);
+  expect(listed()).toEqual(['b.png2 B']);
+  await tick();
+  press('#paste-upload');
+  await tick();
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([b]);
 });
