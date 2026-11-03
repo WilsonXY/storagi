@@ -46,8 +46,9 @@ export const daysLeft = (
   now: DateValue = Date.now(),
 ) =>
   Math.max(0, Math.floor((+new Date(file.expiresAt) - +new Date(now)) / DAY));
-export const ext = (name: string) =>
-  name.includes('.')
-    ? name.split('.').pop()!.slice(0, 4).toLowerCase()
-    : 'file';
+/** [name without extension, lowercase extension or ''] */
+export function splitName(name: string): [string, string] {
+  const m = /^(.+)\.([a-z0-9]{1,10})$/i.exec(name);
+  return m ? [m[1], m[2].toLowerCase()] : [name, ''];
+}
 export const shortId = (id: string) => id.slice(-6);

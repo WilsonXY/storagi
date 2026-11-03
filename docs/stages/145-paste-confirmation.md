@@ -1,12 +1,12 @@
-# 140: Confirm pasted files before uploading
+# 145: Confirm pasted files before uploading
 
-- Status: completed; stage141 review PASS
+- Status: completed; stage146 review PASS
 - Started / last updated: 2026-11-03 (Asia/Kuala_Lumpur)
 - Coordinator thread: `01a4540a-64d7-40dc-8cb3-7e5d62393ad1`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
 - Provider/model/effort: coordinator Claude Opus 5.5 (`claude-opus-5-5`, from this session's runtime metadata)
-- Workspace/branch and starting commit: `t3/enable-paste-file-upload`, `132baec` (stage137 work, PR #30)
-- Scope and acceptance criteria: after trying the stage137 preview, the owner found that pasting on the site uploads straight away and asked for a mistake-proof step, such as a pop-up asking to confirm the upload. Pasted files must wait for an explicit yes. Drops and the file picker are deliberate and stay immediate.
+- Workspace/branch and starting commit: `t3/enable-paste-file-upload`, `132baec` (stage142 work, PR #30)
+- Scope and acceptance criteria: after trying the stage142 preview, the owner found that pasting on the site uploads straight away and asked for a mistake-proof step, such as a pop-up asking to confirm the upload. Pasted files must wait for an explicit yes. Drops and the file picker are deliberate and stay immediate.
 
 ## Decisions
 
@@ -21,7 +21,7 @@
 - `web/src/transfers.ts`: pasted files collect in a pending list shown in the dialog (title with the count, each name and size, total, "Kept 30 days."). Upload queues them; Cancel, Escape or teardown (sign-out, expiry) drops them. Names are set as text, never as markup.
 - `web/src/shelf.html`: the `#paste-confirm` dialog. `web/src/style.css`: centring, backdrop and file list styles.
 - `web/src/dashboard.ts`: the dashboard's keyboard shortcuts (`/`, `U`, Escape, Ctrl+A) do nothing while the dialog is open.
-- `web/tests/transfers.test.ts`: jsdom has no modal dialogs, so the tests stub `showModal` and `close`. Tests cover confirm, cancel, Escape, a second paste joining the list, a file name holding markup, the text-paste cases from stage137 and the shortcut guard.
+- `web/tests/transfers.test.ts`: jsdom has no modal dialogs, so the tests stub `showModal` and `close`. Tests cover confirm, cancel, Escape, a second paste joining the list, a file name holding markup, the text-paste cases from stage142 and the shortcut guard.
 
 ## Verification
 
@@ -35,4 +35,6 @@ The dialog only guards pastes; a mistaken drop still uploads at once, as before.
 
 ## Handoff
 
-Stage141 reviewed `fa94306`: PASS, no findings. The coordinator updates PR #30; no merge, tag or deployment.
+Stage146 reviewed `fa94306`: PASS, no findings. The coordinator updates PR #30; no merge, tag or deployment.
+
+The paste upload records were numbered 137 to 141 until `main` took 137, 138, 140 and 141 (and an open branch took 139); they were renumbered 142 to 146 when `main` was merged into this branch.
