@@ -439,7 +439,7 @@ export async function createDashboard(
           : state?.state === 'deleted'
             ? `<div class="morph"><span class="m-ok">✓ Deleted</span><button data-undo="${id}" data-key="u-${id}">Undo</button><span class="m-clock" data-clock="${id}">${state.left}s</span></div>`
             : `${expired ? '' : `<a class="icon-btn" href="/api/files/${encodeURIComponent(f.id)}/download" download data-dl="${id}" data-key="d-${id}" draggable="false" aria-label="Download ${n}" title="Download">${downIcon}</a>`}<button class="icon-btn" data-del="${id}" data-key="x-${id}" aria-label="Delete ${n}" title="Delete this copy">${trashIcon}</button>`;
-    return `<div class="row${counting(f.id) ? ' ghost' : ''}" data-id="${id}"><label class="lead"><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${esc(f.name)}">${esc(base)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell type">${esc(type)}</span><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone">${type ? `<span>${esc(type)}</span>` : ''}<span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
+    return `<div class="row${counting(f.id) ? ' ghost' : ''}" data-id="${id}"><label class="lead"><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong${expired || previewPref() === 'off' || !previewKind(f.name) ? ` title="${esc(f.name)}"` : ''}>${esc(base)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell type">${esc(type)}</span><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone">${type ? `<span>${esc(type)}</span>` : ''}<span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
   }
   function focusKey(key: string) {
     Array.from(root.querySelectorAll<HTMLElement>('[data-key]'))
@@ -662,8 +662,8 @@ export async function createDashboard(
     HTMLVideoElement,
     ReturnType<typeof setTimeout>
   >();
-  const previewKind = (name: string) =>
-    /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(name)
+  function previewKind(name: string) {
+    return /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(name)
       ? 'image'
       : /\.(mp4|m4v|webm|mov)$/i.test(name)
         ? 'video'
@@ -672,6 +672,7 @@ export async function createDashboard(
             )
           ? 'text'
           : undefined;
+  }
   // Checked again on every render and finished load, so a preview never outlives its row.
   const previewable = (id: string) => {
     const f = shelf.files.find((f) => f.id === id);
@@ -1096,6 +1097,7 @@ export async function createDashboard(
   listen($('#preview-switch'), 'click', () => {
     setPreviewPref(previewPref() === 'on' ? 'off' : 'on');
     switches('preview');
+    renderInbox();
   });
   listen($('#gesture-switch'), 'click', () => {
     setGesturePref(gesturePref() === 'on' ? 'off' : 'on');

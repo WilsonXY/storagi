@@ -1223,6 +1223,11 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   );
   const box = document.querySelector<HTMLElement>('#hover-preview')!,
     groups = document.querySelector('#groups')!;
+  const tip = (id: string) =>
+    document.querySelector(`[data-id="${id}"] strong`)!.getAttribute('title');
+  // The name tooltip would cover the preview, so only rows without one keep it.
+  expect(tip('img-id')).toBeNull();
+  expect(tip('new-id')).toBe('archive.zip');
   const move = (id: string, pointerType = 'mouse', buttons = 0) =>
     document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
       Object.assign(new Event('pointermove', { bubbles: true }), {
@@ -1264,6 +1269,7 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   move('img-id');
   vi.advanceTimersByTime(1000);
   expect(box.hidden).toBe(true);
+  expect(tip('img-id')).toBe('Photo.JPG');
   localStorage.clear();
 });
 test('image previews follow the list: one load at a time, and stale or dismissed previews hide', async () => {
