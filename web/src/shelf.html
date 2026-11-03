@@ -312,7 +312,35 @@
           </button>
         </div>
         <p class="set-saved mono" id="gesture-saved" aria-live="polite"></p>
+        <div class="set-row">
+          <div class="set-text">
+            <h2 id="preview-label">File previews</h2>
+            <p class="muted" id="preview-desc">
+              Rest the mouse on an image, video or text file to see it. Videos
+              play their first few seconds, muted. Other file types have no
+              preview.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="switch"
+            id="preview-switch"
+            role="switch"
+            aria-checked="true"
+            aria-labelledby="preview-label"
+            aria-describedby="preview-desc"
+          >
+            <span class="knob"></span>
+          </button>
+        </div>
+        <p class="set-saved mono" id="preview-saved" aria-live="polite"></p>
       </section>
+      <div
+        class="hover-preview"
+        id="hover-preview"
+        aria-hidden="true"
+        hidden
+      ></div>
 
       <aside class="details" id="details" aria-labelledby="details-title">
         <div class="details-head">
