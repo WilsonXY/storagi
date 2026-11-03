@@ -656,7 +656,12 @@ export async function createDashboard(
     dismissedId = '',
     loading: { id: string; keep: boolean; cancel: () => void } | undefined,
     previewTimer: ReturnType<typeof setTimeout> | undefined,
-    videoCap: ReturnType<typeof setTimeout> | undefined;
+    pointer = { x: 0, y: 0 };
+  // Each video's own 6 s cap, so stopping one video never clears another's.
+  const videoCaps = new WeakMap<
+    HTMLVideoElement,
+    ReturnType<typeof setTimeout>
+  >();
   const previewKind = (name: string) =>
     /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(name)
       ? 'image'
@@ -682,7 +687,7 @@ export async function createDashboard(
     );
   };
   const stopVideo = (video: HTMLVideoElement) => {
-    clearTimeout(videoCap);
+    clearTimeout(videoCaps.get(video));
     video.onloadeddata = video.onerror = video.ontimeupdate = null;
     video.pause();
     video.removeAttribute('src');
@@ -709,9 +714,18 @@ export async function createDashboard(
     hidePreview();
     cancelLoad();
   });
+  // Beside the cursor, flipped to the other side near the window's right or bottom edge, and kept on screen.
+  function place() {
+    const w = previewBox.offsetWidth || 320,
+      h = previewBox.offsetHeight || 240,
+      { x, y } = pointer;
+    previewBox.style.left = `${Math.max(8, x + 16 + w > innerWidth ? x - 16 - w : x + 16)}px`;
+    previewBox.style.top = `${Math.max(8, y + 16 + h > innerHeight ? y - 16 - h : y + 16)}px`;
+  }
   function reveal(el: HTMLElement) {
     previewBox.replaceChildren(el);
     previewBox.hidden = false;
+    place();
     if (el instanceof HTMLVideoElement) void el.play().catch(() => {});
   }
   function showPreview(id: string) {
@@ -741,6 +755,7 @@ export async function createDashboard(
     // A failed load is tried again once the mouse leaves the row and comes back.
     const failed = () => {
       if (loading !== load) return;
+      load.cancel();
       loading = undefined;
       if (previewId !== id) return;
       dismissedId = id;
@@ -771,17 +786,20 @@ export async function createDashboard(
       video.src = url;
       // Browsers keep downloading ahead of the loop, so the owner capped it: 6 s after the download starts, it stops.
       // A video on show freezes on its current frame; one still loading is dropped without a preview.
-      videoCap = setTimeout(() => {
-        if (previewBox.contains(video)) {
-          const still = document.createElement('canvas');
-          still.width = video.videoWidth;
-          still.height = video.videoHeight;
-          still.getContext('2d')?.drawImage(video, 0, 0);
-          previewBox.replaceChildren(still);
-        }
-        if (loading === load) cancelLoad();
-        stopVideo(video);
-      }, 6000);
+      videoCaps.set(
+        video,
+        setTimeout(() => {
+          if (previewBox.contains(video)) {
+            const still = document.createElement('canvas');
+            still.width = video.videoWidth;
+            still.height = video.videoHeight;
+            still.getContext('2d')?.drawImage(video, 0, 0);
+            previewBox.replaceChildren(still);
+          }
+          if (loading === load) cancelLoad();
+          stopVideo(video);
+        }, 6000),
+      );
     } else {
       const abort = new AbortController();
       load.cancel = () => abort.abort();
@@ -834,11 +852,8 @@ export async function createDashboard(
       !previewable(id)
     )
       return hidePreview();
-    // Beside the cursor, flipped to the other side near the window's right or bottom edge.
-    const w = previewBox.offsetWidth || 320,
-      h = previewBox.offsetHeight || 240;
-    previewBox.style.left = `${e.clientX + 16 + w > innerWidth ? e.clientX - 16 - w : e.clientX + 16}px`;
-    previewBox.style.top = `${e.clientY + 16 + h > innerHeight ? Math.max(8, e.clientY - 16 - h) : e.clientY + 16}px`;
+    pointer = { x: e.clientX, y: e.clientY };
+    place();
     if (previewId === id) return;
     hidePreview();
     previewId = id;

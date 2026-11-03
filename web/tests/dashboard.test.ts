@@ -1641,6 +1641,16 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
   videos[3].dispatchEvent(new Event('loadeddata'));
   expect(box.hidden).toBe(true);
   groups.dispatchEvent(new Event('pointerleave'));
+  // A video that fails while loading cannot cancel the cap of the next one.
+  hover('clip-id');
+  vi.advanceTimersByTime(1000);
+  videos[4].dispatchEvent(new Event('error'));
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('clip-id');
+  videos[5].dispatchEvent(new Event('loadeddata'));
+  vi.advanceTimersByTime(6000);
+  expect(videos[5].hasAttribute('src')).toBe(false);
+  groups.dispatchEvent(new Event('pointerleave'));
   // At most 4 KiB is read and decoded, counted in bytes.
   hover('wide-id');
   await tick();
