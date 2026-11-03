@@ -1,11 +1,11 @@
 # 147: Pause all and Cancel all in place of the resume hint
 
-- Status: completed; review in stage148
+- Status: completed; stage148 review PASS
 - Started / last updated: 2026-11-04 (Asia/Kuala_Lumpur)
 - Coordinator thread: Claude Code session `2379f3dc-9091-40c4-84fd-e165040e2715`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
 - Provider/model/effort: coordinator Claude Opus 5.5 (`claude-opus-5-5`, from this session's runtime metadata)
-- Workspace/branch and starting commit: `t3/056e3597`, `95ae59b`
+- Workspace/branch and starting commit: `t3/056e3597` (T3 renamed it `t3/replace-upload-help-actions`), `95ae59b`; merged with `main` after PR #30
 - Scope and acceptance criteria: the owner sent a screenshot of the Transfers panel with the hint "Interrupted? Choose the same file again in this browser to resume. Unfinished uploads expire after 24 hours." boxed, and asked to "remove this text. replacing it with pause all and cancel all button instead". Run `npm run check`, check formatting and try both buttons in Chromium on desktop and phone widths.
 
 ## Decisions
@@ -37,4 +37,4 @@
 
 ## Handoff
 
-Stage148 reviews the change.
+Stage148 review PASS with one test suggestion, not taken (see stage148).
