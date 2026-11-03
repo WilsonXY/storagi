@@ -1147,7 +1147,8 @@ export async function createDashboard(
       closeSignout();
   });
   listen(window, 'keydown', (e: KeyboardEvent) => {
-    if (!active) return;
+    // The paste confirmation owns the keyboard while it is open.
+    if (!active || $<HTMLDialogElement>('#paste-confirm').open) return;
     const typing =
       e.target instanceof Element &&
       e.target.matches('input,textarea,[contenteditable]');

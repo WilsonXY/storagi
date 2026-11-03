@@ -432,6 +432,49 @@
 .confirm-pop .cp-actions .btn {
   margin-left: 0;
 }
+/* pasted-files confirmation: a modal dialog in the middle of the screen */
+dialog.paste-confirm {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(380px, calc(100vw - 32px));
+  height: fit-content;
+  max-height: calc(100dvh - 32px);
+  border: 0;
+  color: inherit;
+  transform-origin: center;
+}
+dialog.paste-confirm::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+.paste-confirm .cp-title {
+  padding-bottom: 6px;
+}
+.paste-confirm .cp-files {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.paste-confirm .cp-files li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.paste-confirm .cp-files li span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.paste-confirm .cp-files li .mono {
+  flex: none;
+  color: var(--muted);
+}
 .avatar {
   width: 28px;
   height: 28px;

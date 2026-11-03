@@ -5,6 +5,7 @@ import {
   type UploadOptions,
 } from 'tus-js-client';
 import type { Transfer } from './transfer-view';
+import { bytes } from './formatting';
 import { fileDrop } from './ui';
 
 type Item = Transfer & { file: File; upload?: Upload };
@@ -184,23 +185,69 @@ export function setupTransfers(
   root
     .querySelector('#choose')!
     .addEventListener('click', () => picker.click());
+  // Pasted files wait in a modal dialog for a yes; Cancel, Escape or sign-out drops them.
+  const confirm = root.querySelector<HTMLDialogElement>('#paste-confirm')!;
+  let pasted: File[] = [];
+  const offer = (files: File[]) => {
+    // A closed dialog starts a fresh list. Browsers fire close a task later, so it can't do the reset.
+    if (!confirm.open) pasted = [];
+    pasted.push(...files);
+    const n = pasted.length;
+    confirm.querySelector('#paste-title')!.textContent =
+      `Upload ${n} pasted ${n === 1 ? 'file' : 'files'}?`;
+    confirm.querySelector('#paste-files')!.replaceChildren(
+      ...pasted.map((file) => {
+        const li = document.createElement('li'),
+          name = document.createElement('span'),
+          size = document.createElement('span');
+        name.textContent = file.name;
+        size.className = 'mono';
+        size.textContent = bytes(file.size);
+        li.append(name, size);
+        return li;
+      }),
+    );
+    confirm.querySelector('#paste-note')!.textContent =
+      `${bytes(pasted.reduce((sum, file) => sum + file.size, 0))} in total. Kept 30 days.`;
+    if (!confirm.open) {
+      confirm.showModal();
+      confirm.querySelector<HTMLButtonElement>('#paste-cancel')!.focus();
+    }
+  };
+  confirm
+    .querySelector('#paste-cancel')!
+    .addEventListener('click', () => confirm.close());
+  confirm.querySelector('#paste-upload')!.addEventListener('click', () => {
+    if (!confirm.open) return;
+    const files = pasted;
+    pasted = [];
+    confirm.close();
+    if (!stopped) add(files);
+  });
   const stopDrop = fileDrop({
     enabled: () => !stopped,
     on: (over) => {
       root.querySelector('#composer')!.classList.toggle('dragging', over);
       root.querySelector('.composer-text')!.textContent = over
         ? 'Let go to put them on the shelf'
-        : 'Drop files to put them on the shelf';
+        : 'Drop or paste files to put them on the shelf';
     },
     drop: (files, folders) => {
       add(files);
-      if (folders.length)
-        hooks.notice(
-          `Folders can't be uploaded. Zip ${folders.join(', ')} first.`,
-          true,
-        );
+      refuse(folders);
+    },
+    paste: (files, folders) => {
+      if (files.length) offer(files);
+      refuse(folders);
     },
   });
+  function refuse(folders: string[]) {
+    if (folders.length)
+      hooks.notice(
+        `Folders can't be uploaded. Zip ${folders.join(', ')} first.`,
+        true,
+      );
+  }
   async function act(item: Item, action: string) {
     if (stopped) return;
     if (action === 'resume') {
@@ -238,6 +285,7 @@ export function setupTransfers(
   return () => {
     stopped = true;
     stopDrop();
+    if (confirm.open) confirm.close();
     for (const item of items)
       if (item.upload) void item.upload.abort(false).catch(() => {});
   };
