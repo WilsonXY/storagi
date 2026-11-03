@@ -23,6 +23,7 @@ Stage numbers 142–146 are used by two open branches (hover preview, paste uplo
 - Chromium on the mock preview (own loopback port, stopped afterwards): after turning off both switches, the page has no `.set-saved`/`#koi-saved`/`#gesture-saved` element and no "Saved" text. Screenshot kept outside Git.
 
 - After merging `main`: web suite 101 of 101, typecheck, build and Prettier PASS. In Chromium, with all three switches turned off, the page has no "Saved" text and none of the three note elements.
+- Second merge of `main` (after PR #30, paste upload): only the stage index conflicted; both sides' rows were kept (150–152, then 153–157). Web suite 108 of 108, typecheck, build and Prettier PASS. One earlier run under host load (load average about 12) failed `font-build.test.ts` and reported only 9 of 12 files; the full rerun and that test alone passed.
 
 ## Handoff
 
