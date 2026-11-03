@@ -358,8 +358,14 @@ export async function createDashboard(
       ),
       sort,
     );
+  // Rows and day labels in order: if they move, the row under a resting cursor may have changed.
+  const listOrder = () =>
+    [...$('#groups').querySelectorAll<HTMLElement>('.row, h3')]
+      .map((el) => el.dataset.id ?? el.textContent)
+      .join('\n');
   function renderInbox() {
     if (!active || gestures?.busy()) return;
+    const before = previewId && listOrder();
     const files = visible(),
       all = shelf.files.filter((f) => !hidden.has(f.id));
     order = files.filter((f) => !counting(f.id)).map((f) => f.id);
@@ -412,7 +418,8 @@ export async function createDashboard(
       mark('#koi-mark');
       emptyMark = true;
     }
-    if (previewId && !previewable(previewId)) hidePreview();
+    if (previewId && (listOrder() !== before || !previewable(previewId)))
+      hidePreview();
     syncRows();
   }
   function row(f: ShelfFile, duplicate: boolean) {
@@ -669,7 +676,7 @@ export async function createDashboard(
   // One download at a time: an unfinished load is cancelled when another image is wanted.
   const cancelLoad = () => {
     if (!loading) return;
-    loading.img.onload = null;
+    loading.img.onload = loading.img.onerror = null;
     loading.img.removeAttribute('src');
     loading = undefined;
   };
@@ -679,14 +686,14 @@ export async function createDashboard(
   });
   function showPreview(id: string) {
     if (previewId !== id || !previewable(id)) return hidePreview();
+    if (loading?.id !== id) cancelLoad();
     const loaded = previews.get(id);
     if (loaded) {
       previewBox.replaceChildren(loaded);
       previewBox.hidden = false;
       return;
     }
-    if (loading?.id === id) return;
-    cancelLoad();
+    if (loading) return;
     const img = new Image();
     img.alt = '';
     loading = { id, img };
@@ -696,6 +703,13 @@ export async function createDashboard(
       // ponytail: keeps the 20 newest loaded images, since downloads are no-store; size it by bytes if memory matters.
       if (previews.size > 20) previews.delete(previews.keys().next().value!);
       if (previewId === id) showPreview(id);
+    };
+    // A failed load is tried again once the mouse leaves the row and comes back.
+    img.onerror = () => {
+      loading = undefined;
+      if (previewId !== id) return;
+      dismissedId = id;
+      hidePreview();
     };
     img.src = `/api/files/${encodeURIComponent(id)}/download`;
   }
@@ -1020,7 +1034,7 @@ export async function createDashboard(
     )
       $('#picker').click();
     else if (e.key === 'Escape') {
-      dismissedId = previewId;
+      if (previewId) dismissedId = previewId;
       hidePreview();
       if (e.target === $('#search') && $<HTMLInputElement>('#search').value)
         $<HTMLInputElement>('#search').value = '';

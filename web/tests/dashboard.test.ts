@@ -1355,3 +1355,87 @@ test('image previews follow the list: one load at a time, and stale or dismissed
   click('#nav-settings');
   expect(box.hidden).toBe(true);
 });
+test('image previews retry after a failed load, hide when rows move, cancel for a cached image, and stay dismissed after a second Escape', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = (id: string, day = 18) => ({
+    id,
+    name: `${id}.png`,
+    size: 4096,
+    uploadedAt: `2026-10-${day}T12:00:00Z`,
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  let files = [photo('a'), photo('b')];
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const hover = (id: string) => {
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+    vi.advanceTimersByTime(400);
+  };
+  // A failed load is retried once the mouse comes back to the row.
+  hover('a');
+  images[0].dispatchEvent(new Event('error'));
+  expect(box.hidden).toBe(true);
+  hover('a');
+  expect(images).toHaveLength(1);
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('a');
+  expect(images).toHaveLength(2);
+  images[1].dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  // Moving to a cached image cancels the unfinished load of another one.
+  hover('b');
+  expect(images).toHaveLength(3);
+  hover('a');
+  expect(box.hidden).toBe(false);
+  expect(images[2].hasAttribute('src')).toBe(false);
+  // A second Escape keeps the preview dismissed on the same row.
+  for (let i = 0; i < 2; i++)
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+  hover('a');
+  expect(box.hidden).toBe(true);
+  hover('b');
+  hover('a');
+  expect(box.hidden).toBe(false);
+  // A refresh that inserts a row above moves the hovered file away from the cursor.
+  files = [photo('c', 20), ...files];
+  click('#refresh');
+  await tick();
+  expect(box.hidden).toBe(true);
+  // A refresh that changes nothing keeps it.
+  hover('a');
+  expect(box.hidden).toBe(false);
+  click('#refresh');
+  await tick();
+  expect(box.hidden).toBe(false);
+});
