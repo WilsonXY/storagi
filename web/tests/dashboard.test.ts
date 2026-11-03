@@ -1439,3 +1439,104 @@ test('image previews retry after a failed load, hide when rows move, cancel for 
   await tick();
   expect(box.hidden).toBe(false);
 });
+test('videos preview a muted loop of their first seconds, and text files their first lines, fetched as a range', async () => {
+  vi.useFakeTimers();
+  const videos: HTMLVideoElement[] = [];
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, 'createElement').mockImplementation(
+    (tag: string, options?: ElementCreationOptions) => {
+      const el = create(tag, options);
+      if (el instanceof HTMLVideoElement) videos.push(el);
+      return el;
+    },
+  );
+  const play = vi
+    .spyOn(HTMLMediaElement.prototype, 'play')
+    .mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+  const file = (id: string, name: string) => ({
+    id,
+    name,
+    size: 1024 ** 3,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  const text = Array.from({ length: 40 }, (_, i) => `line ${i + 1}`)
+    .join('\n')
+    .replace('line 2', '<b>line 2</b>');
+  const fetcher = vi.fn(async (url: RequestInfo | URL) =>
+    String(url) === '/api/files/notes-id/download'
+      ? new Response(text, { status: 206 })
+      : new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : {
+                  ...listing,
+                  files: [
+                    file('clip-id', 'Clip.MP4'),
+                    file('notes-id', 'notes.md'),
+                    ...listing.files,
+                  ],
+                },
+          ),
+        ),
+  );
+  await mount(fetcher);
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const hover = (id: string) => {
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+    vi.advanceTimersByTime(400);
+  };
+  hover('clip-id');
+  expect(videos).toHaveLength(1);
+  const video = videos[0];
+  expect(video.getAttribute('src')).toBe('/api/files/clip-id/download');
+  expect(video.muted).toBe(true);
+  expect(box.hidden).toBe(true);
+  video.dispatchEvent(new Event('loadeddata'));
+  expect(box.hidden).toBe(false);
+  expect(box.firstElementChild).toBe(video);
+  expect(play).toHaveBeenCalled();
+  // Only the first few seconds play, over and over.
+  Object.defineProperty(video, 'currentTime', { value: 3.2, writable: true });
+  video.dispatchEvent(new Event('timeupdate'));
+  expect(video.currentTime).toBe(0);
+  // Hiding stops the video and its download.
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(box.hidden).toBe(true);
+  expect(video.hasAttribute('src')).toBe(false);
+  expect(box.querySelector('video')).toBeNull();
+  // Text: the first 4 KiB as a range, shown as plain text, first lines only.
+  hover('notes-id');
+  await tick();
+  const call = fetcher.mock.calls.find(
+    ([url]) => String(url) === '/api/files/notes-id/download',
+  ) as unknown as [string, RequestInit];
+  expect(new Headers(call[1].headers).get('Range')).toBe('bytes=0-4095');
+  expect(box.hidden).toBe(false);
+  const pre = box.querySelector('pre')!;
+  expect(pre.querySelector('b')).toBeNull();
+  expect(pre.textContent!.split('\n')).toHaveLength(16);
+  expect(pre.textContent).toContain('<b>line 2</b>');
+  // A text preview is kept, so coming back does not fetch it again.
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('notes-id');
+  await tick();
+  expect(box.querySelector('pre')).toBe(pre);
+  expect(
+    fetcher.mock.calls.filter(
+      ([url]) => String(url) === '/api/files/notes-id/download',
+    ),
+  ).toHaveLength(1);
+  vi.restoreAllMocks();
+});

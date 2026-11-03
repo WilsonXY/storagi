@@ -1858,9 +1858,19 @@ body.selecting .toast {
 .hover-preview[hidden] {
   display: none;
 }
-.hover-preview img {
+.hover-preview img,
+.hover-preview video {
   display: block;
   max-width: 320px;
   max-height: 240px;
   border-radius: var(--radius-control);
+}
+.hover-preview pre {
+  max-width: 360px;
+  margin: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  color: var(--muted);
+  font: 11px/1.5 var(--mono);
+  white-space: pre;
 }

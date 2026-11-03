@@ -647,13 +647,23 @@ export async function createDashboard(
       focusKey(`x-${id}`);
     }
   });
-  // Resting the mouse on an image row previews it. Browsers sniff <img> content, so the download URL works despite its octet-stream type.
+  // Resting the mouse on an image, video or text row previews it. Browsers sniff <img> and <video> content, so the download URL works despite its octet-stream type.
   const previewBox = $('#hover-preview'),
-    previews = new Map<string, HTMLImageElement>();
+    previews = new Map<string, HTMLElement>();
   let previewId = '',
     dismissedId = '',
-    loading: { id: string; img: HTMLImageElement } | undefined,
+    loading: { id: string; cancel: () => void } | undefined,
     previewTimer: ReturnType<typeof setTimeout> | undefined;
+  const previewKind = (name: string) =>
+    /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(name)
+      ? 'image'
+      : /\.(mp4|m4v|webm|mov)$/i.test(name)
+        ? 'video'
+        : /\.(txt|md|markdown|log|csv|tsv|json|xml|ya?ml|toml|ini|conf|cfg|sh|py|js|ts|jsx|tsx|css|html?|c|h|cpp|java|go|rs|rb|php|sql)$/i.test(
+              name,
+            )
+          ? 'text'
+          : undefined;
   // Checked again on every render and finished load, so a preview never outlives its row.
   const previewable = (id: string) => {
     const f = shelf.files.find((f) => f.id === id);
@@ -662,56 +672,128 @@ export async function createDashboard(
       previewPref() === 'on' &&
       !counting(id) &&
       +new Date(f.expiresAt) > Date.now() &&
-      /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(f.name) &&
+      !!previewKind(f.name) &&
       [...$('#groups').querySelectorAll<HTMLElement>('.row')].some(
         (row) => row.dataset.id === id,
       )
     );
   };
+  const stopVideo = (video: HTMLVideoElement) => {
+    video.onloadeddata = video.onerror = video.ontimeupdate = null;
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  };
   const hidePreview = () => {
     clearTimeout(previewTimer);
     previewId = '';
     previewBox.hidden = true;
+    // Videos are not kept: hiding one stops it and its download.
+    const video = previewBox.querySelector('video');
+    if (video) {
+      stopVideo(video);
+      previewBox.replaceChildren();
+    }
   };
-  // One download at a time: an unfinished load is cancelled when another image is wanted.
+  // One download at a time: an unfinished load is cancelled when another file is wanted.
   const cancelLoad = () => {
-    if (!loading) return;
-    loading.img.onload = loading.img.onerror = null;
-    loading.img.removeAttribute('src');
+    loading?.cancel();
     loading = undefined;
   };
   cleanups.push(() => {
     hidePreview();
     cancelLoad();
   });
+  function reveal(el: HTMLElement) {
+    previewBox.replaceChildren(el);
+    previewBox.hidden = false;
+    if (el instanceof HTMLVideoElement) void el.play().catch(() => {});
+  }
   function showPreview(id: string) {
     if (previewId !== id || !previewable(id)) return hidePreview();
     if (loading?.id !== id) cancelLoad();
-    const loaded = previews.get(id);
-    if (loaded) {
-      previewBox.replaceChildren(loaded);
-      previewBox.hidden = false;
-      return;
-    }
+    const ready = previews.get(id);
+    if (ready) return reveal(ready);
     if (loading) return;
-    const img = new Image();
-    img.alt = '';
-    loading = { id, img };
-    img.onload = () => {
+    const url = `/api/files/${encodeURIComponent(id)}/download`,
+      kind = previewKind(shelf.files.find((f) => f.id === id)!.name);
+    const done = (el: HTMLElement) => {
       loading = undefined;
-      previews.set(id, img);
-      // ponytail: keeps the 20 newest loaded images, since downloads are no-store; size it by bytes if memory matters.
+      if (el instanceof HTMLVideoElement) {
+        if (previewId === id && previewable(id)) reveal(el);
+        else stopVideo(el);
+        return;
+      }
+      previews.set(id, el);
+      // ponytail: keeps the 20 newest images and text snippets, since downloads are no-store; size it by bytes if memory matters.
       if (previews.size > 20) previews.delete(previews.keys().next().value!);
       if (previewId === id) showPreview(id);
     };
     // A failed load is tried again once the mouse leaves the row and comes back.
-    img.onerror = () => {
+    const failed = () => {
       loading = undefined;
       if (previewId !== id) return;
       dismissedId = id;
       hidePreview();
     };
-    img.src = `/api/files/${encodeURIComponent(id)}/download`;
+    if (kind === 'image') {
+      const img = new Image();
+      img.alt = '';
+      img.onload = () => done(img);
+      img.onerror = failed;
+      loading = {
+        id,
+        cancel: () => {
+          img.onload = img.onerror = null;
+          img.removeAttribute('src');
+        },
+      };
+      img.src = url;
+    } else if (kind === 'video') {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      // Only the first seconds play, over and over; the browser fetches just the byte ranges it needs.
+      video.ontimeupdate = () => {
+        if (video.currentTime >= 3) video.currentTime = 0;
+      };
+      video.onloadeddata = () => done(video);
+      video.onerror = failed;
+      loading = { id, cancel: () => stopVideo(video) };
+      video.src = url;
+    } else {
+      const abort = new AbortController();
+      loading = { id, cancel: () => abort.abort() };
+      void (async () => {
+        try {
+          const response = await dependencies.fetch(url, {
+            credentials: 'same-origin',
+            headers: { Range: 'bytes=0-4095' },
+            signal: abort.signal,
+          });
+          if (!response.ok || !response.body) throw new Error('No preview');
+          // Read at most 4 KiB, even if the server ignored the range and sent the whole file.
+          const reader = response.body.getReader(),
+            decoder = new TextDecoder();
+          let text = '';
+          while (text.length < 4096) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            text += decoder.decode(chunk.value, { stream: true });
+          }
+          void reader.cancel().catch(() => {});
+          const pre = document.createElement('pre');
+          pre.textContent = text
+            .slice(0, 4096)
+            .split('\n')
+            .slice(0, 16)
+            .join('\n');
+          done(pre);
+        } catch {
+          if (!abort.signal.aborted) failed();
+        }
+      })();
+    }
   }
   listen($('#groups'), 'pointermove', (e: PointerEvent) => {
     const id =

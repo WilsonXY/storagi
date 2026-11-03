@@ -23,4 +23,4 @@ The reviewer reported: `npm run setup` PASS; dashboard 52/52 and preferences 3/3
 
 ## Handoff
 
-Read-only invariants checked by the coordinator afterwards: this worktree's HEAD `5ead6f9` and status unchanged, remote heads identical to before. The reviewer's worktree was still at `5ead6f9` with a clean status; it and its branch were removed. Following stage136's precedent, the coordinator fixed these findings without a further review round; see stage137 for their verification.
+Read-only invariants checked by the coordinator afterwards: this worktree's HEAD `5ead6f9` and status unchanged, remote heads identical to before. The reviewer's worktree was still at `5ead6f9` with a clean status; it and its branch were removed. The coordinator fixed these findings; see stage137 for their verification. Stage140 reviews them together with the video and text previews.
