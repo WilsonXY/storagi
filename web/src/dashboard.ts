@@ -842,9 +842,11 @@ export async function createDashboard(
     }
   }
   listen($('#groups'), 'pointermove', (e: PointerEvent) => {
+    // Only the name cell previews, so the rest of the row stays clear for its buttons.
     const id =
-      (e.target as Element).closest<HTMLElement>('.row')?.dataset.id ?? '';
-    // Escape dismisses the preview until the mouse moves to another row.
+      (e.target as Element).closest('.name')?.closest<HTMLElement>('.row')
+        ?.dataset.id ?? '';
+    // Escape dismisses the preview until the mouse leaves that name.
     if (id !== dismissedId) dismissedId = '';
     if (
       e.pointerType !== 'mouse' ||

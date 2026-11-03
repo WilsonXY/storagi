@@ -1228,8 +1228,13 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   // The name tooltip would cover the preview, so only rows without one keep it.
   expect(tip('img-id')).toBeNull();
   expect(tip('new-id')).toBe('archive.zip');
-  const move = (id: string, pointerType = 'mouse', buttons = 0) =>
-    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+  const move = (
+    id: string,
+    pointerType = 'mouse',
+    buttons = 0,
+    part = '.name',
+  ) =>
+    document.querySelector(`[data-id="${id}"] ${part}`)!.dispatchEvent(
       Object.assign(new Event('pointermove', { bubbles: true }), {
         clientX: 100,
         clientY: 100,
@@ -1240,6 +1245,8 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   move('new-id');
   move('img-id', 'touch');
   move('img-id', 'mouse', 1);
+  // The rest of the row, outside the name, shows nothing.
+  move('img-id', 'mouse', 0, '.cell.size');
   vi.advanceTimersByTime(1000);
   expect(images).toHaveLength(0);
   move('img-id');
@@ -1258,6 +1265,11 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   vi.advanceTimersByTime(400);
   expect(box.hidden).toBe(false);
   expect(images).toHaveLength(1);
+  move('img-id', 'mouse', 0, '.cell.type');
+  expect(box.hidden).toBe(true);
+  move('img-id');
+  vi.advanceTimersByTime(400);
+  expect(box.hidden).toBe(false);
   groups.dispatchEvent(new Event('pointerleave'));
   click('#nav-settings');
   click('#preview-switch');
