@@ -1,12 +1,12 @@
-# 139: Re-review of the hover preview fixes
+# 144: Re-review of the hover preview fixes
 
-- Status: completed; FAIL, two P2s and two P3s fixed in stage137
+- Status: completed; FAIL, two P2s and two P3s fixed in stage142
 - Started / completed: 2026-11-03 (Asia/Kuala_Lumpur)
 - Coordinator thread: `c17dcc70-b4f0-4873-ad26-d35daf1b4f1f`; the coordinator wrote this record from the reviewer's report
 - Agent/task/thread identifiers: T3 `delegate_task`, role review, isolated worktree; Codex session `01a19faa-7323-7203-a6cf-c2242a62bfc9`
 - Provider/model/effort: Codex `gpt-6.1-sol`, reasoning effort high, confirmed in the reviewer's own session log
 - Workspace/branch and starting commit: fresh worktree at `5ead6f9` (parent `8521479`)
-- Scope and acceptance criteria: read-only check of the stage138 fixes and a fresh look at the whole feature.
+- Scope and acceptance criteria: read-only check of the stage143 fixes and a fresh look at the whole feature.
 
 ## Findings and responses
 
@@ -23,4 +23,4 @@ The reviewer reported: `npm run setup` PASS; dashboard 52/52 and preferences 3/3
 
 ## Handoff
 
-Read-only invariants checked by the coordinator afterwards: this worktree's HEAD `5ead6f9` and status unchanged, remote heads identical to before. The reviewer's worktree was still at `5ead6f9` with a clean status; it and its branch were removed. The coordinator fixed these findings; see stage137 for their verification. Stage140 reviews them together with the video and text previews.
+Read-only invariants checked by the coordinator afterwards: this worktree's HEAD `5ead6f9` and status unchanged, remote heads identical to before. The reviewer's worktree was still at `5ead6f9` with a clean status; it and its branch were removed. The coordinator fixed these findings; see stage142 for their verification. Stage145 reviews them together with the video and text previews.

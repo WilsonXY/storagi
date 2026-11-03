@@ -5,10 +5,17 @@ type Options = {
   onTick?: (seconds: number) => void;
   onError?: (error: unknown) => void;
 };
+export const GRACE_SECONDS = 4;
 // The real DELETE is deferred until the grace ends, or until flush() (the page is closing).
 export function deferredDelete(
   remove: () => Promise<unknown>,
-  { grace = 6000, onCommit, onUndo, onTick, onError }: Options = {},
+  {
+    grace = GRACE_SECONDS * 1000,
+    onCommit,
+    onUndo,
+    onTick,
+    onError,
+  }: Options = {},
 ) {
   const deadline = Date.now() + grace;
   let done = false;

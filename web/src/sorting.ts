@@ -1,5 +1,5 @@
-import { relDay, type DateValue } from './formatting';
-export type SortKey = 'name' | 'size' | 'expires';
+import { relDay, splitName, type DateValue } from './formatting';
+export type SortKey = 'name' | 'type' | 'size' | 'expires';
 export type Sort = { key: SortKey; dir: 1 | -1 } | null;
 export type SortableFile = {
   name: string;
@@ -24,9 +24,11 @@ export function sortFiles<T extends SortableFile>(
             numeric: true,
             sensitivity: 'base',
           })
-        : sort.key === 'size'
-          ? a.size - b.size
-          : +new Date(a.expiresAt) - +new Date(b.expiresAt);
+        : sort.key === 'type'
+          ? splitName(a.name)[1].localeCompare(splitName(b.name)[1])
+          : sort.key === 'size'
+            ? a.size - b.size
+            : +new Date(a.expiresAt) - +new Date(b.expiresAt);
     return cmp * sort.dir || newest;
   });
 }
