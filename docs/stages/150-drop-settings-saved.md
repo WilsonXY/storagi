@@ -1,6 +1,6 @@
 # 150: Remove the "Saved ·" notes under the settings switches
 
-- Status: completed; independent review pending (stage151)
+- Status: completed; stage151 review PASS, no findings
 - Started / last updated: 2026-11-04 (Asia/Kuala_Lumpur)
 - Coordinator thread: this T3 thread; the coordinator made this small removal itself, without delegating
 - Provider/model/effort: coordinator Claude Opus 5.5 (`claude-opus-5-5`, from this session's runtime metadata)
