@@ -189,6 +189,8 @@ export function setupTransfers(
   const confirm = root.querySelector<HTMLDialogElement>('#paste-confirm')!;
   let pasted: File[] = [];
   const offer = (files: File[]) => {
+    // A closed dialog starts a fresh list. Browsers fire close a task later, so it can't do the reset.
+    if (!confirm.open) pasted = [];
     pasted.push(...files);
     const n = pasted.length;
     confirm.querySelector('#paste-title')!.textContent =
@@ -212,14 +214,13 @@ export function setupTransfers(
       confirm.querySelector<HTMLButtonElement>('#paste-cancel')!.focus();
     }
   };
-  confirm.addEventListener('close', () => {
-    pasted = [];
-  });
   confirm
     .querySelector('#paste-cancel')!
     .addEventListener('click', () => confirm.close());
   confirm.querySelector('#paste-upload')!.addEventListener('click', () => {
+    if (!confirm.open) return;
     const files = pasted;
+    pasted = [];
     confirm.close();
     if (!stopped) add(files);
   });

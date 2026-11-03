@@ -1,6 +1,6 @@
 # 145: Confirm pasted files before uploading
 
-- Status: completed; stage146 review PASS
+- Status: completed; stage146 review PASS; owner follow-up (title spacing) and a close-timing fix after it, verified by the coordinator
 - Started / last updated: 2026-11-03 (Asia/Kuala_Lumpur)
 - Coordinator thread: `01a4540a-64d7-40dc-8cb3-7e5d62393ad1`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
@@ -36,5 +36,14 @@ The dialog only guards pastes; a mistaken drop still uploads at once, as before.
 ## Handoff
 
 Stage146 reviewed `fa94306`: PASS, no findings. The coordinator updates PR #30; no merge, tag or deployment.
+
+## Owner follow-up after stage146
+
+The owner tried the preview and asked for more room between the dialog title and the file list. A test on the owner's Windows machine (Helium 156, a Chromium browser) over SSH also exposed a timing bug.
+
+- Real Windows test: a throwaway Helium profile in the owner's desktop session, launched by a one-off scheduled task, with the real Windows clipboard. The scheduled task, test profile and files were removed afterwards, and the owner's clipboard was saved and restored. A file put on the clipboard the way Explorer copies it reached the page as `Files` (`application/x-zip-compressed`) and opened "Upload 1 pasted file?". A copied bitmap arrived as `image.png` and also opened the dialog. The owner's earlier "no confirmation" report came from testing a drag, which uploads at once by design.
+- Timing bug: browsers fire a dialog's `close` event a task after `close()`, and the pending list was cleared in that event. When the test closed the dialog and pasted straight away, the new paste joined the stale list ("Upload 2 pasted files?"). The late event would then have emptied the list, so Upload would have queued nothing. Fixed: a newly opened dialog starts a fresh list, Upload empties the list itself, Upload does nothing unless the dialog is open, and the `close` listener is gone. The jsdom stub now fires `close` a task later, as browsers do. A new test, and the existing cancel test under that stub, failed before the fix and pass after it.
+- Spacing: `.paste-confirm .cp-title` has 6px of bottom padding, so the title text sits 16px above the list's first divider instead of 10px (measured in Chromium).
+- `transfers.test.ts` 14/14 and `web` `tsc --noEmit` PASS. Full check: see the index row. This follow-up was verified by the coordinator only, with no further review round.
 
 The paste upload records were numbered 137 to 141 until `main` took 137, 138, 140 and 141 (and an open branch took 139); they were renumbered 142 to 146 when `main` was merged into this branch.

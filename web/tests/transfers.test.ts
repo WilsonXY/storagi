@@ -243,14 +243,14 @@ test('without the entry API a drop still uploads its files', async () => {
   await tick();
   expect(mocks.uploads.map((upload) => upload.file)).toEqual([zip]);
 });
-// jsdom has no modal dialogs: open and close by the attribute, firing close like a browser.
+// jsdom has no modal dialogs: open and close by the attribute. Like a browser, close fires its event a task later.
 HTMLDialogElement.prototype.showModal = function () {
   this.open = true;
 };
 HTMLDialogElement.prototype.close = function () {
   if (!this.open) return;
   this.open = false;
-  this.dispatchEvent(new Event('close'));
+  setTimeout(() => this.dispatchEvent(new Event('close')));
 };
 const confirmBox = () =>
   document.querySelector<HTMLDialogElement>('#paste-confirm')!;
@@ -354,4 +354,18 @@ test('dashboard shortcuts stay quiet while the paste confirmation is open', asyn
   press('#paste-cancel');
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'u' }));
   expect(picker).toHaveBeenCalledOnce();
+});
+test('a paste right after Cancel starts a fresh list that survives the late close event', async () => {
+  await mount();
+  const a = new File(['x'], 'a.png'),
+    b = new File(['yy'], 'b.png');
+  paste([a, undefined]);
+  await tick();
+  press('#paste-cancel');
+  paste([b, undefined]);
+  expect(listed()).toEqual(['b.png2 B']);
+  await tick();
+  press('#paste-upload');
+  await tick();
+  expect(mocks.uploads.map((upload) => upload.file)).toEqual([b]);
 });
