@@ -412,6 +412,7 @@ export async function createDashboard(
       mark('#koi-mark');
       emptyMark = true;
     }
+    if (previewId && !previewable(previewId)) hidePreview();
     syncRows();
   }
   function row(f: ShelfFile, duplicate: boolean) {
@@ -640,43 +641,74 @@ export async function createDashboard(
     }
   });
   // Resting the mouse on an image row previews it. Browsers sniff <img> content, so the download URL works despite its octet-stream type.
-  // ponytail: loaded images stay in memory for the session, because downloads are no-store; add an LRU if a session hovers hundreds of large images.
   const previewBox = $('#hover-preview'),
     previews = new Map<string, HTMLImageElement>();
   let previewId = '',
+    dismissedId = '',
+    loading: { id: string; img: HTMLImageElement } | undefined,
     previewTimer: ReturnType<typeof setTimeout> | undefined;
+  // Checked again on every render and finished load, so a preview never outlives its row.
+  const previewable = (id: string) => {
+    const f = shelf.files.find((f) => f.id === id);
+    return (
+      !!f &&
+      previewPref() === 'on' &&
+      !counting(id) &&
+      +new Date(f.expiresAt) > Date.now() &&
+      /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(f.name) &&
+      [...$('#groups').querySelectorAll<HTMLElement>('.row')].some(
+        (row) => row.dataset.id === id,
+      )
+    );
+  };
   const hidePreview = () => {
     clearTimeout(previewTimer);
     previewId = '';
     previewBox.hidden = true;
   };
-  cleanups.push(hidePreview);
+  // One download at a time: an unfinished load is cancelled when another image is wanted.
+  const cancelLoad = () => {
+    if (!loading) return;
+    loading.img.onload = null;
+    loading.img.removeAttribute('src');
+    loading = undefined;
+  };
+  cleanups.push(() => {
+    hidePreview();
+    cancelLoad();
+  });
   function showPreview(id: string) {
+    if (previewId !== id || !previewable(id)) return hidePreview();
     const loaded = previews.get(id);
     if (loaded) {
       previewBox.replaceChildren(loaded);
       previewBox.hidden = false;
       return;
     }
+    if (loading?.id === id) return;
+    cancelLoad();
     const img = new Image();
     img.alt = '';
+    loading = { id, img };
     img.onload = () => {
+      loading = undefined;
       previews.set(id, img);
+      // ponytail: keeps the 20 newest loaded images, since downloads are no-store; size it by bytes if memory matters.
+      if (previews.size > 20) previews.delete(previews.keys().next().value!);
       if (previewId === id) showPreview(id);
     };
     img.src = `/api/files/${encodeURIComponent(id)}/download`;
   }
   listen($('#groups'), 'pointermove', (e: PointerEvent) => {
-    const id = (e.target as Element).closest<HTMLElement>('.row')?.dataset.id,
-      f = shelf.files.find((f) => f.id === id);
+    const id =
+      (e.target as Element).closest<HTMLElement>('.row')?.dataset.id ?? '';
+    // Escape dismisses the preview until the mouse moves to another row.
+    if (id !== dismissedId) dismissedId = '';
     if (
-      !f ||
       e.pointerType !== 'mouse' ||
       e.buttons ||
-      previewPref() === 'off' ||
-      counting(f.id) ||
-      +new Date(f.expiresAt) <= Date.now() ||
-      !/\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(f.name)
+      id === dismissedId ||
+      !previewable(id)
     )
       return hidePreview();
     // Beside the cursor, flipped to the other side near the window's right or bottom edge.
@@ -684,14 +716,18 @@ export async function createDashboard(
       h = previewBox.offsetHeight || 240;
     previewBox.style.left = `${e.clientX + 16 + w > innerWidth ? e.clientX - 16 - w : e.clientX + 16}px`;
     previewBox.style.top = `${e.clientY + 16 + h > innerHeight ? Math.max(8, e.clientY - 16 - h) : e.clientY + 16}px`;
-    if (previewId === f.id) return;
+    if (previewId === id) return;
     hidePreview();
-    previewId = f.id;
+    previewId = id;
     // A short pause, so sweeping the mouse across the list does not start a download per row.
-    previewTimer = setTimeout(() => showPreview(f.id), 300);
+    previewTimer = setTimeout(() => showPreview(id), 300);
   });
-  listen($('#groups'), 'pointerleave', hidePreview);
-  listen($('#groups'), 'pointerdown', hidePreview);
+  listen($('#groups'), 'pointerleave', () => {
+    dismissedId = '';
+    hidePreview();
+  });
+  for (const name of ['pointerdown', 'wheel'])
+    listen($('#groups'), name, hidePreview);
   listen(window, 'scroll', hidePreview);
   listen($('.list-head'), 'click', (e: MouseEvent) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-sort]');
@@ -815,6 +851,7 @@ export async function createDashboard(
     }
   }
   function view(name: string) {
+    hidePreview();
     app.dataset.view = name;
     const settings = name === 'settings';
     $('#settings').hidden = !settings;
@@ -983,6 +1020,8 @@ export async function createDashboard(
     )
       $('#picker').click();
     else if (e.key === 'Escape') {
+      dismissedId = previewId;
+      hidePreview();
       if (e.target === $('#search') && $<HTMLInputElement>('#search').value)
         $<HTMLInputElement>('#search').value = '';
       else {

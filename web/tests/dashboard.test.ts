@@ -1259,3 +1259,99 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   expect(box.hidden).toBe(true);
   localStorage.clear();
 });
+test('image previews follow the list: one load at a time, and stale or dismissed previews hide', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = (id: string) => ({
+    id,
+    name: `${id}.png`,
+    size: 4096,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  let files = [photo('a'), photo('b'), ...listing.files];
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const move = (id: string) =>
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+  const hover = (id: string) => {
+    move(id);
+    vi.advanceTimersByTime(400);
+  };
+  // Leaving before the load finishes and coming back reuses the same load.
+  hover('a');
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('a');
+  expect(images).toHaveLength(1);
+  // Moving to another image cancels the unfinished one.
+  hover('b');
+  expect(images).toHaveLength(2);
+  expect(images[0].hasAttribute('src')).toBe(false);
+  images[1].dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  // Escape dismisses it, and resting on the same row does not reopen it.
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+  );
+  expect(box.hidden).toBe(true);
+  hover('b');
+  expect(box.hidden).toBe(true);
+  hover('a');
+  hover('b');
+  expect(box.hidden).toBe(false);
+  // A horizontal wheel swipe hides it.
+  groups.dispatchEvent(new Event('wheel'));
+  expect(box.hidden).toBe(true);
+  hover('b');
+  expect(box.hidden).toBe(false);
+  // A refresh that removes the hovered file hides its preview.
+  files = files.filter((f) => f.id !== 'b');
+  click('#refresh');
+  await tick();
+  expect(box.hidden).toBe(true);
+  // A load that finishes after its file left the list never shows.
+  hover('a');
+  const late = images.at(-1)!;
+  files = files.filter((f) => f.id !== 'a');
+  click('#refresh');
+  await tick();
+  late.dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(true);
+  // Opening Settings hides the preview.
+  files = [photo('c'), ...listing.files];
+  click('#refresh');
+  await tick();
+  hover('c');
+  images.at(-1)!.dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  click('#nav-settings');
+  expect(box.hidden).toBe(true);
+});
