@@ -151,7 +151,7 @@ test('shelf groups local days, labels duplicates, searches safely and retains so
   expect(rows()).toHaveLength(2);
 });
 
-test('inline deletion waits six seconds and sends CSRF; Undo never sends DELETE', async () => {
+test('inline deletion waits four seconds and sends CSRF; Undo never sends DELETE', async () => {
   vi.useFakeTimers();
   const api = service();
   await mount(api.fetcher);
@@ -159,7 +159,7 @@ test('inline deletion waits six seconds and sends CSRF; Undo never sends DELETE'
   expect(document.querySelector('[data-confirm="new-id"]')).not.toBeNull();
   expect(api.fetcher).toHaveBeenCalledTimes(2);
   click('[data-confirm="new-id"]');
-  await vi.advanceTimersByTimeAsync(5999);
+  await vi.advanceTimersByTimeAsync(3999);
   expect(
     api.fetcher.mock.calls.filter((c) => String(c[0]).includes('/new-id')),
   ).toHaveLength(0);
@@ -385,7 +385,7 @@ test('bulk deletion commits each copy after the grace period', async () => {
   await mount(api.fetcher);
   click('#select-all');
   click('#sel-delete');
-  await vi.advanceTimersByTimeAsync(5999);
+  await vi.advanceTimersByTimeAsync(3999);
   expect(api.fetcher).toHaveBeenCalledTimes(2);
   await vi.advanceTimersByTimeAsync(1);
   for (const id of ['new-id', 'old-id'])
@@ -681,7 +681,7 @@ test('a failed disk write aborts the download request', async () => {
   delete (window as Window & { showSaveFilePicker?: unknown })
     .showSaveFilePicker;
 });
-test('a touchpad sideways swipe deletes through the same six-second Undo', async () => {
+test('a touchpad sideways swipe deletes through the same four-second Undo', async () => {
   vi.useFakeTimers();
   const api = service();
   await mount(api.fetcher);
@@ -691,6 +691,9 @@ test('a touchpad sideways swipe deletes through the same six-second Undo', async
   );
   await vi.advanceTimersByTimeAsync(400);
   expect(document.querySelector('[data-undo="new-id"]')).not.toBeNull();
+  expect(document.querySelector('[data-clock="new-id"]')?.textContent).toBe(
+    '4s',
+  );
   click('[data-undo="new-id"]');
   await vi.advanceTimersByTimeAsync(7000);
   expect(
@@ -795,16 +798,16 @@ test('a row already deleted inline is left out of a bulk delete, so either Undo 
   await vi.advanceTimersByTimeAsync(7000);
   expect(deletes(api.fetcher)).toEqual([]);
 });
-test('a later bulk delete folds earlier pending batches into one fresh six-second Undo', async () => {
+test('a later bulk delete folds earlier pending batches into one fresh four-second Undo', async () => {
   vi.useFakeTimers();
   const api = service();
   await mount(api.fetcher);
   click('[data-id="new-id"] .lead');
   click('#sel-delete');
-  await vi.advanceTimersByTimeAsync(3000);
+  await vi.advanceTimersByTimeAsync(2000);
   click('[data-id="old-id"] .lead');
   click('#sel-delete');
-  await vi.advanceTimersByTimeAsync(4000);
+  await vi.advanceTimersByTimeAsync(3000);
   expect(deletes(api.fetcher)).toEqual([]);
   expect(document.querySelector('#notice span')?.textContent).toBe(
     '2 copies deleted',
