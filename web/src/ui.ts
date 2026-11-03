@@ -92,6 +92,7 @@ export function fileDrop(options: {
   enabled: () => boolean;
   on: (over: boolean) => void;
   drop: (files: File[], folders: string[]) => void;
+  paste: (files: File[], folders: string[]) => void;
 }) {
   const events = new AbortController();
   let active = false,
@@ -104,7 +105,7 @@ export function fileDrop(options: {
   };
   // A dropped or pasted folder arrives as a File; only its entry tells them apart.
   // Without the entry API, everything is treated as a file.
-  const deliver = (data: DataTransfer) => {
+  const deliver = (data: DataTransfer, to: typeof options.drop) => {
     const files: File[] = [],
       folders: string[] = [];
     for (const item of Array.from(data.items)) {
@@ -113,7 +114,7 @@ export function fileDrop(options: {
       if (item.webkitGetAsEntry?.()?.isDirectory) folders.push(file.name);
       else files.push(file);
     }
-    options.drop(files, folders);
+    to(files, folders);
   };
   const end = () => {
     clearTimeout(timer);
@@ -129,7 +130,7 @@ export function fileDrop(options: {
         if (!options.enabled()) return end();
         if (type === 'drop') {
           end();
-          deliver(e.dataTransfer!);
+          deliver(e.dataTransfer!, options.drop);
         } else {
           set(true);
           clearTimeout(timer);
@@ -138,7 +139,7 @@ export function fileDrop(options: {
       },
       { signal: events.signal },
     );
-  // Files copied in a file manager, or a copied screenshot, upload on Ctrl/Cmd+V.
+  // Files copied in a file manager, or a copied screenshot, are offered for upload on Ctrl/Cmd+V.
   window.addEventListener(
     'paste',
     (e) => {
@@ -153,7 +154,7 @@ export function fileDrop(options: {
             (t instanceof HTMLElement && t.isContentEditable));
       if (!types.includes('Files') || typing || !options.enabled()) return;
       e.preventDefault();
-      deliver(e.clipboardData!);
+      deliver(e.clipboardData!, options.paste);
     },
     { signal: events.signal },
   );

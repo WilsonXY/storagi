@@ -400,3 +400,23 @@
     <svg class="i" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8" /></svg>
   </button>
 </div>
+
+<!-- A paste can be an accident, so pasted files wait here for a yes. -->
+<dialog
+  class="confirm-pop paste-confirm"
+  id="paste-confirm"
+  aria-labelledby="paste-title"
+  aria-describedby="paste-note"
+>
+  <p class="cp-title" id="paste-title"></p>
+  <ul class="cp-files" id="paste-files"></ul>
+  <p class="cp-note" id="paste-note"></p>
+  <div class="cp-actions">
+    <button type="button" class="btn btn-ghost btn-sm" id="paste-cancel">
+      Cancel
+    </button>
+    <button type="button" class="btn btn-primary btn-sm" id="paste-upload">
+      Upload
+    </button>
+  </div>
+</dialog>
