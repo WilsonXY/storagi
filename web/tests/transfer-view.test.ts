@@ -44,3 +44,38 @@ test('progress keeps button focus, stalled speed decays, shared history survives
   await vi.advanceTimersByTimeAsync(1000);
   expect(document.querySelectorAll('.tr')).toHaveLength(1);
 });
+test('Pause all and Cancel all reach every transfer they apply to', () => {
+  document.body.innerHTML = shelfHTML;
+  const view = createTransferView(document.body);
+  stop = view.destroy;
+  const calls: string[] = [];
+  const make = (name: string, dir: 'up' | 'down', state: string) => {
+    const t = view.add(name, 100, dir);
+    t.state = state as typeof t.state;
+    t.action = (action) => calls.push(`${action} ${name}`);
+    view.render(t);
+    return t;
+  };
+  const pauseAll = document.querySelector<HTMLButtonElement>('#pause-all')!,
+    cancelAll = document.querySelector<HTMLButtonElement>('#cancel-all')!;
+  expect(document.querySelector('.resume-note')).toBeNull();
+  expect(pauseAll.hidden && cancelAll.hidden).toBe(true);
+  const running = make('a', 'up', 'uploading');
+  const waiting = make('b', 'up', 'queued');
+  make('c', 'down', 'downloading');
+  make('d', 'up', 'done');
+  expect(pauseAll.textContent).toBe('Pause all');
+  pauseAll.click();
+  expect(calls).toEqual(['pause a', 'pause b']);
+  calls.length = 0;
+  cancelAll.click();
+  expect(calls).toEqual(['cancel a', 'cancel b', 'cancel c']);
+  calls.length = 0;
+  for (const t of [running, waiting]) {
+    t.state = 'paused';
+    view.render(t);
+  }
+  expect(pauseAll.textContent).toBe('Resume all');
+  pauseAll.click();
+  expect(calls).toEqual(['resume a', 'resume b']);
+});

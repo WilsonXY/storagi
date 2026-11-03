@@ -369,10 +369,10 @@
           <p class="chart-peak mono" id="chart-max"></p>
         </figure>
         <dl class="eta" id="eta"></dl>
-        <p class="resume-note muted">
-          Interrupted? Choose the same file again in this browser to resume.
-          Unfinished uploads expire after 24 hours.
-        </p>
+        <div class="tr-bulk" hidden>
+          <button type="button" id="pause-all" hidden>Pause all</button>
+          <button type="button" id="cancel-all" hidden>Cancel all</button>
+        </div>
         <ul class="tr-list" id="tr-list" aria-label="Transfers"></ul>
         <p class="tr-empty muted" id="tr-empty" hidden>
           Nothing moving. Drop files on the bar to start.
