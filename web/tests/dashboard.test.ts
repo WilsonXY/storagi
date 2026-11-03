@@ -1190,3 +1190,492 @@ test('a swipe that replaces the focused Delete button moves focus to its Undo', 
     'new-id',
   );
 });
+test('a mouse resting on an image row previews it once loaded, reuses it, and the setting turns previews off', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = {
+    id: 'img-id',
+    name: 'Photo.JPG',
+    size: 4096,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  };
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files: [...listing.files, photo] },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const tip = (id: string) =>
+    document.querySelector(`[data-id="${id}"] strong`)!.getAttribute('title');
+  // The name tooltip would cover the preview, so only rows without one keep it.
+  expect(tip('img-id')).toBeNull();
+  expect(tip('new-id')).toBe('archive.zip');
+  const move = (
+    id: string,
+    pointerType = 'mouse',
+    buttons = 0,
+    part = '.name',
+  ) =>
+    document.querySelector(`[data-id="${id}"] ${part}`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType,
+        buttons,
+      }),
+    );
+  move('new-id');
+  move('img-id', 'touch');
+  move('img-id', 'mouse', 1);
+  // The rest of the row, outside the name, shows nothing.
+  move('img-id', 'mouse', 0, '.cell.size');
+  vi.advanceTimersByTime(1000);
+  expect(images).toHaveLength(0);
+  move('img-id');
+  vi.advanceTimersByTime(100);
+  expect(images).toHaveLength(0);
+  vi.advanceTimersByTime(300);
+  expect(images).toHaveLength(1);
+  expect(images[0].getAttribute('src')).toBe('/api/files/img-id/download');
+  expect(box.hidden).toBe(true);
+  images[0].dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  expect(box.firstElementChild).toBe(images[0]);
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(box.hidden).toBe(true);
+  move('img-id');
+  vi.advanceTimersByTime(400);
+  expect(box.hidden).toBe(false);
+  expect(images).toHaveLength(1);
+  move('img-id', 'mouse', 0, '.cell.type');
+  expect(box.hidden).toBe(true);
+  move('img-id');
+  vi.advanceTimersByTime(400);
+  expect(box.hidden).toBe(false);
+  groups.dispatchEvent(new Event('pointerleave'));
+  click('#nav-settings');
+  click('#preview-switch');
+  expect(localStorage.getItem('storagi.previews')).toBe('off');
+  expect(document.querySelector('#preview-saved')?.textContent).toBe(
+    'Saved · previews off',
+  );
+  click('.nav-item[data-tab="inbox"]');
+  move('img-id');
+  vi.advanceTimersByTime(1000);
+  expect(box.hidden).toBe(true);
+  expect(tip('img-id')).toBe('Photo.JPG');
+  localStorage.clear();
+});
+test('image previews follow the list: one load at a time, and stale or dismissed previews hide', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = (id: string) => ({
+    id,
+    name: `${id}.png`,
+    size: 4096,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  let files = [photo('a'), photo('b'), ...listing.files];
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const move = (id: string) =>
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+  const hover = (id: string) => {
+    move(id);
+    vi.advanceTimersByTime(400);
+  };
+  // Leaving before the load finishes and coming back reuses the same load.
+  hover('a');
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('a');
+  expect(images).toHaveLength(1);
+  // Moving to another image cancels the unfinished one.
+  hover('b');
+  expect(images).toHaveLength(2);
+  expect(images[0].hasAttribute('src')).toBe(false);
+  images[1].dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  // Escape dismisses it, and resting on the same row does not reopen it.
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+  );
+  expect(box.hidden).toBe(true);
+  hover('b');
+  expect(box.hidden).toBe(true);
+  hover('a');
+  hover('b');
+  expect(box.hidden).toBe(false);
+  // A horizontal wheel swipe hides it.
+  groups.dispatchEvent(new Event('wheel'));
+  expect(box.hidden).toBe(true);
+  hover('b');
+  expect(box.hidden).toBe(false);
+  // A refresh that removes the hovered file hides its preview.
+  files = files.filter((f) => f.id !== 'b');
+  click('#refresh');
+  await tick();
+  expect(box.hidden).toBe(true);
+  // A load that finishes after its file left the list never shows.
+  hover('a');
+  const late = images.at(-1)!;
+  files = files.filter((f) => f.id !== 'a');
+  click('#refresh');
+  await tick();
+  late.dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(true);
+  // Opening Settings hides the preview.
+  files = [photo('c'), ...listing.files];
+  click('#refresh');
+  await tick();
+  hover('c');
+  images.at(-1)!.dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  click('#nav-settings');
+  expect(box.hidden).toBe(true);
+});
+test('image previews retry after a failed load, hide when rows move, cancel for a cached image, and stay dismissed after a second Escape', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = (id: string, day = 18) => ({
+    id,
+    name: `${id}.png`,
+    size: 4096,
+    uploadedAt: `2026-10-${day}T12:00:00Z`,
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  let files = [photo('a'), photo('b')];
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const hover = (id: string) => {
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+    vi.advanceTimersByTime(400);
+  };
+  // A failed load is retried once the mouse comes back to the row.
+  hover('a');
+  images[0].dispatchEvent(new Event('error'));
+  expect(box.hidden).toBe(true);
+  hover('a');
+  expect(images).toHaveLength(1);
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('a');
+  expect(images).toHaveLength(2);
+  images[1].dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  // Moving to a cached image cancels the unfinished load of another one.
+  hover('b');
+  expect(images).toHaveLength(3);
+  hover('a');
+  expect(box.hidden).toBe(false);
+  expect(images[2].hasAttribute('src')).toBe(false);
+  // A second Escape keeps the preview dismissed on the same row.
+  for (let i = 0; i < 2; i++)
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+  hover('a');
+  expect(box.hidden).toBe(true);
+  hover('b');
+  hover('a');
+  expect(box.hidden).toBe(false);
+  // A refresh that inserts a row above moves the hovered file away from the cursor.
+  files = [photo('c', 20), ...files];
+  click('#refresh');
+  await tick();
+  expect(box.hidden).toBe(true);
+  // A refresh that changes nothing keeps it.
+  hover('a');
+  expect(box.hidden).toBe(false);
+  click('#refresh');
+  await tick();
+  expect(box.hidden).toBe(false);
+});
+test('videos preview a muted loop of their first seconds, and text files their first lines, fetched as a range', async () => {
+  vi.useFakeTimers();
+  const videos: HTMLVideoElement[] = [];
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, 'createElement').mockImplementation(
+    (tag: string, options?: ElementCreationOptions) => {
+      const el = create(tag, options);
+      if (el instanceof HTMLVideoElement) videos.push(el);
+      return el;
+    },
+  );
+  const play = vi
+    .spyOn(HTMLMediaElement.prototype, 'play')
+    .mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+  const file = (id: string, name: string) => ({
+    id,
+    name,
+    size: 1024 ** 3,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  const text = Array.from({ length: 40 }, (_, i) => `line ${i + 1}`)
+    .join('\n')
+    .replace('line 2', '<b>line 2</b>');
+  const fetcher = vi.fn(async (url: RequestInfo | URL) =>
+    String(url) === '/api/files/notes-id/download'
+      ? new Response(text, { status: 206 })
+      : new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : {
+                  ...listing,
+                  files: [
+                    file('clip-id', 'Clip.MP4'),
+                    file('notes-id', 'notes.md'),
+                    ...listing.files,
+                  ],
+                },
+          ),
+        ),
+  );
+  await mount(fetcher);
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const hover = (id: string) => {
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+    vi.advanceTimersByTime(400);
+  };
+  hover('clip-id');
+  expect(videos).toHaveLength(1);
+  const video = videos[0];
+  expect(video.getAttribute('src')).toBe('/api/files/clip-id/download');
+  expect(video.muted).toBe(true);
+  expect(box.hidden).toBe(true);
+  video.dispatchEvent(new Event('loadeddata'));
+  expect(box.hidden).toBe(false);
+  expect(box.firstElementChild).toBe(video);
+  expect(play).toHaveBeenCalled();
+  // Only the first few seconds play, over and over.
+  Object.defineProperty(video, 'currentTime', { value: 3.2, writable: true });
+  video.dispatchEvent(new Event('timeupdate'));
+  expect(video.currentTime).toBe(0);
+  // Hiding stops the video and its download.
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(box.hidden).toBe(true);
+  expect(video.hasAttribute('src')).toBe(false);
+  expect(box.querySelector('video')).toBeNull();
+  // Text: the first 4 KiB as a range, shown as plain text, first lines only.
+  hover('notes-id');
+  await tick();
+  const call = fetcher.mock.calls.find(
+    ([url]) => String(url) === '/api/files/notes-id/download',
+  ) as unknown as [string, RequestInit];
+  expect(new Headers(call[1].headers).get('Range')).toBe('bytes=0-4095');
+  expect(box.hidden).toBe(false);
+  const pre = box.querySelector('pre')!;
+  expect(pre.querySelector('b')).toBeNull();
+  expect(pre.textContent!.split('\n')).toHaveLength(16);
+  expect(pre.textContent).toContain('<b>line 2</b>');
+  // A text preview is kept, so coming back does not fetch it again.
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('notes-id');
+  await tick();
+  expect(box.querySelector('pre')).toBe(pre);
+  expect(
+    fetcher.mock.calls.filter(
+      ([url]) => String(url) === '/api/files/notes-id/download',
+    ),
+  ).toHaveLength(1);
+  vi.restoreAllMocks();
+});
+test('a video still loading stops when hidden, a cancelled text read cannot untrack the next load, text stays within 4 KiB, and short videos loop', async () => {
+  vi.useFakeTimers();
+  const videos: HTMLVideoElement[] = [];
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, 'createElement').mockImplementation(
+    (tag: string, options?: ElementCreationOptions) => {
+      const el = create(tag, options);
+      if (el instanceof HTMLVideoElement) videos.push(el);
+      return el;
+    },
+  );
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+  const file = (id: string, name: string) => ({
+    id,
+    name,
+    size: 1024 ** 2,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+    if (String(url) === '/api/files/slow-id/download') {
+      await held;
+      return new Response('late text', { status: 206 });
+    }
+    // A server that ignores the range and sends 12 000 bytes of three-byte characters.
+    if (String(url) === '/api/files/wide-id/download')
+      return new Response('€'.repeat(4000), { status: 200 });
+    return new Response(
+      JSON.stringify(
+        String(url) === '/api/session'
+          ? { authenticated: true, csrfToken: 'test-csrf' }
+          : {
+              ...listing,
+              files: [
+                file('clip-id', 'clip.webm'),
+                file('slow-id', 'slow.txt'),
+                file('wide-id', 'wide.txt'),
+                ...listing.files,
+              ],
+            },
+      ),
+    );
+  });
+  await mount(fetcher);
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const hover = (id: string) => {
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+    vi.advanceTimersByTime(400);
+  };
+  // Leaving a video before it loads stops its download.
+  hover('clip-id');
+  expect(videos[0].loop).toBe(true);
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(videos[0].hasAttribute('src')).toBe(false);
+  // A text read finishing after it was cancelled does not untrack the video that replaced it.
+  hover('slow-id');
+  hover('clip-id');
+  release();
+  await tick();
+  expect(box.hidden).toBe(true);
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(videos[1].hasAttribute('src')).toBe(false);
+  // 6 s after a video starts loading, it freezes on its current frame and its download stops.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  hover('clip-id');
+  const capped = videos[2];
+  capped.dispatchEvent(new Event('loadeddata'));
+  expect(box.firstElementChild).toBe(capped);
+  vi.advanceTimersByTime(5000);
+  expect(capped.hasAttribute('src')).toBe(true);
+  vi.advanceTimersByTime(1000);
+  expect(capped.hasAttribute('src')).toBe(false);
+  expect(box.hidden).toBe(false);
+  expect(box.firstElementChild?.tagName).toBe('CANVAS');
+  groups.dispatchEvent(new Event('pointerleave'));
+  // One still loading at 6 s is dropped without a preview.
+  hover('clip-id');
+  vi.advanceTimersByTime(6000);
+  expect(videos[3].hasAttribute('src')).toBe(false);
+  videos[3].dispatchEvent(new Event('loadeddata'));
+  expect(box.hidden).toBe(true);
+  groups.dispatchEvent(new Event('pointerleave'));
+  // A video that fails while loading cannot cancel the cap of the next one.
+  hover('clip-id');
+  vi.advanceTimersByTime(1000);
+  videos[4].dispatchEvent(new Event('error'));
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('clip-id');
+  videos[5].dispatchEvent(new Event('loadeddata'));
+  vi.advanceTimersByTime(6000);
+  expect(videos[5].hasAttribute('src')).toBe(false);
+  groups.dispatchEvent(new Event('pointerleave'));
+  // At most 4 KiB is read and decoded, counted in bytes.
+  hover('wide-id');
+  await tick();
+  const shown = new TextEncoder().encode(
+    box.querySelector('pre')!.textContent!,
+  );
+  expect(shown.length).toBeLessThanOrEqual(4096);
+  expect(shown.length).toBeGreaterThan(4000);
+  vi.restoreAllMocks();
+});
