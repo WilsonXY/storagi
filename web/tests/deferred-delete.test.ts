@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { deferredDelete } from '../src/deferred-delete';
 afterEach(() => vi.useRealTimers());
-test('holds the real delete for six seconds and emits countdown ticks', async () => {
+test('holds the real delete for four seconds and emits countdown ticks', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(0);
   const remove = vi.fn().mockResolvedValue(undefined),
@@ -11,7 +11,7 @@ test('holds the real delete for six seconds and emits countdown ticks', async ()
     onCommit,
     onTick: (n) => ticks.push(n),
   });
-  await vi.advanceTimersByTimeAsync(5999);
+  await vi.advanceTimersByTimeAsync(3999);
   expect(remove).not.toHaveBeenCalled();
   expect(ticks.at(-1)).toBe(1);
   await vi.advanceTimersByTimeAsync(1);
@@ -43,7 +43,7 @@ test('reports rejected deletion without an unhandled timer rejection or a succes
     onError = vi.fn(),
     onCommit = vi.fn();
   deferredDelete(vi.fn().mockRejectedValue(error), { onError, onCommit });
-  await vi.advanceTimersByTimeAsync(6000);
+  await vi.advanceTimersByTimeAsync(4000);
   expect(onError).toHaveBeenCalledWith(error);
   expect(onCommit).not.toHaveBeenCalled();
 });

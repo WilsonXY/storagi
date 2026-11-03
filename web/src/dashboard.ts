@@ -12,7 +12,7 @@ import {
   type Sort,
   type SortKey,
 } from './sorting';
-import { deferredDelete } from './deferred-delete';
+import { deferredDelete, GRACE_SECONDS } from './deferred-delete';
 import {
   motionPref,
   setMotionPref,
@@ -567,7 +567,8 @@ export async function createDashboard(
     );
     pending.add(op);
     if (!bulk)
-      for (const id of ids) morph.set(id, { state: 'deleted', left: 6, op });
+      for (const id of ids)
+        morph.set(id, { state: 'deleted', left: GRACE_SECONDS, op });
     for (const id of ids) sel.ids.delete(id);
     renderInbox();
     renderSelection();
@@ -576,8 +577,8 @@ export async function createDashboard(
     toast(`${ids.length} ${ids.length === 1 ? 'copy' : 'copies'} deleted`, {
       action: 'Undo',
       onAction: op.undo,
-      ms: 6000,
-      clockFrom: 6,
+      ms: GRACE_SECONDS * 1000,
+      clockFrom: GRACE_SECONDS,
     });
   }
   const gestures = rowGestures(
