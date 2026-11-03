@@ -6,6 +6,8 @@ import {
   onMotionChange,
   gesturePref,
   setGesturePref,
+  previewPref,
+  setPreviewPref,
 } from '../src/preferences';
 beforeEach(() => localStorage.clear());
 test('persists explicit motion and gesture choices, dispatches motion changes and unsubscribes', () => {
@@ -46,4 +48,11 @@ test('ignores OS motion and invalid storage and tolerates storage denial', () =>
   get.mockRestore();
   set.mockRestore();
   vi.unstubAllGlobals();
+});
+test('file previews default on and remember an explicit off', () => {
+  expect(previewPref()).toBe('on');
+  setPreviewPref('off');
+  expect(previewPref()).toBe('off');
+  localStorage.setItem('storagi.previews', 'invalid');
+  expect(previewPref()).toBe('on');
 });

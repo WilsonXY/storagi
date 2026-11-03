@@ -19,6 +19,8 @@ import {
   reduced,
   gesturePref,
   setGesturePref,
+  previewPref,
+  setPreviewPref,
   onMotionChange,
 } from './preferences';
 import { KoiPond, KoiMark, orbitLoader } from './koi';
@@ -356,8 +358,14 @@ export async function createDashboard(
       ),
       sort,
     );
+  // Rows and day labels in order: if they move, the row under a resting cursor may have changed.
+  const listOrder = () =>
+    [...$('#groups').querySelectorAll<HTMLElement>('.row, h3')]
+      .map((el) => el.dataset.id ?? el.textContent)
+      .join('\n');
   function renderInbox() {
     if (!active || gestures?.busy()) return;
+    const before = previewId && listOrder();
     const files = visible(),
       all = shelf.files.filter((f) => !hidden.has(f.id));
     order = files.filter((f) => !counting(f.id)).map((f) => f.id);
@@ -410,6 +418,8 @@ export async function createDashboard(
       mark('#koi-mark');
       emptyMark = true;
     }
+    if (previewId && (listOrder() !== before || !previewable(previewId)))
+      hidePreview();
     syncRows();
   }
   function row(f: ShelfFile, duplicate: boolean) {
@@ -429,7 +439,7 @@ export async function createDashboard(
           : state?.state === 'deleted'
             ? `<div class="morph"><span class="m-ok">✓ Deleted</span><button data-undo="${id}" data-key="u-${id}">Undo</button><span class="m-clock" data-clock="${id}">${state.left}s</span></div>`
             : `${expired ? '' : `<a class="icon-btn" href="/api/files/${encodeURIComponent(f.id)}/download" download data-dl="${id}" data-key="d-${id}" draggable="false" aria-label="Download ${n}" title="Download">${downIcon}</a>`}<button class="icon-btn" data-del="${id}" data-key="x-${id}" aria-label="Delete ${n}" title="Delete this copy">${trashIcon}</button>`;
-    return `<div class="row${counting(f.id) ? ' ghost' : ''}" data-id="${id}"><label class="lead"><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong title="${esc(f.name)}">${esc(base)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell type">${esc(type)}</span><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone">${type ? `<span>${esc(type)}</span>` : ''}<span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
+    return `<div class="row${counting(f.id) ? ' ghost' : ''}" data-id="${id}"><label class="lead"><input type="checkbox" class="check" data-key="c-${id}" aria-label="Select ${n}"></label><div class="name"><strong${expired || previewPref() === 'off' || !previewKind(f.name) ? ` title="${esc(f.name)}"` : ''}>${esc(base)}</strong>${duplicate ? `<span class="copy">copy ${esc(shortId(f.id))}</span>` : ''}</div><span class="cell type">${esc(type)}</span><span class="cell size">${bytes(f.size)}</span><span class="cell ${cls}">${exp}</span><span class="meta-phone">${type ? `<span>${esc(type)}</span>` : ''}<span class="size">${bytes(f.size)}</span><span class="${cls}">${exp}</span></span><div class="acts${state ? ' engaged' : ''}">${actions}</div></div>`;
   }
   function focusKey(key: string) {
     Array.from(root.querySelectorAll<HTMLElement>('[data-key]'))
@@ -639,6 +649,227 @@ export async function createDashboard(
       focusKey(`x-${id}`);
     }
   });
+  // Resting the mouse on an image, video or text row previews it. Browsers sniff <img> and <video> content, so the download URL works despite its octet-stream type.
+  const previewBox = $('#hover-preview'),
+    previews = new Map<string, HTMLElement>();
+  let previewId = '',
+    dismissedId = '',
+    loading: { id: string; keep: boolean; cancel: () => void } | undefined,
+    previewTimer: ReturnType<typeof setTimeout> | undefined,
+    pointer = { x: 0, y: 0 };
+  // Each video's own 6 s cap, so stopping one video never clears another's.
+  const videoCaps = new WeakMap<
+    HTMLVideoElement,
+    ReturnType<typeof setTimeout>
+  >();
+  function previewKind(name: string) {
+    return /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(name)
+      ? 'image'
+      : /\.(mp4|m4v|webm|mov)$/i.test(name)
+        ? 'video'
+        : /\.(txt|md|markdown|log|csv|tsv|json|xml|ya?ml|toml|ini|conf|cfg|sh|py|js|ts|jsx|tsx|css|html?|c|h|cpp|java|go|rs|rb|php|sql)$/i.test(
+              name,
+            )
+          ? 'text'
+          : undefined;
+  }
+  // Checked again on every render and finished load, so a preview never outlives its row.
+  const previewable = (id: string) => {
+    const f = shelf.files.find((f) => f.id === id);
+    return (
+      !!f &&
+      previewPref() === 'on' &&
+      !counting(id) &&
+      +new Date(f.expiresAt) > Date.now() &&
+      !!previewKind(f.name) &&
+      [...$('#groups').querySelectorAll<HTMLElement>('.row')].some(
+        (row) => row.dataset.id === id,
+      )
+    );
+  };
+  const stopVideo = (video: HTMLVideoElement) => {
+    clearTimeout(videoCaps.get(video));
+    video.onloadeddata = video.onerror = video.ontimeupdate = null;
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  };
+  // One download at a time: an unfinished load is cancelled when another file is wanted.
+  const cancelLoad = () => {
+    loading?.cancel();
+    loading = undefined;
+  };
+  const hidePreview = () => {
+    clearTimeout(previewTimer);
+    previewId = '';
+    previewBox.hidden = true;
+    // Videos are not kept: hiding one, shown or still loading, stops it and its download.
+    const video = previewBox.querySelector('video');
+    if (video) {
+      stopVideo(video);
+      previewBox.replaceChildren();
+    }
+    if (loading && !loading.keep) cancelLoad();
+  };
+  cleanups.push(() => {
+    hidePreview();
+    cancelLoad();
+  });
+  // Beside the cursor, flipped to the other side near the window's right or bottom edge, and kept on screen.
+  function place() {
+    const w = previewBox.offsetWidth || 320,
+      h = previewBox.offsetHeight || 240,
+      { x, y } = pointer;
+    previewBox.style.left = `${Math.max(8, x + 16 + w > innerWidth ? x - 16 - w : x + 16)}px`;
+    previewBox.style.top = `${Math.max(8, y + 16 + h > innerHeight ? y - 16 - h : y + 16)}px`;
+  }
+  function reveal(el: HTMLElement) {
+    previewBox.replaceChildren(el);
+    previewBox.hidden = false;
+    place();
+    if (el instanceof HTMLVideoElement) void el.play().catch(() => {});
+  }
+  function showPreview(id: string) {
+    if (previewId !== id || !previewable(id)) return hidePreview();
+    if (loading?.id !== id) cancelLoad();
+    const ready = previews.get(id);
+    if (ready) return reveal(ready);
+    if (loading) return;
+    const url = `/api/files/${encodeURIComponent(id)}/download`,
+      kind = previewKind(shelf.files.find((f) => f.id === id)!.name),
+      load = { id, keep: kind !== 'video', cancel: () => {} };
+    loading = load;
+    // Only the load still being tracked may finish: a cancelled one can resolve late.
+    const done = (el: HTMLElement) => {
+      if (loading !== load) return;
+      loading = undefined;
+      if (el instanceof HTMLVideoElement) {
+        if (previewId === id && previewable(id)) reveal(el);
+        else stopVideo(el);
+        return;
+      }
+      previews.set(id, el);
+      // ponytail: keeps the 20 newest images and text snippets, since downloads are no-store; size it by bytes if memory matters.
+      if (previews.size > 20) previews.delete(previews.keys().next().value!);
+      if (previewId === id) showPreview(id);
+    };
+    // A failed load is tried again once the mouse leaves the row and comes back.
+    const failed = () => {
+      if (loading !== load) return;
+      load.cancel();
+      loading = undefined;
+      if (previewId !== id) return;
+      dismissedId = id;
+      hidePreview();
+    };
+    if (kind === 'image') {
+      const img = new Image();
+      img.alt = '';
+      img.onload = () => done(img);
+      img.onerror = failed;
+      load.cancel = () => {
+        img.onload = img.onerror = null;
+        img.removeAttribute('src');
+      };
+      img.src = url;
+    } else if (kind === 'video') {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      // Only the first 3 seconds play, over and over; a shorter video loops whole.
+      video.loop = true;
+      video.ontimeupdate = () => {
+        if (video.currentTime >= 3) video.currentTime = 0;
+      };
+      video.onloadeddata = () => done(video);
+      video.onerror = failed;
+      load.cancel = () => stopVideo(video);
+      video.src = url;
+      // Browsers keep downloading ahead of the loop, so the owner capped it: 6 s after the download starts, it stops.
+      // A video on show freezes on its current frame; one still loading is dropped without a preview.
+      videoCaps.set(
+        video,
+        setTimeout(() => {
+          if (previewBox.contains(video)) {
+            const still = document.createElement('canvas');
+            still.width = video.videoWidth;
+            still.height = video.videoHeight;
+            still.getContext('2d')?.drawImage(video, 0, 0);
+            previewBox.replaceChildren(still);
+          }
+          if (loading === load) cancelLoad();
+          stopVideo(video);
+        }, 6000),
+      );
+    } else {
+      const abort = new AbortController();
+      load.cancel = () => abort.abort();
+      void (async () => {
+        try {
+          const response = await dependencies.fetch(url, {
+            credentials: 'same-origin',
+            headers: { Range: 'bytes=0-4095' },
+            signal: abort.signal,
+          });
+          if (!response.ok || !response.body) throw new Error('No preview');
+          // Read at most 4 KiB, counted in bytes, even if the server ignored the range and sent the whole file.
+          const reader = response.body.getReader(),
+            bytes = new Uint8Array(4096);
+          let size = 0;
+          try {
+            while (size < bytes.length) {
+              const chunk = await reader.read();
+              if (chunk.done) break;
+              const part = chunk.value.subarray(0, bytes.length - size);
+              bytes.set(part, size);
+              size += part.length;
+            }
+          } finally {
+            void reader.cancel().catch(() => {});
+          }
+          const pre = document.createElement('pre');
+          // A character cut at the 4 KiB edge is dropped (stream mode) rather than shown as a replacement mark.
+          pre.textContent = new TextDecoder()
+            .decode(bytes.subarray(0, size), { stream: true })
+            .split('\n')
+            .slice(0, 16)
+            .join('\n');
+          done(pre);
+        } catch {
+          failed();
+        }
+      })();
+    }
+  }
+  listen($('#groups'), 'pointermove', (e: PointerEvent) => {
+    // Only the name cell previews, so the rest of the row stays clear for its buttons.
+    const id =
+      (e.target as Element).closest('.name')?.closest<HTMLElement>('.row')
+        ?.dataset.id ?? '';
+    // Escape dismisses the preview until the mouse leaves that name.
+    if (id !== dismissedId) dismissedId = '';
+    if (
+      e.pointerType !== 'mouse' ||
+      e.buttons ||
+      id === dismissedId ||
+      !previewable(id)
+    )
+      return hidePreview();
+    pointer = { x: e.clientX, y: e.clientY };
+    place();
+    if (previewId === id) return;
+    hidePreview();
+    previewId = id;
+    // A short pause, so sweeping the mouse across the list does not start a download per row.
+    previewTimer = setTimeout(() => showPreview(id), 300);
+  });
+  listen($('#groups'), 'pointerleave', () => {
+    dismissedId = '';
+    hidePreview();
+  });
+  for (const name of ['pointerdown', 'wheel'])
+    listen($('#groups'), name, hidePreview);
+  listen(window, 'scroll', hidePreview);
   listen($('.list-head'), 'click', (e: MouseEvent) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-sort]');
     if (b) {
@@ -761,6 +992,7 @@ export async function createDashboard(
     }
   }
   function view(name: string) {
+    hidePreview();
     app.dataset.view = name;
     const settings = name === 'settings';
     $('#settings').hidden = !settings;
@@ -841,11 +1073,20 @@ export async function createDashboard(
       'aria-checked',
       String(gesturePref() === 'on'),
     );
+    $('#preview-switch').setAttribute(
+      'aria-checked',
+      String(previewPref() === 'on'),
+    );
     app.classList.toggle('gestures', gesturePref() === 'on');
   }
   listen($('#koi-switch'), 'click', () => {
     setMotionPref(reduced() ? 'swim' : 'static');
     switches();
+  });
+  listen($('#preview-switch'), 'click', () => {
+    setPreviewPref(previewPref() === 'on' ? 'off' : 'on');
+    switches();
+    renderInbox();
   });
   listen($('#gesture-switch'), 'click', () => {
     setGesturePref(gesturePref() === 'on' ? 'off' : 'on');
@@ -908,6 +1149,8 @@ export async function createDashboard(
     )
       $('#picker').click();
     else if (e.key === 'Escape') {
+      if (previewId) dismissedId = previewId;
+      hidePreview();
       if (e.target === $('#search') && $<HTMLInputElement>('#search').value)
         $<HTMLInputElement>('#search').value = '';
       else {
