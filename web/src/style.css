@@ -246,6 +246,8 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   padding: 12px 10px 12px;
@@ -771,7 +773,21 @@
   color: var(--faint);
   font-family: var(--font);
 }
+/* The inbox scrolls the page; the sidebar and transfers panel scroll on their own. None shows a scrollbar. */
+html,
+.side,
+.details {
+  scrollbar-width: none;
+}
 @media (min-width: 1180px) {
+  .details {
+    position: sticky;
+    top: var(--top);
+    align-self: start;
+    height: calc(100vh - var(--top));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   .app.panel-closed .body {
     grid-template-columns: minmax(0, 1fr);
   }
