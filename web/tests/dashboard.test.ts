@@ -1540,3 +1540,107 @@ test('videos preview a muted loop of their first seconds, and text files their f
   ).toHaveLength(1);
   vi.restoreAllMocks();
 });
+test('a video still loading stops when hidden, a cancelled text read cannot untrack the next load, text stays within 4 KiB, and short videos loop', async () => {
+  vi.useFakeTimers();
+  const videos: HTMLVideoElement[] = [];
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, 'createElement').mockImplementation(
+    (tag: string, options?: ElementCreationOptions) => {
+      const el = create(tag, options);
+      if (el instanceof HTMLVideoElement) videos.push(el);
+      return el;
+    },
+  );
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+  const file = (id: string, name: string) => ({
+    id,
+    name,
+    size: 1024 ** 2,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+    if (String(url) === '/api/files/slow-id/download') {
+      await held;
+      return new Response('late text', { status: 206 });
+    }
+    // A server that ignores the range and sends 12 000 bytes of three-byte characters.
+    if (String(url) === '/api/files/wide-id/download')
+      return new Response('€'.repeat(4000), { status: 200 });
+    return new Response(
+      JSON.stringify(
+        String(url) === '/api/session'
+          ? { authenticated: true, csrfToken: 'test-csrf' }
+          : {
+              ...listing,
+              files: [
+                file('clip-id', 'clip.webm'),
+                file('slow-id', 'slow.txt'),
+                file('wide-id', 'wide.txt'),
+                ...listing.files,
+              ],
+            },
+      ),
+    );
+  });
+  await mount(fetcher);
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const hover = (id: string) => {
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+    vi.advanceTimersByTime(400);
+  };
+  // Leaving a video before it loads stops its download.
+  hover('clip-id');
+  expect(videos[0].loop).toBe(true);
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(videos[0].hasAttribute('src')).toBe(false);
+  // A text read finishing after it was cancelled does not untrack the video that replaced it.
+  hover('slow-id');
+  hover('clip-id');
+  release();
+  await tick();
+  expect(box.hidden).toBe(true);
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(videos[1].hasAttribute('src')).toBe(false);
+  // 6 s after a video starts loading, it freezes on its current frame and its download stops.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  hover('clip-id');
+  const capped = videos[2];
+  capped.dispatchEvent(new Event('loadeddata'));
+  expect(box.firstElementChild).toBe(capped);
+  vi.advanceTimersByTime(5000);
+  expect(capped.hasAttribute('src')).toBe(true);
+  vi.advanceTimersByTime(1000);
+  expect(capped.hasAttribute('src')).toBe(false);
+  expect(box.hidden).toBe(false);
+  expect(box.firstElementChild?.tagName).toBe('CANVAS');
+  groups.dispatchEvent(new Event('pointerleave'));
+  // One still loading at 6 s is dropped without a preview.
+  hover('clip-id');
+  vi.advanceTimersByTime(6000);
+  expect(videos[3].hasAttribute('src')).toBe(false);
+  videos[3].dispatchEvent(new Event('loadeddata'));
+  expect(box.hidden).toBe(true);
+  groups.dispatchEvent(new Event('pointerleave'));
+  // At most 4 KiB is read and decoded, counted in bytes.
+  hover('wide-id');
+  await tick();
+  const shown = new TextEncoder().encode(
+    box.querySelector('pre')!.textContent!,
+  );
+  expect(shown.length).toBeLessThanOrEqual(4096);
+  expect(shown.length).toBeGreaterThan(4000);
+  vi.restoreAllMocks();
+});

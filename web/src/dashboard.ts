@@ -652,8 +652,9 @@ export async function createDashboard(
     previews = new Map<string, HTMLElement>();
   let previewId = '',
     dismissedId = '',
-    loading: { id: string; cancel: () => void } | undefined,
-    previewTimer: ReturnType<typeof setTimeout> | undefined;
+    loading: { id: string; keep: boolean; cancel: () => void } | undefined,
+    previewTimer: ReturnType<typeof setTimeout> | undefined,
+    videoCap: ReturnType<typeof setTimeout> | undefined;
   const previewKind = (name: string) =>
     /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(name)
       ? 'image'
@@ -679,26 +680,28 @@ export async function createDashboard(
     );
   };
   const stopVideo = (video: HTMLVideoElement) => {
+    clearTimeout(videoCap);
     video.onloadeddata = video.onerror = video.ontimeupdate = null;
     video.pause();
     video.removeAttribute('src');
     video.load();
   };
+  // One download at a time: an unfinished load is cancelled when another file is wanted.
+  const cancelLoad = () => {
+    loading?.cancel();
+    loading = undefined;
+  };
   const hidePreview = () => {
     clearTimeout(previewTimer);
     previewId = '';
     previewBox.hidden = true;
-    // Videos are not kept: hiding one stops it and its download.
+    // Videos are not kept: hiding one, shown or still loading, stops it and its download.
     const video = previewBox.querySelector('video');
     if (video) {
       stopVideo(video);
       previewBox.replaceChildren();
     }
-  };
-  // One download at a time: an unfinished load is cancelled when another file is wanted.
-  const cancelLoad = () => {
-    loading?.cancel();
-    loading = undefined;
+    if (loading && !loading.keep) cancelLoad();
   };
   cleanups.push(() => {
     hidePreview();
@@ -716,8 +719,12 @@ export async function createDashboard(
     if (ready) return reveal(ready);
     if (loading) return;
     const url = `/api/files/${encodeURIComponent(id)}/download`,
-      kind = previewKind(shelf.files.find((f) => f.id === id)!.name);
+      kind = previewKind(shelf.files.find((f) => f.id === id)!.name),
+      load = { id, keep: kind !== 'video', cancel: () => {} };
+    loading = load;
+    // Only the load still being tracked may finish: a cancelled one can resolve late.
     const done = (el: HTMLElement) => {
+      if (loading !== load) return;
       loading = undefined;
       if (el instanceof HTMLVideoElement) {
         if (previewId === id && previewable(id)) reveal(el);
@@ -731,6 +738,7 @@ export async function createDashboard(
     };
     // A failed load is tried again once the mouse leaves the row and comes back.
     const failed = () => {
+      if (loading !== load) return;
       loading = undefined;
       if (previewId !== id) return;
       dismissedId = id;
@@ -741,29 +749,40 @@ export async function createDashboard(
       img.alt = '';
       img.onload = () => done(img);
       img.onerror = failed;
-      loading = {
-        id,
-        cancel: () => {
-          img.onload = img.onerror = null;
-          img.removeAttribute('src');
-        },
+      load.cancel = () => {
+        img.onload = img.onerror = null;
+        img.removeAttribute('src');
       };
       img.src = url;
     } else if (kind === 'video') {
       const video = document.createElement('video');
       video.muted = true;
       video.playsInline = true;
-      // Only the first seconds play, over and over; the browser fetches just the byte ranges it needs.
+      // Only the first 3 seconds play, over and over; a shorter video loops whole.
+      video.loop = true;
       video.ontimeupdate = () => {
         if (video.currentTime >= 3) video.currentTime = 0;
       };
       video.onloadeddata = () => done(video);
       video.onerror = failed;
-      loading = { id, cancel: () => stopVideo(video) };
+      load.cancel = () => stopVideo(video);
       video.src = url;
+      // Browsers keep downloading ahead of the loop, so the owner capped it: 6 s after the download starts, it stops.
+      // A video on show freezes on its current frame; one still loading is dropped without a preview.
+      videoCap = setTimeout(() => {
+        if (previewBox.contains(video)) {
+          const still = document.createElement('canvas');
+          still.width = video.videoWidth;
+          still.height = video.videoHeight;
+          still.getContext('2d')?.drawImage(video, 0, 0);
+          previewBox.replaceChildren(still);
+        }
+        if (loading === load) cancelLoad();
+        stopVideo(video);
+      }, 6000);
     } else {
       const abort = new AbortController();
-      loading = { id, cancel: () => abort.abort() };
+      load.cancel = () => abort.abort();
       void (async () => {
         try {
           const response = await dependencies.fetch(url, {
@@ -772,25 +791,31 @@ export async function createDashboard(
             signal: abort.signal,
           });
           if (!response.ok || !response.body) throw new Error('No preview');
-          // Read at most 4 KiB, even if the server ignored the range and sent the whole file.
+          // Read at most 4 KiB, counted in bytes, even if the server ignored the range and sent the whole file.
           const reader = response.body.getReader(),
-            decoder = new TextDecoder();
-          let text = '';
-          while (text.length < 4096) {
-            const chunk = await reader.read();
-            if (chunk.done) break;
-            text += decoder.decode(chunk.value, { stream: true });
+            bytes = new Uint8Array(4096);
+          let size = 0;
+          try {
+            while (size < bytes.length) {
+              const chunk = await reader.read();
+              if (chunk.done) break;
+              const part = chunk.value.subarray(0, bytes.length - size);
+              bytes.set(part, size);
+              size += part.length;
+            }
+          } finally {
+            void reader.cancel().catch(() => {});
           }
-          void reader.cancel().catch(() => {});
           const pre = document.createElement('pre');
-          pre.textContent = text
-            .slice(0, 4096)
+          // A character cut at the 4 KiB edge is dropped (stream mode) rather than shown as a replacement mark.
+          pre.textContent = new TextDecoder()
+            .decode(bytes.subarray(0, size), { stream: true })
             .split('\n')
             .slice(0, 16)
             .join('\n');
           done(pre);
         } catch {
-          if (!abort.signal.aborted) failed();
+          failed();
         }
       })();
     }

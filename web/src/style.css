@@ -1859,7 +1859,8 @@ body.selecting .toast {
   display: none;
 }
 .hover-preview img,
-.hover-preview video {
+.hover-preview video,
+.hover-preview canvas {
   display: block;
   max-width: 320px;
   max-height: 240px;
