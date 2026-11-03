@@ -832,7 +832,7 @@ export async function createDashboard(
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   });
-  function switches(saved = '') {
+  function switches() {
     $('#koi-switch').setAttribute(
       'aria-checked',
       String(motionPref() === 'swim'),
@@ -842,24 +842,14 @@ export async function createDashboard(
       String(gesturePref() === 'on'),
     );
     app.classList.toggle('gestures', gesturePref() === 'on');
-    if (saved === 'koi')
-      $('#koi-saved').textContent =
-        motionPref() === 'swim'
-          ? 'Saved · the koi swim'
-          : 'Saved · the koi stay still';
-    if (saved === 'gesture')
-      $('#gesture-saved').textContent =
-        gesturePref() === 'on'
-          ? 'Saved · swipe gestures on'
-          : 'Saved · swipe gestures off';
   }
   listen($('#koi-switch'), 'click', () => {
     setMotionPref(reduced() ? 'swim' : 'static');
-    switches('koi');
+    switches();
   });
   listen($('#gesture-switch'), 'click', () => {
     setGesturePref(gesturePref() === 'on' ? 'off' : 'on');
-    switches('gesture');
+    switches();
   });
   switches();
   const closeSignout = () => {
