@@ -1917,6 +1917,14 @@ body.selecting .toast {
   max-height: 240px;
   border-radius: var(--radius-control);
 }
+/* a long press on a name previews it, so a phone must not select the name or open its callout instead */
+@media (pointer: coarse) {
+  #groups .name {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
 .hover-preview pre {
   max-width: 360px;
   margin: 0;

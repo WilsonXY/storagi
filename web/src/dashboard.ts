@@ -649,14 +649,15 @@ export async function createDashboard(
       focusKey(`x-${id}`);
     }
   });
-  // Resting the mouse on an image, video or text row previews it. Browsers sniff <img> and <video> content, so the download URL works despite its octet-stream type.
+  // Resting the mouse on (or long pressing) an image, video or text row previews it. Browsers sniff <img> and <video> content, so the download URL works despite its octet-stream type.
   const previewBox = $('#hover-preview'),
     previews = new Map<string, HTMLElement>();
   let previewId = '',
     dismissedId = '',
     loading: { id: string; keep: boolean; cancel: () => void } | undefined,
     previewTimer: ReturnType<typeof setTimeout> | undefined,
-    pointer = { x: 0, y: 0 };
+    pointer = { x: 0, y: 0 },
+    press: { x: number; y: number } | undefined;
   // Each video's own 6 s cap, so stopping one video never clears another's.
   const videoCaps = new WeakMap<
     HTMLVideoElement,
@@ -702,6 +703,7 @@ export async function createDashboard(
   const hidePreview = () => {
     clearTimeout(previewTimer);
     previewId = '';
+    press = undefined;
     previewBox.hidden = true;
     // Videos are not kept: hiding one, shown or still loading, stops it and its download.
     const video = previewBox.querySelector('video');
@@ -716,12 +718,13 @@ export async function createDashboard(
     cancelLoad();
   });
   // Beside the cursor, flipped to the other side near the window's right or bottom edge, and kept on screen.
+  // A finger's preview goes above it when there is room, so the hand does not cover it.
   function place() {
     const w = previewBox.offsetWidth || 320,
       h = previewBox.offsetHeight || 240,
       { x, y } = pointer;
     previewBox.style.left = `${Math.max(8, x + 16 + w > innerWidth ? x - 16 - w : x + 16)}px`;
-    previewBox.style.top = `${Math.max(8, y + 16 + h > innerHeight ? y - 16 - h : y + 16)}px`;
+    previewBox.style.top = `${Math.max(8, (press ? y - 16 - h >= 8 : y + 16 + h > innerHeight) ? y - 16 - h : y + 16)}px`;
   }
   function reveal(el: HTMLElement) {
     previewBox.replaceChildren(el);
@@ -841,11 +844,26 @@ export async function createDashboard(
       })();
     }
   }
+  // Only the name cell previews, so the rest of the row stays clear for its buttons.
+  const nameId = (e: Event) =>
+    (e.target as Element).closest('.name')?.closest<HTMLElement>('.row')
+      ?.dataset.id ?? '';
+  // A finger has no hover: holding it still on a name for half a second previews that file until it lifts or moves.
+  listen($('#groups'), 'pointerdown', (e: PointerEvent) => {
+    hidePreview();
+    const id = nameId(e);
+    if (e.pointerType !== 'touch' || !previewable(id)) return;
+    pointer = press = { x: e.clientX, y: e.clientY };
+    previewId = id;
+    previewTimer = setTimeout(() => showPreview(id), 500);
+  });
   listen($('#groups'), 'pointermove', (e: PointerEvent) => {
-    // Only the name cell previews, so the rest of the row stays clear for its buttons.
-    const id =
-      (e.target as Element).closest('.name')?.closest<HTMLElement>('.row')
-        ?.dataset.id ?? '';
+    if (e.pointerType === 'touch') {
+      if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) >= 8)
+        hidePreview();
+      return;
+    }
+    const id = nameId(e);
     // Escape dismisses the preview until the mouse leaves that name.
     if (id !== dismissedId) dismissedId = '';
     if (
@@ -867,8 +885,7 @@ export async function createDashboard(
     dismissedId = '';
     hidePreview();
   });
-  for (const name of ['pointerdown', 'wheel'])
-    listen($('#groups'), name, hidePreview);
+  listen($('#groups'), 'wheel', hidePreview);
   listen(window, 'scroll', hidePreview);
   listen($('.list-head'), 'click', (e: MouseEvent) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-sort]');

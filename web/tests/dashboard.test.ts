@@ -1284,6 +1284,83 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   expect(tip('img-id')).toBe('Photo.JPG');
   localStorage.clear();
 });
+test('a finger held still on a name previews it above the finger until it lifts or moves', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = {
+    id: 'img-id',
+    name: 'photo.png',
+    size: 4096,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  };
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files: [photo] },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const touch = (type: string, x = 100, part = '.name') =>
+    document.querySelector(`[data-id="img-id"] ${part}`)!.dispatchEvent(
+      Object.assign(new Event(type, { bubbles: true }), {
+        clientX: x,
+        clientY: 300,
+        pointerType: 'touch',
+        buttons: 1,
+        button: 0,
+      }),
+    );
+  // Only the name cell, as with the mouse.
+  touch('pointerdown', 100, '.cell.size');
+  vi.advanceTimersByTime(1000);
+  expect(images).toHaveLength(0);
+  touch('pointerup', 100, '.cell.size');
+  touch('pointerdown');
+  vi.advanceTimersByTime(400);
+  expect(images).toHaveLength(0);
+  // A finger never rests perfectly still: a small wobble keeps the press.
+  touch('pointermove', 104);
+  vi.advanceTimersByTime(100);
+  expect(images).toHaveLength(1);
+  images[0].dispatchEvent(new Event('load'));
+  expect(box.hidden).toBe(false);
+  // Above the finger, so the hand does not cover it.
+  expect(box.style.top).toBe('44px');
+  touch('pointermove', 104);
+  expect(box.hidden).toBe(false);
+  // Lifting the finger ends the press (a touch sends pointerleave after pointerup).
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(box.hidden).toBe(true);
+  // Moving away, to scroll or swipe, hides it too.
+  touch('pointerdown');
+  vi.advanceTimersByTime(500);
+  expect(box.hidden).toBe(false);
+  touch('pointermove', 120);
+  expect(box.hidden).toBe(true);
+  // A quick tap shows nothing.
+  touch('pointerdown');
+  vi.advanceTimersByTime(200);
+  groups.dispatchEvent(new Event('pointerleave'));
+  vi.advanceTimersByTime(1000);
+  expect(box.hidden).toBe(true);
+});
 test('image previews follow the list: one load at a time, and stale or dismissed previews hide', async () => {
   vi.useFakeTimers();
   const images: HTMLImageElement[] = [];
