@@ -6,8 +6,9 @@ The old `docs/implementation-log.md` (stage index and coordinator notes up to st
 
 ## Rules
 
+- The coordinator plans the stages and assigns a distinct agent/task to each meaningful delegated stage, recording the plan in the first stage record of that piece of work. Keep stages bounded; don't split trivial work just to add agents.
 - Name the file `NNN-short-name.md` with the next free number. If a parallel branch takes the same number, keep both; the names still differ.
-- Each writable stage agent writes its own record. For a read-only review, the coordinator writes the record from the reviewer's report and evidence it checked itself.
+- Each writable stage agent writes its own record; the coordinator records integration work. For a read-only review, the coordinator writes the record from the reviewer's report and evidence it checked itself.
 - Record outcomes at completion or handoff, including failures, blocked work, cancellations, retries and findings that need another round. A later review round gets a new file; never overwrite an earlier one.
 - Say what was checked, what passed or failed, and what remains unverified. Link evidence where useful.
 - Requested model/effort settings are not proof. Confirm them from the agent's own session evidence, or label them unverified.
@@ -28,7 +29,11 @@ The old `docs/implementation-log.md` (stage index and coordinator notes up to st
 
 ## Decisions
 
+Concise decisions and their reasons; link scope changes to the owner's instruction.
+
 ## Changes
+
+Files/components and resulting behavior; ending commits or commit range.
 
 ## Verification
 
@@ -36,6 +41,8 @@ Commands actually run, results, and evidence paths. Separate checks that could
 not be exercised. No credentials.
 
 ## Findings and limitations
+
+Failures, review findings, responses, unresolved concerns and blockers.
 
 ## Handoff
 

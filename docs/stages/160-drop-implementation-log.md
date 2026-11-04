@@ -1,6 +1,6 @@
 # 160: Replace the implementation log with self-contained stage records
 
-- Status: completed; independent review in stage161
+- Status: completed; stage161 review FAIL with two P2s, both fixed
 - Started / last updated: 2026-11-04 (Asia/Kuala_Lumpur)
 - Coordinator thread: this T3 thread; the coordinator made this documentation change itself, without delegating
 - Provider/model/effort: coordinator Claude Opus 5.5 (`claude-opus-5-5`, from this session's runtime metadata)
