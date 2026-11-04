@@ -239,4 +239,4 @@ The next stage is a concrete implementation plan based on this record. This docu
 
 ### Subsequent implementation authorization
 
-The owner then requested implementation in a **new thread** and required every stage performed by different agents to be documented. This later instruction authorizes implementation and supersedes the documentation-only stopping point above. The product requirements remain as agreed. [The implementation log](implementation-log.md) and [repository agent instructions](../AGENTS.md) govern stage ownership, evidence, and handoffs. Implementation is not being performed in the original design thread.
+The owner then requested implementation in a **new thread** and required every stage performed by different agents to be documented. This later instruction authorizes implementation and supersedes the documentation-only stopping point above. The product requirements remain as agreed. [The stage records](stages/README.md) and [repository agent instructions](../AGENTS.md) govern stage ownership, evidence, and handoffs. Implementation is not being performed in the original design thread.

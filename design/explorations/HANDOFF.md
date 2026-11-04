@@ -5,7 +5,7 @@ The owner approved the design on 2026-10-21 and approved the day-2 additions (so
 ## Read first
 
 - [`AGENTS.md`](../../AGENTS.md): stage records, owner-only Google sign-in that fails closed, loopback dev servers, portable paths. **Deploying or exposing anything needs the owner's explicit approval**, even though this work is meant to end in a deployment.
-- [`README.md`](../../README.md), [`docs/implementation-log.md`](../../docs/implementation-log.md), [`web/README.md`](../../web/README.md).
+- [`README.md`](../../README.md), [`docs/stages/README.md`](../../docs/stages/README.md), [`web/README.md`](../../web/README.md).
 - [`AUDIT.md`](AUDIT.md): what the old UI does and which behaviours must survive. [`REFERENCES.md`](REFERENCES.md): where each design idea came from, plus feasibility notes.
 
 ## The design
@@ -62,7 +62,7 @@ The bar at the bottom of the page switches between states: Locked, Loading, Shel
 2. Everything listed as worth keeping in `AUDIT.md` still works: tus resume, CSRF, session expiry keeping partial uploads, separate copies of duplicate filenames, reserved bytes, the full-shelf notice.
 3. `npm run check` passes at the repository root, with new tests for the speed/ETA maths, auto-refresh timing, delayed delete with undo, selection (including drag ranges), sorting and the offline retry.
 4. The browser harness (`web/tests/vite.mock.config.ts`) is updated so the new UI can be exercised offline, on loopback only.
-5. A stage record and implementation-log row exist, an independent review is done, and deployment happens only after the owner approves it.
+5. A stage record exists, an independent review is done, and deployment happens only after the owner approves it.
 
 ## Not verified in the prototype
 
