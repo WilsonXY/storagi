@@ -1274,9 +1274,9 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   click('#nav-settings');
   click('#preview-switch');
   expect(localStorage.getItem('storagi.previews')).toBe('off');
-  expect(document.querySelector('#preview-saved')?.textContent).toBe(
-    'Saved · previews off',
-  );
+  expect(
+    document.querySelector('#preview-switch')?.getAttribute('aria-checked'),
+  ).toBe('false');
   click('.nav-item[data-tab="inbox"]');
   move('img-id');
   vi.advanceTimersByTime(1000);
