@@ -1,6 +1,6 @@
 # 162: Long press previews a file on a phone
 
-- Status: in progress; stage163 review FAIL (two P2s), both fixed here; awaiting re-review (stage164)
+- Status: completed; stage163 review FAIL (two P2s), both fixed here; stage164 re-review PASS
 - Started / last updated: 2026-11-04 (Asia/Kuala_Lumpur)
 - Coordinator thread: Claude Code session `7c605ea2-6f35-4a84-a343-eba74077428c`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
@@ -39,4 +39,4 @@
 
 ## Handoff
 
-Stage163 reviewed the first version (FAIL, two P2s fixed above). Stage164 re-reviews the fixes.
+Stage163 reviewed the first version (FAIL, two P2s fixed above). Stage164 re-reviewed the fixes: PASS. Real Android and iOS long-press behaviour is still to be tried by the owner.
