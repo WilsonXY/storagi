@@ -37,6 +37,8 @@ The coordinator's prototype on this host (Ubuntu 26.04, ffmpeg 8.0.1, with `libw
 - `web/tests/dashboard.test.ts`: preview URLs, and the fallback to `/download` for images and videos.
 - `README.md`: one feature line naming the `ffmpeg` requirement and the fallback.
 
+- Merged `main` at `66dfbe8` (the hover preview placeholder, stages 162-165 `preview-skeleton`). The image preview test now expects `/preview` alongside the placeholder, and the fallback test expects the placeholder to stay while the original loads. The inner `retry` helper was renamed `fallback`, since it shadowed the dashboard's offline `retry`.
+
 ## Verification
 
 - `npx prettier --check "{server,web,scripts}/**/*.{ts,js,mjs,css,html}"`: clean.
