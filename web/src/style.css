@@ -1425,14 +1425,21 @@ body.painting * {
 .tr:focus-within .tr-acts {
   display: flex;
 }
-.tr-acts button {
+.tr-bulk:not([hidden]) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+.tr-acts button,
+.tr-bulk button {
   font: 12px var(--font);
   color: var(--muted);
   padding: 0 6px;
   height: 20px;
   border-radius: 4px;
 }
-.tr-acts button:hover {
+.tr-acts button:hover,
+.tr-bulk button:hover {
   color: var(--text);
   background: var(--active);
 }
@@ -1729,7 +1736,8 @@ body.painting * {
   .tr-acts {
     display: flex;
   }
-  .tr-acts button {
+  .tr-acts button,
+  .tr-bulk button {
     height: 32px;
     padding: 0 10px;
   }
@@ -1827,10 +1835,6 @@ body.selecting .toast {
   box-shadow: inset 0 0 0 1px var(--border);
   color: var(--muted);
 }
-.resume-note {
-  font-size: 12px;
-  line-height: 1.6;
-}
 .tr-error {
   color: var(--negative);
   font-size: 12px;
@@ -1880,7 +1884,8 @@ body.selecting .toast {
     max-width: calc(100vw - 24px);
     width: max-content;
   }
-  .tr-acts button {
+  .tr-acts button,
+  .tr-bulk button {
     min-height: 44px;
   }
   .nav-item,

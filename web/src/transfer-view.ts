@@ -32,6 +32,38 @@ export function createTransferView(root: HTMLElement) {
   const live = (t: Transfer) => ['uploading', 'downloading'].includes(t.state);
   const open = () =>
     items.filter((t) => !['done', 'cancelled'].includes(t.state));
+  const actions = (t: Transfer) =>
+    t.dir === 'down'
+      ? live(t) || t.state === 'queued'
+        ? ['cancel']
+        : []
+      : t.state === 'uploading'
+        ? ['pause', 'cancel']
+        : ['paused', 'error'].includes(t.state)
+          ? ['resume', 'cancel']
+          : t.state === 'queued'
+            ? ['cancel']
+            : [];
+  // Pause all also holds queued uploads, so the next one does not start; Resume all skips failed ones.
+  const pausable = () =>
+    items.filter(
+      (t) => t.dir === 'up' && ['uploading', 'queued'].includes(t.state),
+    );
+  const bulk = () => {
+    const pause = pausable();
+    return {
+      pause: pause.length ? pause : items.filter((t) => t.state === 'paused'),
+      action: pause.length ? 'pause' : 'resume',
+      cancel: items.filter((t) => actions(t).includes('cancel')),
+    };
+  };
+  $('#pause-all').onclick = () => {
+    const { pause, action } = bulk();
+    for (const t of pause) t.action?.(action);
+  };
+  $('#cancel-all').onclick = () => {
+    for (const t of bulk().cancel) t.action?.('cancel');
+  };
   function render(t: Transfer) {
     if (dead) return;
     let row = $(`#tr-list [data-tid="${t.id}"]`);
@@ -96,20 +128,8 @@ export function createTransferView(root: HTMLElement) {
     const acts = row.querySelector<HTMLElement>('.tr-acts')!;
     if (acts.dataset.state !== t.state) {
       acts.dataset.state = t.state;
-      const actions =
-        t.dir === 'down'
-          ? live(t) || t.state === 'queued'
-            ? ['cancel']
-            : []
-          : t.state === 'uploading'
-            ? ['pause', 'cancel']
-            : ['paused', 'error'].includes(t.state)
-              ? ['resume', 'cancel']
-              : t.state === 'queued'
-                ? ['cancel']
-                : [];
       acts.replaceChildren(
-        ...actions.map((action) => {
+        ...actions(t).map((action) => {
           const b = document.createElement('button');
           b.type = 'button';
           b.dataset.action = action;
@@ -134,6 +154,12 @@ export function createTransferView(root: HTMLElement) {
     for (const id of ['nav-open', 'tab-open', 'det-open'])
       $(`#${id}`).textContent = String(open().length);
     $('#tr-empty').hidden = items.length > 0;
+    const { pause, action, cancel } = bulk();
+    $('#pause-all').hidden = !pause.length;
+    $('#pause-all').textContent =
+      action === 'pause' ? 'Pause all' : 'Resume all';
+    $('#cancel-all').hidden = !cancel.length;
+    $('.tr-bulk').hidden = !pause.length && !cancel.length;
     for (const [dir, speed] of [
       ['up', up],
       ['down', down],
