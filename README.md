@@ -21,7 +21,7 @@ Storagi is in use. It runs as a sandboxed system service under a dedicated `stor
 
 What has been checked:
 
-- Automated tests, independent HTTP acceptance and independent code reviews, recorded per stage in the [implementation log](docs/implementation-log.md).
+- Automated tests, independent HTTP acceptance and independent code reviews, recorded per stage in [docs/stages](docs/stages/README.md).
 - A local 2 GiB + 1 byte upload, restart and SHA-256 check.
 - The owner confirmed Google sign-in, rejection of another Google account, and Inbox access from a browsing device with Tailscale disconnected. Public relay checks passed.
 - The owner's first real file transfer between devices worked.
@@ -125,7 +125,7 @@ Exposure was approved by the owner; the private start-up and Funnel activation a
 
 ## Working on Storagi
 
-Read the [design and feasibility record](docs/design-and-feasibility.md) before changing behaviour; it separates agreed requirements from proposals and unverified assumptions. Agents must follow [AGENTS.md](AGENTS.md) and record their work in the [implementation log and stage records](docs/implementation-log.md).
+Read the [design and feasibility record](docs/design-and-feasibility.md) before changing behaviour; it separates agreed requirements from proposals and unverified assumptions. Agents must follow [AGENTS.md](AGENTS.md) and record their work in [stage records](docs/stages/README.md).
 
 ## License
 

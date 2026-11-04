@@ -1,6 +1,6 @@
 # Verification evidence and remaining acceptance
 
-The [stage index](implementation-log.md) records ownership, failed attempts, findings and every handoff. Stages 04/05 retain the original baseline evidence; stages 08/09/11 record the review fixes and refreshed proof. Independent review round 2 passed (stage 10); its low cleanup-timeout finding was fixed with a focused regression in stage 12. Final fresh review 13 passed and confirmed the fix.
+The [stage records](stages/README.md) record ownership, failed attempts, findings and every handoff. Stages 04/05 retain the original baseline evidence; stages 08/09/11 record the review fixes and refreshed proof. Independent review round 2 passed (stage 10); its low cleanup-timeout finding was fixed with a focused regression in stage 12. Final fresh review 13 passed and confirmed the fix.
 
 ## Repeat routine checks
 

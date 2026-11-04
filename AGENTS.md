@@ -2,12 +2,12 @@
 
 Follow the owner's global profile at `$HOME/.codex/AGENTS.md`.
 
-Read [README.md](README.md), the [design record](docs/design-and-feasibility.md), and the [implementation log](docs/implementation-log.md) before working.
+Read [README.md](README.md), the [design record](docs/design-and-feasibility.md), and the [stage record rules](docs/stages/README.md) before working.
 
 ## Project workflow
 
-- Use distinct delegated agents for meaningful stages; plan ownership in the implementation log before delegating.
-- Follow the log's recording rules and stage template, including coordination, reviews and failures. The coordinator maintains the index and writes read-only review records. Delegate prompts must name the stage record, scope and acceptance checks.
+- Use distinct delegated agents for meaningful stages.
+- Follow the stage record rules and template, including coordination, reviews and failures. The coordinator writes read-only review records. Delegate prompts must name the stage record, scope and acceptance checks.
 
 ## Boundaries
 
