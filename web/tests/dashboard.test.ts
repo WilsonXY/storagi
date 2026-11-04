@@ -1317,11 +1317,11 @@ test('a finger held still on a name previews it above the finger until it lifts 
   );
   const box = document.querySelector<HTMLElement>('#hover-preview')!,
     groups = document.querySelector('#groups')!;
-  const touch = (type: string, x = 100, part = '.name') =>
+  const touch = (type: string, x = 100, part = '.name', y = 300) =>
     document.querySelector(`[data-id="img-id"] ${part}`)!.dispatchEvent(
       Object.assign(new Event(type, { bubbles: true }), {
         clientX: x,
-        clientY: 300,
+        clientY: y,
         pointerType: 'touch',
         buttons: 1,
         button: 0,
@@ -1332,6 +1332,7 @@ test('a finger held still on a name previews it above the finger until it lifts 
   vi.advanceTimersByTime(1000);
   expect(images).toHaveLength(0);
   touch('pointerup', 100, '.cell.size');
+  vi.advanceTimersByTime(400);
   touch('pointerdown');
   vi.advanceTimersByTime(400);
   expect(images).toHaveLength(0);
@@ -1357,9 +1358,34 @@ test('a finger held still on a name previews it above the finger until it lifts 
   // A quick tap shows nothing.
   touch('pointerdown');
   vi.advanceTimersByTime(200);
+  touch('pointerup');
   groups.dispatchEvent(new Event('pointerleave'));
+  vi.advanceTimersByTime(100);
+  expect(box.hidden).toBe(true);
+  // A second touch straight after a tap selects by dragging, so holding it still shows no preview.
+  touch('pointerdown');
   vi.advanceTimersByTime(1000);
   expect(box.hidden).toBe(true);
+  touch('pointerup');
+  groups.dispatchEvent(new Event('pointerleave'));
+  vi.advanceTimersByTime(1000);
+  // In a short landscape window with no room above the finger, the preview stays on screen below it.
+  const height = innerHeight;
+  Object.defineProperty(window, 'innerHeight', {
+    value: 390,
+    configurable: true,
+  });
+  try {
+    touch('pointerdown', 100, '.name', 180);
+    vi.advanceTimersByTime(500);
+    expect(box.hidden).toBe(false);
+    expect(box.style.top).toBe(`${390 - 8 - 240}px`);
+  } finally {
+    Object.defineProperty(window, 'innerHeight', {
+      value: height,
+      configurable: true,
+    });
+  }
 });
 test('image previews follow the list: one load at a time, and stale or dismissed previews hide', async () => {
   vi.useFakeTimers();

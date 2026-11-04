@@ -724,7 +724,7 @@ export async function createDashboard(
       h = previewBox.offsetHeight || 240,
       { x, y } = pointer;
     previewBox.style.left = `${Math.max(8, x + 16 + w > innerWidth ? x - 16 - w : x + 16)}px`;
-    previewBox.style.top = `${Math.max(8, (press ? y - 16 - h >= 8 : y + 16 + h > innerHeight) ? y - 16 - h : y + 16)}px`;
+    previewBox.style.top = `${Math.max(8, Math.min(innerHeight - 8 - h, (press ? y - 16 - h >= 8 : y + 16 + h > innerHeight) ? y - 16 - h : y + 16))}px`;
   }
   function reveal(el: HTMLElement) {
     previewBox.replaceChildren(el);
@@ -849,13 +849,18 @@ export async function createDashboard(
     (e.target as Element).closest('.name')?.closest<HTMLElement>('.row')
       ?.dataset.id ?? '';
   // A finger has no hover: holding it still on a name for half a second previews that file until it lifts or moves.
+  // Not while a row gesture runs: a touch straight after a tap is a drag to select.
   listen($('#groups'), 'pointerdown', (e: PointerEvent) => {
     hidePreview();
     const id = nameId(e);
-    if (e.pointerType !== 'touch' || !previewable(id)) return;
+    if (e.pointerType !== 'touch' || gestures.busy() || !previewable(id))
+      return;
     pointer = press = { x: e.clientX, y: e.clientY };
     previewId = id;
-    previewTimer = setTimeout(() => showPreview(id), 500);
+    previewTimer = setTimeout(
+      () => (gestures.busy() ? hidePreview() : showPreview(id)),
+      500,
+    );
   });
   listen($('#groups'), 'pointermove', (e: PointerEvent) => {
     if (e.pointerType === 'touch') {
