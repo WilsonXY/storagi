@@ -4,6 +4,7 @@ import { NodeRequest } from 'srvx/node';
 import path from 'node:path';
 import { readdir, stat, open, mkdir, realpath } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
+import { spawn } from 'node:child_process';
 import { Transfers, FileLocks } from './transfers.js';
 import { serveShell, defaultWebDir } from './static.js';
 import { timingSafeEqual } from 'node:crypto';
@@ -33,6 +34,81 @@ function cookie(name: string, value: string, maxAge: number) {
 function json(res: http.ServerResponse, status: number, value: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(value));
+}
+// Hover previews: ffmpeg re-encodes the stored file (passed as fd 3, so a file deleted meanwhile still reads) into a small copy.
+// Only local file input and these demuxers are allowed, so a stored playlist cannot make ffmpeg read anything else.
+const previewArgs = {
+  image: [
+    '-frames:v',
+    '1',
+    '-vf',
+    "scale='min(640,iw)':'min(640,ih)':force_original_aspect_ratio=decrease",
+    '-c:v',
+    'libwebp',
+    '-quality',
+    '60',
+    '-f',
+    'webp',
+  ],
+  video: [
+    '-t',
+    '3',
+    '-an',
+    '-vf',
+    "scale='min(480,iw)':'min(480,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-crf',
+    '30',
+    '-pix_fmt',
+    'yuv420p',
+    '-movflags',
+    'frag_keyframe+empty_moov',
+    '-f',
+    'mp4',
+  ],
+};
+function preview(
+  fd: number,
+  kind: 'image' | 'video',
+  res: http.ServerResponse,
+) {
+  return new Promise<Buffer>((resolve, reject) => {
+    const child = spawn(
+      'ffmpeg',
+      [
+        ...['-v', 'error', '-nostdin', '-protocol_whitelist', 'file'],
+        '-format_whitelist',
+        'png_pipe,jpeg_pipe,webp_pipe,gif,bmp_pipe,ico,mov,mp4,m4a,3gp,3g2,mj2,matroska,webm',
+        ...['-i', '/proc/self/fd/3', ...previewArgs[kind], '-'],
+      ],
+      {
+        stdio: ['ignore', 'pipe', 'ignore', fd],
+        timeout: 20000,
+        killSignal: 'SIGKILL',
+      },
+    );
+    const chunks: Buffer[] = [],
+      cap = 8 * 1024 * 1024,
+      stop = () => child.kill('SIGKILL');
+    let size = 0;
+    res.once('close', stop);
+    if (res.destroyed) stop();
+    child.stdout!.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
+      if ((size += chunk.length) > cap) stop();
+    });
+    child.once('error', () =>
+      reject(new HttpError(503, 'Previews unavailable')),
+    );
+    child.once('close', (code) => {
+      res.off('close', stop);
+      if (code === 0 && size > 0 && size <= cap) resolve(Buffer.concat(chunks));
+      else reject(new HttpError(422, 'No preview for this file'));
+    });
+  });
 }
 function equal(a: string, b: string) {
   const x = Buffer.from(a),
@@ -294,9 +370,10 @@ export async function createApp(config: Config, options: AppOptions = {}) {
       const uploadMatch = /^\/api\/uploads(?:\/([a-f0-9-]{36}))?$/.exec(
         url.pathname,
       );
-      const fileMatch = /^\/api\/files\/([a-f0-9-]{36})(\/download)?$/.exec(
-        url.pathname,
-      );
+      const fileMatch =
+        /^\/api\/files\/([a-f0-9-]{36})(\/download|\/preview)?$/.exec(
+          url.pathname,
+        );
       if (uploadMatch || fileMatch) {
         const id = uploadMatch?.[1] ?? fileMatch?.[1];
         if (uploadMatch) {
@@ -354,7 +431,36 @@ export async function createApp(config: Config, options: AppOptions = {}) {
             res.end();
             return;
           }
-          if (['GET', 'HEAD'].includes(method) && fileMatch![2]) {
+          if (method === 'GET' && fileMatch![2] === '/preview') {
+            const row = storage.get(id!)!,
+              kind = /\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(row.name)
+                ? 'image'
+                : /\.(mp4|m4v|webm|mov)$/i.test(row.name)
+                  ? 'video'
+                  : undefined;
+            if (row.uploadedAt === null || !kind)
+              throw new HttpError(404, 'Not found');
+            const file = await open(path.join(storage.filesDir, id!), 'r'),
+              release = storage.pin(id!);
+            return async () => {
+              let body;
+              try {
+                body = await preview(file.fd, kind, res);
+              } finally {
+                await file.close();
+                release();
+              }
+              res.writeHead(200, {
+                'Content-Type': kind === 'image' ? 'image/webp' : 'video/mp4',
+                'Content-Length': body.length,
+              });
+              res.end(body);
+            };
+          }
+          if (
+            ['GET', 'HEAD'].includes(method) &&
+            fileMatch![2] === '/download'
+          ) {
             const row = storage.get(id!)!;
             if (row.uploadedAt === null) throw new HttpError(404, 'Not found');
             const etag = `"${row.id}"`,
