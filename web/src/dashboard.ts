@@ -844,10 +844,17 @@ export async function createDashboard(
       })();
     }
   }
-  // Only the name cell previews, so the rest of the row stays clear for its buttons.
-  const nameId = (e: Event) =>
-    (e.target as Element).closest('.name')?.closest<HTMLElement>('.row')
-      ?.dataset.id ?? '';
+  // Only the name column previews, the full height of the row (the phone's details line under the name and the row's own padding count), so the rest of the row stays clear for its buttons.
+  const nameId = (e: PointerEvent) => {
+    const t = e.target as Element,
+      row = t.closest<HTMLElement>('.row');
+    if (!row) return '';
+    if (t.closest('.name, .meta-phone')) return row.dataset.id!;
+    const name = row.querySelector('.name')!.getBoundingClientRect();
+    return t === row && e.clientX >= name.left && e.clientX <= name.right
+      ? row.dataset.id!
+      : '';
+  };
   // A finger has no hover: holding it still on a name for half a second previews that file until it lifts or moves.
   // Not while a row gesture runs: a touch straight after a tap is a drag to select.
   listen($('#groups'), 'pointerdown', (e: PointerEvent) => {

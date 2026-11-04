@@ -1369,6 +1369,22 @@ test('a finger held still on a name previews it above the finger until it lifts 
   touch('pointerup');
   groups.dispatchEvent(new Event('pointerleave'));
   vi.advanceTimersByTime(1000);
+  // The whole name column counts, the full height of the row: the details line under the name on a phone, and the row's own padding beside it.
+  const name = document.querySelector('[data-id="img-id"] .name')!;
+  name.getBoundingClientRect = () => new DOMRect(50, 0, 200, 20);
+  for (const [part, x, shows] of [
+    ['.meta-phone', 100, true],
+    ['', 100, true],
+    ['', 300, false],
+    ['.lead', 60, false],
+  ] as const) {
+    touch('pointerdown', x, part);
+    vi.advanceTimersByTime(500);
+    expect(box.hidden, `${part || 'row'} at ${x}`).toBe(!shows);
+    touch('pointerup', x, part);
+    groups.dispatchEvent(new Event('pointerleave'));
+    vi.advanceTimersByTime(400);
+  }
   // In a short landscape window with no room above the finger, the preview stays on screen below it.
   const height = innerHeight;
   Object.defineProperty(window, 'innerHeight', {
