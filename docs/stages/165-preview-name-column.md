@@ -1,6 +1,6 @@
 # 165: Preview from the whole name column
 
-- Status: in progress; stage166 review FAIL (one P2), fixed here; awaiting re-review (stage167)
+- Status: completed; stage166 review FAIL (one P2), fixed here; stage167 re-review PASS
 - Started / last updated: 2026-11-04 (Asia/Kuala_Lumpur)
 - Coordinator thread: Claude Code session `7c605ea2-6f35-4a84-a343-eba74077428c`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
@@ -33,4 +33,4 @@
 
 ## Handoff
 
-Stage166 reviewed the first version (FAIL, one P2 fixed above). Stage167 re-reviews the fix.
+Stage166 reviewed the first version (FAIL, one P2 fixed above). Stage167 re-reviewed the fix: PASS.
