@@ -1256,6 +1256,12 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   expect(images).toHaveLength(1);
   expect(images[0].getAttribute('src')).toBe('/api/files/img-id/download');
   expect(box.hidden).toBe(true);
+  // A slow load shows a placeholder once the mouse has rested 0.7 s.
+  vi.advanceTimersByTime(299);
+  expect(box.hidden).toBe(true);
+  vi.advanceTimersByTime(1);
+  expect(box.hidden).toBe(false);
+  expect(box.querySelector('.preview-skeleton')).not.toBeNull();
   images[0].dispatchEvent(new Event('load'));
   expect(box.hidden).toBe(false);
   expect(box.firstElementChild).toBe(images[0]);
@@ -1656,6 +1662,8 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
   hover('clip-id');
   vi.advanceTimersByTime(6000);
   expect(videos[3].hasAttribute('src')).toBe(false);
+  // Its placeholder goes with it.
+  expect(box.hidden).toBe(true);
   videos[3].dispatchEvent(new Event('loadeddata'));
   expect(box.hidden).toBe(true);
   groups.dispatchEvent(new Event('pointerleave'));
