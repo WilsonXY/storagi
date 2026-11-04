@@ -1,6 +1,6 @@
 # 168: Merge `main` (preview placeholder) into the long press branch
 
-- Status: in progress; awaiting review (stage169)
+- Status: completed; stage169 review PASS
 - Started / last updated: 2026-11-04 (Asia/Kuala_Lumpur)
 - Coordinator thread: Claude Code session `7c605ea2-6f35-4a84-a343-eba74077428c`
 - Agent/task/thread identifiers: none; the coordinator merged it itself
@@ -30,4 +30,4 @@ PR #37's stage records took numbers 162 to 165 at the same time as this branch's
 
 ## Handoff
 
-Stage169 reviews the merge.
+Stage169 reviewed the merge: PASS.
