@@ -864,13 +864,13 @@ export async function createDashboard(
     previewId = id;
     // A short pause, so sweeping the mouse across the list does not start a download per row.
     previewTimer = setTimeout(() => showPreview(id), 300);
-    // A slow load shows a placeholder after 0.7 s, so the mouse resting there visibly did something.
+    // A placeholder after 0.2 s, before the load even starts, so the mouse resting there visibly did something. A preview already loaded skips it.
     skeletonTimer = setTimeout(() => {
-      if (loading?.id !== id || !previewBox.hidden) return;
+      if (previews.has(id) || !previewBox.hidden) return;
       const skeleton = document.createElement('div');
       skeleton.className = 'preview-skeleton';
       reveal(skeleton);
-    }, 700);
+    }, 200);
   });
   listen($('#groups'), 'pointerleave', () => {
     dismissedId = '';
