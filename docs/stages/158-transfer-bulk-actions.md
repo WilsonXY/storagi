@@ -1,12 +1,15 @@
-# 147: Pause all and Cancel all in place of the resume hint
+# 158: Pause all and Cancel all in place of the resume hint
 
-- Status: completed; stage148 review PASS
+- Status: completed; stage159 review PASS
 - Started / last updated: 2026-11-04 (Asia/Kuala_Lumpur)
 - Coordinator thread: Claude Code session `2379f3dc-9091-40c4-84fd-e165040e2715`
 - Agent/task/thread identifiers: none; the coordinator made this small change itself, without delegating
 - Provider/model/effort: coordinator Claude Opus 5.5 (`claude-opus-5-5`, from this session's runtime metadata)
 - Workspace/branch and starting commit: `t3/056e3597` (T3 renamed it `t3/replace-upload-help-actions`), `95ae59b`; merged with `main` after PR #30
 - Scope and acceptance criteria: the owner sent a screenshot of the Transfers panel with the hint "Interrupted? Choose the same file again in this browser to resume. Unfinished uploads expire after 24 hours." boxed, and asked to "remove this text. replacing it with pause all and cancel all button instead". Run `npm run check`, check formatting and try both buttons in Chromium on desktop and phone widths.
+
+
+This stage and its review were first numbered 147 and 148. Merging `main` brought in another stage 147 and 148 (the independent column scroll, PR #35), and open PR #33 holds 150 to 152, so they were renumbered 158 and 159. Commit `3ac3663` still says "review 148".
 
 ## Decisions
 
@@ -28,7 +31,7 @@
 - The new test failed before the change (the hint was still there) and passes after it; web 102/102.
 - `npm run format:check` PASS. First `npm run check` failed only in the server acceptance test "half-open PATCH yields promptly…" (`expired half-open PATCH blocked cleanup`) while a browser run loaded the host (load average 7); this is the timing flake also seen in stage137, and this change does not touch the server. Re-run alone: exit 0 (33 server, 102 web, 11 HTTP acceptance and 154 deploy tests, both typechecks and builds).
 - Chromium 1243 on the mock preview with five 24 MiB uploads and each chunk delayed 1.5 s (`bulk-actions.mjs`), at 1280 px and 390 px: the hint is gone and both buttons show; Pause all left all five paused, the running one stopped moving and the button read Resume all; Resume all put one back to uploading and four to queued; Cancel all cancelled all five and both buttons hid.
-- After stage148 and merging `main` (PR #30, paste upload): `npm run format:check` PASS and `npm run check` exit 0 (33 server, 109 web, 11 HTTP acceptance and 154 deploy tests, both typechecks and builds); the Chromium run at 1280 px and 390 px gave the same results.
+- After stage159 and merging `main` (PR #30, paste upload): `npm run format:check` PASS and `npm run check` exit 0 (33 server, 109 web, 11 HTTP acceptance and 154 deploy tests, both typechecks and builds); the Chromium run at 1280 px and 390 px gave the same results.
 - Private scripts, logs and screenshots are outside Git in `"$HOME/.cache/storagi/repro"`, `"$HOME/.cache/storagi/tmp"` and `"$HOME/.cache/storagi/proof-bulk"`.
 
 ## Findings and limitations
@@ -38,4 +41,4 @@
 
 ## Handoff
 
-Stage148 review PASS with one test suggestion, not taken (see stage148).
+Stage159 review PASS with one test suggestion, not taken (see stage159).
