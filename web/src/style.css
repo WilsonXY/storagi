@@ -1926,6 +1926,13 @@ body.selecting .toast {
     -webkit-touch-callout: none;
   }
 }
+.hover-preview .preview-skeleton {
+  width: 240px;
+  height: 160px;
+  border-radius: var(--radius-control);
+  background: var(--control);
+  animation: ob-pulse 1.2s ease-in-out infinite;
+}
 .hover-preview pre {
   max-width: 360px;
   margin: 0;

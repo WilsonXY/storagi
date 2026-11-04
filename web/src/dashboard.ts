@@ -656,6 +656,7 @@ export async function createDashboard(
     dismissedId = '',
     loading: { id: string; keep: boolean; cancel: () => void } | undefined,
     previewTimer: ReturnType<typeof setTimeout> | undefined,
+    skeletonTimer: ReturnType<typeof setTimeout> | undefined,
     pointer = { x: 0, y: 0 },
     press: { x: number; y: number } | undefined;
   // Each video's own 6 s cap, so stopping one video never clears another's.
@@ -702,6 +703,7 @@ export async function createDashboard(
   };
   const hidePreview = () => {
     clearTimeout(previewTimer);
+    clearTimeout(skeletonTimer);
     previewId = '';
     press = undefined;
     previewBox.hidden = true;
@@ -800,7 +802,7 @@ export async function createDashboard(
             still.getContext('2d')?.drawImage(video, 0, 0);
             previewBox.replaceChildren(still);
           }
-          if (loading === load) cancelLoad();
+          if (loading === load) failed();
           stopVideo(video);
         }, 6000),
       );
@@ -844,6 +846,13 @@ export async function createDashboard(
       })();
     }
   }
+  // A placeholder while a preview loads. A preview already loaded or on show skips it.
+  const placeholder = (id: string) => {
+    if (previewId !== id || previews.has(id) || !previewBox.hidden) return;
+    const skeleton = document.createElement('div');
+    skeleton.className = 'preview-skeleton';
+    reveal(skeleton);
+  };
   // Only the name column previews, the full height of the row (the phone's details line under the name and the row's own padding count), so the rest of the row stays clear for its buttons.
   const nameId = (e: PointerEvent) => {
     const t = e.target as Element,
@@ -864,10 +873,11 @@ export async function createDashboard(
       return;
     pointer = press = { x: e.clientX, y: e.clientY };
     previewId = id;
-    previewTimer = setTimeout(
-      () => (gestures.busy() ? hidePreview() : showPreview(id)),
-      500,
-    );
+    previewTimer = setTimeout(() => {
+      if (gestures.busy()) return hidePreview();
+      showPreview(id);
+      placeholder(id);
+    }, 500);
   });
   listen($('#groups'), 'pointermove', (e: PointerEvent) => {
     if (e.pointerType === 'touch') {
@@ -892,6 +902,8 @@ export async function createDashboard(
     previewId = id;
     // A short pause, so sweeping the mouse across the list does not start a download per row.
     previewTimer = setTimeout(() => showPreview(id), 300);
+    // A placeholder after 0.2 s, before the load even starts, so the mouse resting there visibly did something.
+    skeletonTimer = setTimeout(() => placeholder(id), 200);
   });
   listen($('#groups'), 'pointerleave', () => {
     dismissedId = '';

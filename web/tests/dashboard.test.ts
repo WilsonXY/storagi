@@ -1252,17 +1252,26 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   move('img-id');
   vi.advanceTimersByTime(100);
   expect(images).toHaveLength(0);
-  vi.advanceTimersByTime(300);
+  // A placeholder shows once the mouse has rested 0.2 s, before the load starts.
+  vi.advanceTimersByTime(99);
+  expect(box.hidden).toBe(true);
+  vi.advanceTimersByTime(1);
+  expect(box.hidden).toBe(false);
+  expect(box.querySelector('.preview-skeleton')).not.toBeNull();
+  vi.advanceTimersByTime(200);
   expect(images).toHaveLength(1);
   expect(images[0].getAttribute('src')).toBe('/api/files/img-id/download');
-  expect(box.hidden).toBe(true);
+  expect(box.querySelector('.preview-skeleton')).not.toBeNull();
   images[0].dispatchEvent(new Event('load'));
   expect(box.hidden).toBe(false);
   expect(box.firstElementChild).toBe(images[0]);
   groups.dispatchEvent(new Event('pointerleave'));
   expect(box.hidden).toBe(true);
+  // A preview already loaded shows without the placeholder.
   move('img-id');
-  vi.advanceTimersByTime(400);
+  vi.advanceTimersByTime(299);
+  expect(box.hidden).toBe(true);
+  vi.advanceTimersByTime(101);
   expect(box.hidden).toBe(false);
   expect(images).toHaveLength(1);
   move('img-id', 'mouse', 0, '.cell.type');
@@ -1338,10 +1347,14 @@ test('a finger held still on a name previews it above the finger until it lifts 
   expect(images).toHaveLength(0);
   // A finger never rests perfectly still: a small wobble keeps the press.
   touch('pointermove', 104);
-  vi.advanceTimersByTime(100);
+  vi.advanceTimersByTime(99);
+  expect(box.hidden).toBe(true);
+  vi.advanceTimersByTime(1);
   expect(images).toHaveLength(1);
+  // The same placeholder as the mouse's shows while it loads, so the press visibly did something.
+  expect(box.firstElementChild?.className).toBe('preview-skeleton');
   images[0].dispatchEvent(new Event('load'));
-  expect(box.hidden).toBe(false);
+  expect(box.firstElementChild).toBe(images[0]);
   // Above the finger, so the hand does not cover it.
   expect(box.style.top).toBe('44px');
   touch('pointermove', 104);
@@ -1646,7 +1659,7 @@ test('videos preview a muted loop of their first seconds, and text files their f
   const video = videos[0];
   expect(video.getAttribute('src')).toBe('/api/files/clip-id/download');
   expect(video.muted).toBe(true);
-  expect(box.hidden).toBe(true);
+  expect(box.firstElementChild?.className).toBe('preview-skeleton');
   video.dispatchEvent(new Event('loadeddata'));
   expect(box.hidden).toBe(false);
   expect(box.firstElementChild).toBe(video);
@@ -1755,7 +1768,7 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
   hover('clip-id');
   release();
   await tick();
-  expect(box.hidden).toBe(true);
+  expect(box.firstElementChild?.className).toBe('preview-skeleton');
   groups.dispatchEvent(new Event('pointerleave'));
   expect(videos[1].hasAttribute('src')).toBe(false);
   // 6 s after a video starts loading, it freezes on its current frame and its download stops.
@@ -1775,6 +1788,8 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
   hover('clip-id');
   vi.advanceTimersByTime(6000);
   expect(videos[3].hasAttribute('src')).toBe(false);
+  // Its placeholder goes with it.
+  expect(box.hidden).toBe(true);
   videos[3].dispatchEvent(new Event('loadeddata'));
   expect(box.hidden).toBe(true);
   groups.dispatchEvent(new Event('pointerleave'));
