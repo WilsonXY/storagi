@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { chmod, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fixture } from './fixtures.js';
 import { upload } from './uploads.js';
@@ -126,3 +126,35 @@ test(
     }
   },
 );
+
+test('at most two previews transcode at once, and failed or cancelled ones free their slot', async () => {
+  const f = await fixture(1000),
+    saved = process.env.PATH;
+  try {
+    // A stand-in ffmpeg that takes a second and then fails with no output; exec keeps it one process, like ffmpeg.
+    await writeFile(path.join(f.dir, 'ffmpeg'), '#!/bin/sh\nexec sleep 1\n');
+    await chmod(path.join(f.dir, 'ffmpeg'), 0o755);
+    process.env.PATH = `${f.dir}:${saved}`;
+    const id = await upload(f, 'x', 'photo.png'),
+      get = (signal?: AbortSignal) =>
+        f
+          .request(`/api/files/${id}/preview`, { headers: f.headers, signal })
+          .then((r) => r.status);
+    assert.deepEqual(
+      (await Promise.all([get(), get(), get()])).sort(),
+      [422, 422, 503],
+    );
+    assert.equal(await get(), 422);
+    const abort = new AbortController(),
+      cancelled = get(abort.signal).catch(() => 'aborted');
+    await new Promise((r) => setTimeout(r, 200));
+    abort.abort();
+    assert.equal(await cancelled, 'aborted');
+    // The server kills the cancelled ffmpeg on disconnect; give it a moment to see the close.
+    await new Promise((r) => setTimeout(r, 200));
+    assert.deepEqual(await Promise.all([get(), get()]), [422, 422]);
+  } finally {
+    process.env.PATH = saved;
+    await f.close();
+  }
+});

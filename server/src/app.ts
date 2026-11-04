@@ -70,12 +70,21 @@ const previewArgs = {
     'mp4',
   ],
 };
+// ponytail: one global cap; two leaves room for a cancelled hover whose ffmpeg is still being killed.
+let transcoding = 0;
 function preview(
   fd: number,
   kind: 'image' | 'video',
   res: http.ServerResponse,
 ) {
   return new Promise<Buffer>((resolve, reject) => {
+    if (transcoding >= 2) throw new HttpError(503, 'Too many previews');
+    transcoding++;
+    let released = false;
+    const release = () => {
+      if (!released) transcoding--;
+      released = true;
+    };
     const child = spawn(
       'ffmpeg',
       [
@@ -100,10 +109,12 @@ function preview(
       chunks.push(chunk);
       if ((size += chunk.length) > cap) stop();
     });
-    child.once('error', () =>
-      reject(new HttpError(503, 'Previews unavailable')),
-    );
+    child.once('error', () => {
+      release();
+      reject(new HttpError(503, 'Previews unavailable'));
+    });
     child.once('close', (code) => {
+      release();
       res.off('close', stop);
       if (code === 0 && size > 0 && size <= cap) resolve(Buffer.concat(chunks));
       else reject(new HttpError(422, 'No preview for this file'));
