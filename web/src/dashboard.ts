@@ -656,6 +656,7 @@ export async function createDashboard(
     dismissedId = '',
     loading: { id: string; keep: boolean; cancel: () => void } | undefined,
     previewTimer: ReturnType<typeof setTimeout> | undefined,
+    skeletonTimer: ReturnType<typeof setTimeout> | undefined,
     pointer = { x: 0, y: 0 };
   // Each video's own 6 s cap, so stopping one video never clears another's.
   const videoCaps = new WeakMap<
@@ -701,6 +702,7 @@ export async function createDashboard(
   };
   const hidePreview = () => {
     clearTimeout(previewTimer);
+    clearTimeout(skeletonTimer);
     previewId = '';
     previewBox.hidden = true;
     // Videos are not kept: hiding one, shown or still loading, stops it and its download.
@@ -797,7 +799,7 @@ export async function createDashboard(
             still.getContext('2d')?.drawImage(video, 0, 0);
             previewBox.replaceChildren(still);
           }
-          if (loading === load) cancelLoad();
+          if (loading === load) failed();
           stopVideo(video);
         }, 6000),
       );
@@ -862,6 +864,13 @@ export async function createDashboard(
     previewId = id;
     // A short pause, so sweeping the mouse across the list does not start a download per row.
     previewTimer = setTimeout(() => showPreview(id), 300);
+    // A placeholder after 0.2 s, before the load even starts, so the mouse resting there visibly did something. A preview already loaded skips it.
+    skeletonTimer = setTimeout(() => {
+      if (previews.has(id) || !previewBox.hidden) return;
+      const skeleton = document.createElement('div');
+      skeleton.className = 'preview-skeleton';
+      reveal(skeleton);
+    }, 200);
   });
   listen($('#groups'), 'pointerleave', () => {
     dismissedId = '';
