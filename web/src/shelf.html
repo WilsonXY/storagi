@@ -177,8 +177,9 @@
               Drop or paste files to put them on the shelf
             </p>
             <div class="composer-row">
-              <span class="composer-hint"
-                >Kept 30 days. Originals stay on your devices.</span
+              <span class="composer-hint" id="retention-copy"
+                >Retention loads from the host. Originals stay on your
+                devices.</span
               >
               <button
                 type="button"
@@ -267,6 +268,45 @@
       </section>
 
       <section class="settings" id="settings" aria-label="Settings" hidden>
+        <form class="set-row retention-row" id="retention-form">
+          <div class="set-text">
+            <h2 id="retention-label">Keep files</h2>
+            <p class="muted" id="retention-desc">
+              Applies to new and existing copies, from when each upload
+              finished. Saved on the host for all your devices. Originals stay
+              on your devices.
+            </p>
+            <p
+              class="muted"
+              id="retention-status"
+              role="status"
+              aria-live="polite"
+            ></p>
+          </div>
+          <div class="retention-controls">
+            <select
+              id="retention-days"
+              aria-labelledby="retention-label"
+              aria-describedby="retention-desc"
+              disabled
+            >
+              <option value="1">1 day</option>
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30" selected>30 days</option>
+              <option value="60">60 days</option>
+              <option value="90">90 days</option>
+            </select>
+            <button
+              type="submit"
+              class="btn btn-primary btn-sm"
+              id="retention-save"
+              disabled
+            >
+              Save
+            </button>
+          </div>
+        </form>
         <div class="set-row">
           <div class="set-text">
             <h2 id="koi-label">Swimming koi</h2>
@@ -435,6 +475,27 @@
 </div>
 
 <!-- A paste can be an accident, so pasted files wait here for a yes. -->
+<dialog
+  class="confirm-pop paste-confirm"
+  id="retention-confirm"
+  aria-labelledby="retention-title"
+  aria-describedby="retention-note"
+>
+  <p class="cp-title" id="retention-title"></p>
+  <p class="cp-note" id="retention-note" aria-live="polite"></p>
+  <div class="cp-actions">
+    <button type="button" class="btn btn-ghost btn-sm" id="retention-cancel">
+      Cancel
+    </button>
+    <button
+      type="button"
+      class="btn btn-danger-text btn-sm"
+      id="retention-apply"
+    >
+      Delete copies and save
+    </button>
+  </div>
+</dialog>
 <dialog
   class="confirm-pop paste-confirm"
   id="paste-confirm"

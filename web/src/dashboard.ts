@@ -34,6 +34,7 @@ export type ShelfFile = {
   expiresAt: string;
 };
 type Shelf = {
+  retentionDays?: number;
   files: ShelfFile[];
   usedBytes: number;
   reservedBytes: number;
@@ -262,6 +263,7 @@ export async function createDashboard(
     const known = new Set(shelf.files.map((f) => f.id));
     const hadFiles = shelf.files.length > 0;
     shelf = result;
+    renderRetention();
     for (const id of sel.ids)
       if (!shelf.files.some((f) => f.id === id)) sel.ids.delete(id);
     renderInbox();
@@ -290,13 +292,25 @@ export async function createDashboard(
     else if (!on) retry.stop();
     renderFresh();
   }
-  async function request(path: string, method = 'GET', signal?: AbortSignal) {
+  async function request(
+    path: string,
+    method = 'GET',
+    signal?: AbortSignal,
+    body?: object,
+  ) {
     let response: Response;
     try {
       response = await dependencies.fetch(path, {
         method,
         credentials: 'same-origin',
-        headers: method === 'GET' ? {} : { 'X-CSRF-Token': session.csrfToken },
+        headers:
+          method === 'GET'
+            ? {}
+            : {
+                'X-CSRF-Token': session.csrfToken,
+                ...(body ? { 'Content-Type': 'application/json' } : {}),
+              },
+        ...(body ? { body: JSON.stringify(body) } : {}),
         keepalive: leaving,
         ...(signal ? { signal } : {}),
       });
@@ -318,7 +332,7 @@ export async function createDashboard(
             : body.error ||
                 'The host could not complete that request. Please try again.',
         ),
-        { status: response.status },
+        { status: response.status, deleteCount: body.deleteCount },
       );
     }
     setOffline(false);
@@ -1061,6 +1075,90 @@ export async function createDashboard(
       });
   }
   let settingsPond: KoiPond | undefined;
+  const retentionDays = $<HTMLSelectElement>('#retention-days'),
+    retentionSave = $<HTMLButtonElement>('#retention-save'),
+    retentionDialog = $<HTMLDialogElement>('#retention-confirm');
+  let retentionDirty = false,
+    retentionSaving = false;
+  let retentionProposal: { days: number; count: number } | undefined;
+  function closeRetention() {
+    retentionProposal = undefined;
+    if (retentionDialog.open) retentionDialog.close();
+    retentionSave.focus();
+  }
+  function renderRetention() {
+    const days = shelf.retentionDays ?? 30;
+    $('#retention-copy').textContent =
+      `Kept ${days} ${days === 1 ? 'day' : 'days'}. Originals stay on your devices.`;
+    if (!retentionDirty) retentionDays.value = String(days);
+    retentionDays.disabled = retentionSaving;
+    retentionSave.disabled = retentionSaving;
+  }
+  listen(retentionDays, 'change', () => {
+    if (retentionDialog.open) closeRetention();
+    retentionDirty = true;
+    $('#retention-status').textContent = '';
+  });
+  async function saveRetention(days: number, confirmDeletes = 0) {
+    if (retentionSaving || retentionDays.disabled) return;
+    retentionSaving = true;
+    renderRetention();
+    retentionSave.textContent = 'Saving…';
+    $('#retention-status').textContent = '';
+    try {
+      const result = await (
+        await request('/api/settings', 'PUT', undefined, {
+          retentionDays: days,
+          confirmDeletes,
+        })
+      ).json();
+      if (!active) return;
+      shelf.retentionDays = result.retentionDays;
+      retentionDirty = false;
+      $('#retention-status').textContent = 'Saved for all your devices.';
+      await auto.now();
+    } catch (error) {
+      if (!active) return;
+      const conflict = error as Error & {
+        status?: number;
+        deleteCount?: number;
+      };
+      if (
+        conflict.status === 409 &&
+        Number.isSafeInteger(conflict.deleteCount) &&
+        conflict.deleteCount! > 0
+      ) {
+        retentionProposal = { days, count: conflict.deleteCount! };
+        $('#retention-title').textContent =
+          `Change to ${days} ${days === 1 ? 'day' : 'days'}?`;
+        $('#retention-note').textContent =
+          `${conflict.deleteCount} ${conflict.deleteCount === 1 ? 'file will' : 'files will'} be permanently deleted. Originals stay on your devices.`;
+        retentionDialog.showModal();
+        $('#retention-cancel').focus();
+      } else $('#retention-status').textContent = conflict.message;
+    } finally {
+      retentionSaving = false;
+      if (active) {
+        retentionSave.textContent = 'Save';
+        renderRetention();
+      }
+    }
+  }
+  listen($('#retention-form'), 'submit', (e: SubmitEvent) => {
+    e.preventDefault();
+    void saveRetention(Number(retentionDays.value));
+  });
+  listen($('#retention-cancel'), 'click', closeRetention);
+  listen(retentionDialog, 'cancel', (e: Event) => {
+    e.preventDefault();
+    closeRetention();
+  });
+  listen($('#retention-apply'), 'click', () => {
+    if (!retentionDialog.open || !retentionProposal) return;
+    const { days, count } = retentionProposal;
+    closeRetention();
+    void saveRetention(days, count);
+  });
   function panel(open = app.classList.contains('panel-closed')) {
     app.classList.toggle('panel-closed', !open);
     $('#nav-transfers').classList.toggle('is-active', open);
@@ -1182,10 +1280,15 @@ export async function createDashboard(
   });
   listen(window, 'keydown', (e: KeyboardEvent) => {
     // The paste confirmation owns the keyboard while it is open.
-    if (!active || $<HTMLDialogElement>('#paste-confirm').open) return;
+    if (
+      !active ||
+      $<HTMLDialogElement>('#paste-confirm').open ||
+      retentionDialog.open
+    )
+      return;
     const typing =
       e.target instanceof Element &&
-      e.target.matches('input,textarea,[contenteditable]');
+      e.target.matches('input,textarea,select,[contenteditable]');
     if (e.key === '/' && !typing) {
       e.preventDefault();
       $('#search').focus();
@@ -1221,6 +1324,7 @@ export async function createDashboard(
   cleanups.push(
     setupTransfers(root, session.csrfToken, {
       refresh: () => auto.now(),
+      retentionDays: () => shelf.retentionDays ?? 30,
       notice: (message) => toast(message),
       expired: () => locked(true),
       offline: () => setOffline(true),

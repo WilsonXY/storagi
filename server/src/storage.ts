@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync, statfsSync, statSync } from 'node:fs';
 import path from 'node:path';
 export const DAY = 86400000;
+export const RETENTION_DAYS = [1, 7, 14, 30, 60, 90];
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -48,6 +49,8 @@ export class Storage {
    CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY,csrf TEXT NOT NULL,expiresAt INTEGER NOT NULL,sub TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS secrets (name TEXT PRIMARY KEY,value BLOB NOT NULL);
    CREATE TABLE IF NOT EXISTS profile (sub TEXT PRIMARY KEY,name TEXT,picture TEXT);
+   CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY,value INTEGER NOT NULL);
+   INSERT OR IGNORE INTO settings VALUES ('retentionDays',30);
    CREATE TABLE IF NOT EXISTS flow_replays (hash TEXT PRIMARY KEY,expiresAt INTEGER NOT NULL);
    DROP TABLE IF EXISTS flows;`);
   }
@@ -127,7 +130,47 @@ export class Storage {
       .prepare(
         'UPDATE files SET uploadedAt=?,expiresAt=?,lastActivity=? WHERE id=? AND uploadedAt IS NULL',
       )
-      .run(at, at + 30 * DAY, at, id);
+      .run(at, at + this.retentionDays() * DAY, at, id);
+  }
+  retentionDays(): number {
+    return (
+      this.db
+        .prepare("SELECT value FROM settings WHERE name='retentionDays'")
+        .get() as { value: number }
+    ).value;
+  }
+  saveRetention(retentionDays: number, confirmDeletes = 0) {
+    if (
+      !Number.isSafeInteger(retentionDays) ||
+      !RETENTION_DAYS.includes(retentionDays) ||
+      !Number.isSafeInteger(confirmDeletes) ||
+      confirmDeletes < 0
+    )
+      throw new HttpError(
+        400,
+        'Valid retention days and nonnegative whole deletion count required',
+      );
+    return this.db
+      .transaction(() => {
+        const now = this.now(),
+          duration = retentionDays * DAY;
+        const { deleteCount } = this.db
+          .prepare(
+            'SELECT COUNT(*) deleteCount FROM files WHERE uploadedAt IS NOT NULL AND expiresAt>? AND uploadedAt+?<=?',
+          )
+          .get(now, duration, now) as { deleteCount: number };
+        if (deleteCount > confirmDeletes) return { deleteCount };
+        this.db
+          .prepare(
+            'UPDATE files SET expiresAt=uploadedAt+? WHERE uploadedAt IS NOT NULL AND expiresAt>?',
+          )
+          .run(duration, now);
+        this.db
+          .prepare("UPDATE settings SET value=? WHERE name='retentionDays'")
+          .run(retentionDays);
+        return { retentionDays };
+      })
+      .immediate();
   }
   forget(id: string): void {
     this.db.transaction(() => {

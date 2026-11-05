@@ -715,6 +715,23 @@ dialog.paste-confirm::backdrop {
   font-size: 15px;
   font-weight: 500;
 }
+.retention-row {
+  flex-wrap: wrap;
+}
+.retention-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.retention-controls select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 7px 10px;
+}
 .set-text p {
   margin-top: 4px;
   font-size: 13px;

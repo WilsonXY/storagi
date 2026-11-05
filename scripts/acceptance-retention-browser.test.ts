@@ -1,0 +1,262 @@
+// Real built dashboard and service; synthetic signed identity and empty file fixtures only.
+// npm run build --prefix web
+// TMPDIR="$HOME/.cache/storagi/tmp" server/node_modules/.bin/tsx --test scripts/acceptance-retention-browser.test.ts
+// Optional local playwright-core and Chromium: see acceptance-browser.mjs.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { createServer } from 'node:net';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { homedir, tmpdir } from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createApp } from '../server/src/app.js';
+import { identity } from '../server/test/helpers.js';
+import { DAY } from '../server/src/storage.js';
+
+test('retention Settings uses real atomic saves and native confirmation at desktop and phone widths', async () => {
+  const artifacts = path.resolve(
+    process.env.STORAGI_ARTIFACT_DIR || 'artifacts/retention',
+  );
+  await mkdir(artifacts, { recursive: true });
+  const dir = await mkdtemp(path.join(tmpdir(), 'retention-browser-'));
+  const probe = createServer().listen(0, '127.0.0.1');
+  await once(probe, 'listening');
+  const port = (probe.address() as { port: number }).port;
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+  const origin = `http://127.0.0.1:${port}`;
+  const id = await identity();
+  let now = Date.now();
+  const app = await createApp(
+    {
+      origin,
+      port,
+      dataDir: dir,
+      clientId: 'synthetic-client',
+      clientSecret: 'synthetic-secret',
+      ownerSub: '123',
+      budgetBytes: 1000,
+      diskReserveBytes: 1,
+    },
+    {
+      oidc: id.config,
+      now: () => now,
+      freeBytes: () => 1e9,
+      webDir: path.resolve('web/dist'),
+    },
+  );
+  let browser: any;
+  const errors: string[] = [],
+    saves: { status: number; body: unknown }[] = [];
+  try {
+    app.server.listen(port, '127.0.0.1');
+    await once(app.server, 'listening');
+    const flow = await app.auth.begin();
+    const params = new URL(flow.url).searchParams;
+    id.set({ sub: '123', nonce: params.get('nonce')! });
+    const signed = await app.auth.callback(
+      flow.token,
+      new URL(
+        `${origin}/auth/callback?code=synthetic&state=${params.get('state')}`,
+      ),
+    );
+    const { chromium } = await import(
+      pathToFileURL(
+        process.env.PLAYWRIGHT_MODULE ||
+          `${homedir()}/.cache/storagi/browser-harness/node_modules/playwright-core/index.mjs`,
+      ).href
+    );
+    browser = await chromium.launch({
+      executablePath:
+        process.env.CHROME_EXECUTABLE ||
+        `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`,
+      args: ['--no-sandbox'],
+      headless: true,
+    });
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+    });
+    const cookie = {
+      name: '__Host-storagi-session',
+      value: signed.token,
+      domain: '127.0.0.1',
+      path: '/',
+      secure: true,
+      httpOnly: true,
+      sameSite: 'Lax',
+    };
+    await context.addCookies([cookie]);
+    await context.addInitScript(() =>
+      document.addEventListener('DOMContentLoaded', () => {
+        const banner = document.createElement('div');
+        banner.textContent =
+          'SYNTHETIC PROOF · Real dashboard and service · Signed test identity · Empty sample files';
+        banner.style.cssText =
+          'padding:6px 12px;background:#24584b;color:#fff;font:12px sans-serif;text-align:center';
+        document.body.prepend(banner);
+      }),
+    );
+    for (const [i, age] of [0, 7 * DAY - 1, 8 * DAY, 15 * DAY].entries()) {
+      const file = randomUUID();
+      app.storage.reserve(file, `synthetic-copy-${i}.txt`, 0);
+      await writeFile(path.join(app.storage.filesDir, file), '');
+      app.storage.complete(file, now - age);
+    }
+    const before = app.storage.rows();
+    const page = await context.newPage();
+    page.on('pageerror', (e: Error) => errors.push(e.message));
+    page.on('response', async (r: any) => {
+      if (new URL(r.url()).pathname === '/api/settings')
+        saves.push({ status: r.status(), body: r.request().postDataJSON() });
+    });
+    await page.goto(origin);
+    await page
+      .locator('#retention-days:not([disabled])')
+      .waitFor({ state: 'attached' });
+    await page.locator('#nav-settings').click();
+    await page.screenshot({
+      path: path.join(artifacts, 'settings-desktop.png'),
+      fullPage: true,
+    });
+    await page.locator('#retention-days').selectOption('7');
+    await page.locator('#retention-save').click();
+    await page.locator('#retention-confirm[open]').waitFor();
+    assert.match(
+      await page.locator('#retention-note').innerText(),
+      /2 files will be permanently deleted/,
+    );
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.id),
+      'retention-cancel',
+    );
+    assert.deepEqual(app.storage.rows(), before);
+    assert.equal(app.storage.retentionDays(), 30);
+    for (const [width, height] of [
+      [1440, 1000],
+      [728, 900],
+      [390, 844],
+    ]) {
+      await page.setViewportSize({ width, height });
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+      );
+      await page.screenshot({
+        path: path.join(artifacts, `confirmation-${width}.png`),
+        fullPage: true,
+      });
+    }
+    await page.keyboard.press('Escape');
+    await page.locator('#retention-confirm').waitFor({ state: 'hidden' });
+    assert.deepEqual(app.storage.rows(), before);
+    assert.equal(saves.length, 1);
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.id),
+      'retention-save',
+    );
+    await page.locator('#retention-save').click();
+    await page.locator('#retention-confirm[open]').waitFor();
+    await page.locator('#retention-cancel').click();
+    assert.deepEqual(app.storage.rows(), before);
+    await page.locator('#retention-days').selectOption('14');
+    await page.locator('#retention-save').click();
+    await page.locator('#retention-confirm[open]').waitFor();
+    assert.match(
+      await page.locator('#retention-note').innerText(),
+      /1 file will be permanently deleted/,
+    );
+    assert.deepEqual(saves.at(-1)?.body, {
+      retentionDays: 14,
+      confirmDeletes: 0,
+    });
+    await page.locator('#retention-cancel').click();
+    await page.locator('#retention-days').selectOption('7');
+    await page.locator('#retention-save').click();
+    await page.locator('#retention-confirm[open]').waitFor();
+    now += 1;
+    await page.locator('#retention-apply').click();
+    await page
+      .locator('#retention-note')
+      .filter({ hasText: '3 files' })
+      .waitFor();
+    assert.deepEqual(app.storage.rows(), before);
+    assert.equal(app.storage.retentionDays(), 30);
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.id),
+      'retention-cancel',
+    );
+    await page.screenshot({
+      path: path.join(artifacts, 'confirmation-increased-phone.png'),
+      fullPage: true,
+    });
+    await page.locator('#retention-apply').click();
+    await page
+      .locator('#retention-status')
+      .filter({ hasText: 'Saved' })
+      .waitFor();
+    assert.equal(app.storage.retentionDays(), 7);
+    assert.equal(
+      app.storage
+        .rows()
+        .filter((r) => r.uploadedAt !== null && r.expiresAt > now).length,
+      1,
+    );
+    await page.screenshot({
+      path: path.join(artifacts, 'saved-phone.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator('#retention-days').selectOption('60');
+    await page.locator('#retention-save').click();
+    await page.waitForFunction(() =>
+      document
+        .querySelector('#retention-copy')
+        ?.textContent?.includes('60 days'),
+    );
+    assert.equal(
+      await page
+        .locator('#retention-confirm')
+        .evaluate((el: HTMLDialogElement) => el.open),
+      false,
+    );
+    assert.equal(
+      app.storage
+        .rows()
+        .filter((r) => r.uploadedAt !== null && r.expiresAt > now).length,
+      1,
+      'lengthening does not revive the three expired copies',
+    );
+    const other = await browser.newContext();
+    await other.addCookies([cookie]);
+    const device = await other.newPage();
+    await device.goto(origin);
+    await device.waitForFunction(() =>
+      document
+        .querySelector('#retention-copy')
+        ?.textContent?.includes('60 days'),
+    );
+    assert.deepEqual(errors, []);
+    await writeFile(
+      path.join(artifacts, 'result.json'),
+      JSON.stringify(
+        {
+          kind: 'real service and built dashboard; synthetic signed identity and empty files',
+          browser: browser.version(),
+          widths: [1440, 728, 390],
+          saves,
+          errors,
+          result: 'PASS',
+        },
+        null,
+        2,
+      ),
+    );
+  } finally {
+    await browser?.close();
+    await app.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

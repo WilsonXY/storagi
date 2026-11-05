@@ -39,3 +39,14 @@ Browser `fetch` controls (test server only):
 Synthetic files/artifacts only. Acceptance screenshots should retain the synthetic banner. Useful viewport checks: 390×844, 728×900, 1440×1000. Interactions: search a missing name and clear it; compare duplicate suffixes; open/cancel/confirm delete; download; upload a 24 MiB synthetic file, pause/resume, cancel; reselect after reload; expire the mock session; exhaust quota. Coordinator owns actual integrated service checks and review/PR.
 
 Single downloads use a save picker and streamed progress when available on desktop Chromium; phones and browsers without that API use browser downloads. Selection downloads use ordinary links; browsers may ask to allow multiple downloads. Streamed downloads have Cancel, with no pause/resume.
+
+## Adjustable retention browser proof
+
+After building the dashboard, run the focused real-service flow with the optional local Playwright/Chromium prerequisites documented in `scripts/acceptance-browser.mjs`:
+
+```sh
+npm run build --prefix web
+TMPDIR="$HOME/.cache/storagi/tmp" server/node_modules/.bin/tsx --test scripts/acceptance-retention-browser.test.ts
+```
+
+It starts an isolated loopback service with a signed synthetic identity and empty file fixtures, exercises Settings saves and native Cancel/Escape confirmation, advances the clock to increase the deletion count, and checks a separate browser context sees the saved policy. It captures labelled screenshots at 1440, 728 and 390 pixels under ignored `artifacts/retention/`, then closes the browser/service and removes its temporary data. Real Google authorization and production data are never used. The ordinary repository check does not require these optional browser binaries.

@@ -2,7 +2,7 @@
 
 Storagi is a personal, self-hosted file shelf for moving files between devices. Upload a file from one device, then open the same bookmarked dashboard on another device, on the home network or anywhere else, and download it.
 
-It is temporary transfer storage, not an archive. Each server copy is deleted 30 days after upload, and the original stays on the device it came from.
+It is temporary transfer storage, not an archive. Server copies expire after 30 days by default. Settings lets you choose 1, 7, 14, 30, 60 or 90 days for all devices and existing live copies, measured from upload completion. A save that would expire copies now asks how many you agree to permanently delete. Originals stay on the devices they came from.
 
 ## Features
 
