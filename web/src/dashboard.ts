@@ -649,7 +649,8 @@ export async function createDashboard(
       focusKey(`x-${id}`);
     }
   });
-  // Resting the mouse on (or long pressing) an image, video or text row previews it. Browsers sniff <img> and <video> content, so the download URL works despite its octet-stream type.
+  // Resting the mouse on (or long pressing) an image, video or text row previews it. Images and videos load the server's small re-encoded copy; if that fails, the original once.
+  // Browsers sniff <img> and <video> content, so the download URL works despite its octet-stream type.
   const previewBox = $('#hover-preview'),
     previews = new Map<string, HTMLElement>();
   let previewId = '',
@@ -741,6 +742,7 @@ export async function createDashboard(
     if (ready) return reveal(ready);
     if (loading) return;
     const url = `/api/files/${encodeURIComponent(id)}/download`,
+      small = `/api/files/${encodeURIComponent(id)}/preview`,
       kind = previewKind(shelf.files.find((f) => f.id === id)!.name),
       load = { id, keep: kind !== 'video', cancel: () => {} };
     loading = load;
@@ -767,16 +769,20 @@ export async function createDashboard(
       dismissedId = id;
       hidePreview();
     };
+    const fallback = (el: HTMLImageElement | HTMLVideoElement) => () => {
+      if (el.getAttribute('src') === small) el.src = url;
+      else failed();
+    };
     if (kind === 'image') {
       const img = new Image();
       img.alt = '';
       img.onload = () => done(img);
-      img.onerror = failed;
+      img.onerror = fallback(img);
       load.cancel = () => {
         img.onload = img.onerror = null;
         img.removeAttribute('src');
       };
-      img.src = url;
+      img.src = small;
     } else if (kind === 'video') {
       const video = document.createElement('video');
       video.muted = true;
@@ -787,9 +793,9 @@ export async function createDashboard(
         if (video.currentTime >= 3) video.currentTime = 0;
       };
       video.onloadeddata = () => done(video);
-      video.onerror = failed;
+      video.onerror = fallback(video);
       load.cancel = () => stopVideo(video);
-      video.src = url;
+      video.src = small;
       // Browsers keep downloading ahead of the loop, so the owner capped it: 6 s after the download starts, it stops.
       // A video on show freezes on its current frame; one still loading is dropped without a preview.
       videoCaps.set(

@@ -16,6 +16,7 @@ test('HTTP authorization covers every file path/method and CSRF/origin/host boun
       for (const route of [
         '/api/files',
         '/api/files/00000000-0000-4000-8000-000000000000/download',
+        '/api/files/00000000-0000-4000-8000-000000000000/preview',
         '/api/uploads',
         '/api/uploads/00000000-0000-4000-8000-000000000000',
         '/api/unknown',

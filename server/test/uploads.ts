@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { fixture } from './fixtures.js';
 export async function upload(
   f: Awaited<ReturnType<typeof fixture>>,
-  data: string,
+  data: string | Buffer<ArrayBuffer>,
   name = 'same.zip',
 ) {
   const created = await f.request('/api/uploads', {

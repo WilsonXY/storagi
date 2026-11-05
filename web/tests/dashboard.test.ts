@@ -1260,7 +1260,7 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   expect(box.querySelector('.preview-skeleton')).not.toBeNull();
   vi.advanceTimersByTime(200);
   expect(images).toHaveLength(1);
-  expect(images[0].getAttribute('src')).toBe('/api/files/img-id/download');
+  expect(images[0].getAttribute('src')).toBe('/api/files/img-id/preview');
   expect(box.querySelector('.preview-skeleton')).not.toBeNull();
   images[0].dispatchEvent(new Event('load'));
   expect(box.hidden).toBe(false);
@@ -1557,8 +1557,10 @@ test('image previews retry after a failed load, hide when rows move, cancel for 
     );
     vi.advanceTimersByTime(400);
   };
-  // A failed load is retried once the mouse comes back to the row.
+  // A failed preview falls back to the original once; a failed original is retried once the mouse comes back to the row.
   hover('a');
+  images[0].dispatchEvent(new Event('error'));
+  expect(images[0].getAttribute('src')).toBe('/api/files/a/download');
   images[0].dispatchEvent(new Event('error'));
   expect(box.hidden).toBe(true);
   hover('a');
@@ -1595,6 +1597,84 @@ test('image previews retry after a failed load, hide when rows move, cancel for 
   click('#refresh');
   await tick();
   expect(box.hidden).toBe(false);
+});
+test('a failed image or video preview falls back to the original download and shows it', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [],
+    videos: HTMLVideoElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, 'createElement').mockImplementation(
+    (tag: string, options?: ElementCreationOptions) => {
+      const el = create(tag, options);
+      if (el instanceof HTMLVideoElement) videos.push(el);
+      return el;
+    },
+  );
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+  const file = (id: string, name: string) => ({
+    id,
+    name,
+    size: 4096,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  });
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : {
+                  ...listing,
+                  files: [file('pic', 'pic.webp'), file('clip', 'clip.mov')],
+                },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const hover = (id: string) => {
+    document.querySelector(`[data-id="${id}"] .name`)!.dispatchEvent(
+      Object.assign(new Event('pointermove', { bubbles: true }), {
+        clientX: 100,
+        clientY: 100,
+        pointerType: 'mouse',
+        buttons: 0,
+      }),
+    );
+    vi.advanceTimersByTime(400);
+  };
+  hover('pic');
+  expect(images[0].getAttribute('src')).toBe('/api/files/pic/preview');
+  images[0].dispatchEvent(new Event('error'));
+  expect(images[0].getAttribute('src')).toBe('/api/files/pic/download');
+  // The placeholder stays while the original loads.
+  expect(box.firstElementChild?.className).toBe('preview-skeleton');
+  images[0].dispatchEvent(new Event('load'));
+  expect(box.firstElementChild).toBe(images[0]);
+  groups.dispatchEvent(new Event('pointerleave'));
+  hover('clip');
+  expect(videos[0].getAttribute('src')).toBe('/api/files/clip/preview');
+  videos[0].dispatchEvent(new Event('error'));
+  expect(videos[0].getAttribute('src')).toBe('/api/files/clip/download');
+  videos[0].dispatchEvent(new Event('loadeddata'));
+  expect(box.firstElementChild).toBe(videos[0]);
+  expect(images).toHaveLength(1);
+  expect(videos).toHaveLength(1);
+  vi.restoreAllMocks();
 });
 test('videos preview a muted loop of their first seconds, and text files their first lines, fetched as a range', async () => {
   vi.useFakeTimers();
@@ -1657,7 +1737,7 @@ test('videos preview a muted loop of their first seconds, and text files their f
   hover('clip-id');
   expect(videos).toHaveLength(1);
   const video = videos[0];
-  expect(video.getAttribute('src')).toBe('/api/files/clip-id/download');
+  expect(video.getAttribute('src')).toBe('/api/files/clip-id/preview');
   expect(video.muted).toBe(true);
   expect(box.firstElementChild?.className).toBe('preview-skeleton');
   video.dispatchEvent(new Event('loadeddata'));
@@ -1796,6 +1876,7 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
   // A video that fails while loading cannot cancel the cap of the next one.
   hover('clip-id');
   vi.advanceTimersByTime(1000);
+  videos[4].dispatchEvent(new Event('error'));
   videos[4].dispatchEvent(new Event('error'));
   groups.dispatchEvent(new Event('pointerleave'));
   hover('clip-id');
