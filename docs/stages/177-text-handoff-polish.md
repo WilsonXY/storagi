@@ -1,6 +1,6 @@
 # 177: Text pickup accessibility and final polish
 
-- Status: in progress
+- Status: completed
 - Started / last updated: 2026-11-05 Asia/Kuala_Lumpur
 - Coordinator thread: e234a6d1-ef1f-41df-a303-c5d2ad3e4e8c
 - Agent/task: coordinator, small review fixes
@@ -43,3 +43,5 @@ Final reviewers receive the full feature, previous findings/dispositions and ref
 - Fresh full package tests passed: **41 server / 130 web**. Independent HTTP acceptance passed **11/11**. Both TypeScript checks, both production builds, formatting and diff whitespace checks passed.
 - Deploy code is unchanged by this polish; its **154/154** tests passed in the preceding complete `npm run check`. CI reruns the complete check and the browser flow.
 - All new first-round and second-round defects have regression coverage; current source/proof uses synthetic content only. Final reviews receive this committed version.
+
+Final independent reviews passed every perspective: [Opus](178-text-opus-final-review.md) overall 8; [Sol](179-text-sol-final-review.md) overall 8.5. Both high settings and exact read-only audit verified. PR/remote CI is the final handoff.

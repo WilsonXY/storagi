@@ -1,6 +1,6 @@
 # 174: Text handoff, second implementation iteration
 
-- Status: in progress
+- Status: completed
 - Started / last updated: 2026-11-05 Asia/Kuala_Lumpur
 - Coordinator thread: e234a6d1-ef1f-41df-a303-c5d2ad3e4e8c
 - Agent/task: coordinator integration and review fixes (no extra implementation delegate)
