@@ -27,6 +27,8 @@ const tick = async () => {
 let dispose = () => {};
 afterEach(() => {
   dispose();
+  localStorage.removeItem('storagi.shelf');
+  history.replaceState(null, '', '/');
   vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.replaceChildren();
@@ -1893,4 +1895,195 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
   expect(shown.length).toBeLessThanOrEqual(4096);
   expect(shown.length).toBeGreaterThan(4000);
   vi.restoreAllMocks();
+});
+
+test('Text navigation uses authenticated JSON mutations, search and manual refresh without changing the file shelf', async () => {
+  const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+    if (String(url).startsWith('/api/texts'))
+      return Response.json(
+        init?.method === 'POST'
+          ? {
+              id: 'note',
+              text: JSON.parse(String(init.body)).text,
+              createdAt: new Date().toISOString(),
+              expiresAt: new Date(Date.now() + 86400000).toISOString(),
+            }
+          : { texts: [] },
+      );
+    return api.fetcher(url);
+  });
+  await mount(fetcher);
+  expect(fetcher.mock.calls.some((c) => String(c[0]) === '/api/texts')).toBe(
+    false,
+  );
+  click('.tabs [data-tab="text"]');
+  await tick();
+  expect(document.querySelector('#page-title')?.textContent).toBe('Text');
+  expect(document.querySelector<HTMLInputElement>('#search')!.placeholder).toBe(
+    'Search text',
+  );
+  const draft = document.querySelector<HTMLTextAreaElement>('#text-draft')!;
+  draft.value = 'hello';
+  draft.dispatchEvent(new Event('input'));
+  document
+    .querySelector('#text-form')!
+    .dispatchEvent(new Event('submit', { cancelable: true }));
+  await tick();
+  expect(fetcher).toHaveBeenCalledWith(
+    '/api/texts',
+    expect.objectContaining({
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRF-Token': 'test-csrf',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text: 'hello' }),
+    }),
+  );
+  click('#refresh');
+  await tick();
+  click('.tabs [data-tab="inbox"]');
+  expect(rows()).toHaveLength(2);
+  expect(document.querySelector('#page-title')?.textContent).toBe('Inbox');
+});
+
+test('desktop Transfers navigation leaves Text so the transfer panel is visible', async () => {
+  vi.stubGlobal('innerWidth', 1440);
+  const api = service();
+  await mount(
+    vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? Response.json({ texts: [] })
+        : api.fetcher(url),
+    ),
+  );
+  click('.tabs [data-tab="text"]');
+  await tick();
+  click('#nav-transfers');
+  expect(document.querySelector<HTMLElement>('#shelf-app')!.dataset.tab).toBe(
+    'inbox',
+  );
+});
+
+test('returning to Inbox rerenders after the shared search is cleared', async () => {
+  const api = service();
+  await mount(
+    vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? Response.json({ texts: [] })
+        : api.fetcher(url),
+    ),
+  );
+  const search = document.querySelector<HTMLInputElement>('#search')!;
+  search.value = 'missing';
+  search.dispatchEvent(new Event('input'));
+  expect(rows()).toHaveLength(0);
+  click('.tabs [data-tab="text"]');
+  await tick();
+  click('.tabs [data-tab="inbox"]');
+  expect(search.value).toBe('');
+  expect(rows()).toHaveLength(2);
+});
+
+test('pending Text send leaves Inbox search and focus alone', async () => {
+  let finish!: (r: Response) => void;
+  const api = service();
+  await mount(
+    vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url) === '/api/texts')
+        return init?.method === 'POST'
+          ? new Promise<Response>((resolve) => {
+              finish = resolve;
+            })
+          : Response.json({ texts: [] });
+      return api.fetcher(url);
+    }),
+  );
+  click('.tabs [data-tab="text"]');
+  await tick();
+  const draft = document.querySelector<HTMLTextAreaElement>('#text-draft')!;
+  draft.value = 'hello';
+  draft.dispatchEvent(new Event('input'));
+  document
+    .querySelector('#text-form')!
+    .dispatchEvent(new Event('submit', { cancelable: true }));
+  click('.tabs [data-tab="inbox"]');
+  const search = document.querySelector<HTMLInputElement>('#search')!;
+  search.focus();
+  search.value = 'archive';
+  search.dispatchEvent(new Event('input'));
+  finish(
+    Response.json({
+      id: 'new',
+      text: 'hello',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    }),
+  );
+  await tick();
+  expect(search.value).toBe('archive');
+  expect(document.activeElement).toBe(search);
+});
+
+test('Inbox shows waiting text count without fetching text bodies', async () => {
+  const fetcher = vi.fn(async (url: RequestInfo | URL) =>
+    Response.json(
+      String(url) === '/api/session'
+        ? { authenticated: true, csrfToken: 'test-csrf' }
+        : { ...listing, textCount: 3 },
+    ),
+  );
+  await mount(fetcher);
+  expect(document.querySelector('#tab-texts')?.textContent).toBe('3');
+  expect(fetcher.mock.calls.map((x) => String(x[0]))).toEqual([
+    '/api/session',
+    '/api/files',
+  ]);
+});
+
+test('Text preference survives a login round trip without the URL hash', async () => {
+  history.replaceState(null, '', '#text');
+  await mount(vi.fn().mockResolvedValue(new Response('', { status: 401 })));
+  history.replaceState(null, '', '/');
+  const api = service();
+  await mount(
+    vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? Response.json({ texts: [] })
+        : api.fetcher(url),
+    ),
+  );
+  expect(document.querySelector<HTMLElement>('#shelf-app')!.dataset.tab).toBe(
+    'text',
+  );
+});
+
+test('shelf tabs support Arrow, Home and End keyboard navigation', async () => {
+  vi.stubGlobal('innerWidth', 1440);
+  const api = service();
+  await mount(
+    vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? Response.json({ texts: [] })
+        : api.fetcher(url),
+    ),
+  );
+  const inbox = document.querySelector<HTMLElement>(
+    '.tabs [data-tab="inbox"]',
+  )!;
+  inbox.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+  );
+  await tick();
+  expect(document.activeElement?.getAttribute('data-tab')).toBe('text');
+  document.activeElement!.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Home', bubbles: true }),
+  );
+  expect(document.activeElement?.getAttribute('data-tab')).toBe('inbox');
+  document.activeElement!.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'End', bubbles: true }),
+  );
+  expect(document.activeElement?.getAttribute('data-tab')).toBe('text');
 });
