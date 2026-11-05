@@ -2,6 +2,8 @@
 
 The owner's subsequent clarification below supersedes the original future-completion-only recommendation. This remains a feasibility assessment, not an implemented feature.
 
+The later [Opus 5.5 high proposal review](171-adjustable-expiry-proposal-review.md) found unnecessary complexity in the clarification's exact-set confirmation and lock-coordination requirements. Its accepted corrections and simpler design supersede those suggestions. In particular, the original race proof updates an expired file; a live-completed-only update avoids that revival and was checked separately in stage 171.
+
 - Status: completed
 - Started / last updated / completed: 2026-11-05, Asia/Kuala_Lumpur
 - Coordinator thread: `0bf36650-3362-4e98-8a8b-635b986926a4`
