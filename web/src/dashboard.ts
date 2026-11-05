@@ -1141,6 +1141,8 @@ export async function createDashboard(
       if (active) {
         retentionSave.textContent = 'Save';
         renderRetention();
+        if (!retentionDialog.open && document.activeElement === document.body)
+          retentionSave.focus();
       }
     }
   }

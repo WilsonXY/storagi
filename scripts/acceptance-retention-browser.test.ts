@@ -197,6 +197,12 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
       .locator('#retention-status')
       .filter({ hasText: 'Saved' })
       .waitFor();
+    await page.locator('#retention-save:not([disabled])').waitFor();
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.id),
+      'retention-save',
+      'completed save restores keyboard focus',
+    );
     assert.equal(app.storage.retentionDays(), 7);
     assert.equal(
       app.storage

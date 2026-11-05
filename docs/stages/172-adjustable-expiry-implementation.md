@@ -39,3 +39,9 @@ No deployment, real Google login, production data access or service changes are 
 ## Handoff
 
 Server delegate completed [stage 173](173-adjustable-expiry-server.md). The combined committed snapshot goes to independent Claude Opus 5.5 high review in stage 174. No PR or deployment has occurred at this implementation handoff.
+
+## Review follow-up
+
+[Stage 174](174-adjustable-expiry-review.md) returned PASS with no blocking findings. The coordinator fixed both small findings: focus after a completed save, and the misplaced paste comment. The new real-browser focus assertion first failed with an empty active-element ID (body focus), then passed after restoring focus to enabled Save only when the user has not moved focus elsewhere and no confirmation is open. The optional browser command remains manual, matching the repository's existing convention.
+
+After these changes: all **115 web tests**, web TypeScript check and production build passed. The real-service browser proof passed again, including the new focus assertion, and regenerated all screenshots from final UI code. Server code was unchanged after its full passing checks. Review model/effort proof, invariance and cleanup are recorded in stage 174; no fallback or second review was needed for these small fixes. PR creation and CI follow this verified handoff; no deployment is included.
