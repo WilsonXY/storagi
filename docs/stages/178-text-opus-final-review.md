@@ -29,7 +29,7 @@ No blocking security or logic defects; no required fixes. Reviewer inspected com
 - Incorrect client clocks can hide text early until a changed server list refreshes the in-memory items. **Accepted device-clock limitation:** server retains authoritative rows until its own expiry; no data is deleted based on client time. This is a known display limitation, not claimed as tested clock-skew support.
 - Consolidate a few CSS overrides. **Declined style-only refactor:** current selectors match verified layout; no behavior defect.
 - Shared SQL suffix suggested for two queries. **Declined:** two short explicit queries are clearer than adding a single-purpose shared fragment.
-- Remote browser CI, physical devices and real OAuth were not proven by this review. **CI is verified in the PR workflow; physical devices/real OAuth remain explicitly unverified.**
+- Remote browser CI, physical devices and real OAuth were not proven by this review. **CI verification is handed to the PR workflow; physical devices/real OAuth remain explicitly unverified.**
 
 ## Audit and handoff
 
