@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
 import { Transfers, FileLocks } from './transfers.js';
 import { serveShell, defaultWebDir } from './static.js';
-import { timingSafeEqual, createHash } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 import type * as oidc from 'openid-client';
 import type { Config } from './config.js';
 import { Storage, HttpError, type TextRow } from './storage.js';
@@ -438,16 +438,12 @@ export async function createApp(config: Config, options: AppOptions = {}) {
       }
       if (url.pathname === '/api/texts') {
         if (method === 'GET') {
-          const texts = storage.texts();
-          // Bodies are immutable; hashing ordered live IDs detects sends, deletes and expiry.
-          const etag = `W/"${createHash('sha256')
-            .update(texts.map((t) => t.id).join(','))
-            .digest('base64url')}"`;
+          const etag = storage.textsEtag();
           res.setHeader('ETag', etag);
           if (req.headers['if-none-match'] === etag) {
             res.writeHead(304);
             res.end();
-          } else json(res, 200, { texts: texts.map(textJSON) });
+          } else json(res, 200, { texts: storage.texts().map(textJSON) });
         } else if (method === 'POST') {
           const body = await readTextBody(req);
           if (!body || typeof body !== 'object' || Array.isArray(body))

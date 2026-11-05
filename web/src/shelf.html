@@ -248,6 +248,19 @@
               Links, notes, whatever you need on your other device.
             </p>
           </div>
+          <div class="text-list-heading">
+            <h3>On your text shelf</h3>
+            <button type="button" class="btn btn-sm" id="text-new">
+              New text
+            </button>
+            <span class="muted" id="text-sync" role="status"
+              >Refreshes every 5s while open</span
+            >
+          </div>
+          <p class="text-empty muted" id="text-empty">
+            Nothing to pick up yet. Send your first link or note below.
+          </p>
+          <div id="text-items"></div>
           <form id="text-form" class="text-composer">
             <label for="text-draft">Send text to your shelf</label>
             <textarea
@@ -276,16 +289,6 @@
             </p>
           </form>
           <div id="text-error" class="text-error" role="alert" hidden></div>
-          <div class="text-list-heading">
-            <h3>On your text shelf</h3>
-            <span class="muted" id="text-sync" role="status"
-              >Refreshes every 5s while open</span
-            >
-          </div>
-          <p class="text-empty muted" id="text-empty">
-            Nothing to pick up yet. Send your first link or note above.
-          </p>
-          <div id="text-items"></div>
         </section>
 
         <section class="inbox" id="inbox" aria-label="Inbox">

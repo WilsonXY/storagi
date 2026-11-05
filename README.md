@@ -6,7 +6,7 @@ It is temporary transfer storage, not an archive. Each server copy is deleted 30
 
 ## Features
 
-- A temporary **Text** shelf for links and notes: paste and send on one device, then copy or open on another. It refreshes every five seconds while open (unchanged polls carry no text body), keeps text for 24 hours, and supports manual deletion. Text shares the owner-only Google sign-in; it never reads your clipboard automatically. Inbox shows how many texts are waiting. Bookmark `/#text` to open it directly; your last shelf also survives sign-in. Up to 100 texts, 64 KiB each.
+- A temporary **Text** shelf for links and notes: paste and send on one device, then copy or open on another. It refreshes every five seconds while open (unchanged polls carry no text body), keeps text for 24 hours, and supports manual deletion. Text shares the owner-only Google sign-in; it never reads your clipboard automatically. Inbox shows how many texts are waiting. Bookmark `/#text` to open it directly; your last shelf also survives sign-in. Up to 100 texts, 64 KiB each. Open link appears for a single HTTP(S) URL; notes containing links can always be copied in full. Drafts stay only in the open page: network errors keep them, while reload, sign-out or session expiry clears them.
 
 - A custom web dashboard for desktop and phone browsers, built for Windows, Fedora KDE and Android.
 - Uploads only happen when you choose files, through the file picker, drag and drop, or pasting copied files (Ctrl+V or Cmd+V).

@@ -338,3 +338,26 @@ test('late clipboard denial does not focus a fallback after leaving Text', async
   expect(document.activeElement).toBe(search);
   expect(document.querySelector('.text-copy-fallback')).toBeNull();
 });
+
+test('pickup precedes composition in DOM order, New text jumps to the draft and actions have card context', async () => {
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const items = document.querySelector('#text-items')!;
+  const form = document.querySelector('#text-form')!;
+  expect(
+    items.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).not.toBe(0);
+  click('#text-new');
+  expect(document.activeElement).toBe(draft());
+  const pre = items.querySelector('pre')!;
+  expect(pre.hasAttribute('aria-label')).toBe(false);
+  const copy = items.querySelector('[data-text-copy]')!;
+  expect(
+    document.getElementById(copy.getAttribute('aria-describedby')!)
+      ?.textContent,
+  ).toContain('example.com');
+  expect(
+    items.querySelector('.text-delete-confirm')?.getAttribute('role'),
+  ).toBe('group');
+});

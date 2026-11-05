@@ -124,6 +124,29 @@ test('text moves between two browser devices using the actual authenticated serv
       pickup && pickup.y >= 0 && pickup.y + pickup.height <= 844,
       'phone pickup action is visible without scrolling',
     );
+    await receiver.locator('.tabs [data-tab="text"]').focus();
+    await receiver.keyboard.press('Tab');
+    assert.equal(
+      await receiver.evaluate(() => document.activeElement?.id),
+      'text-new',
+    );
+    await receiver.keyboard.press('Tab');
+    assert.equal(
+      await receiver.evaluate(() => document.activeElement?.tagName),
+      'PRE',
+    );
+    await receiver.keyboard.press('Tab');
+    assert.ok(
+      await receiver
+        .locator('[data-text-copy]')
+        .evaluate((el: HTMLElement) => el === document.activeElement),
+      'keyboard reaches visible pickup before composer',
+    );
+    await receiver.locator('#text-new').click();
+    assert.equal(
+      await receiver.evaluate(() => document.activeElement?.id),
+      'text-draft',
+    );
     // Open in a new tab; intercept only the external navigation, never contact that site.
     await phone.route('https://example.com/**', (route: any) =>
       route.fulfill({

@@ -2149,28 +2149,29 @@ body.selecting .toast {
 .text-card-actions .text-open {
   box-shadow: inset 0 0 0 1px var(--control);
 }
+/* Pickup order matches the DOM and keyboard order at every width. */
+.text-composer {
+  margin-top: 24px;
+}
+.text-list-heading h3 {
+  margin-right: auto;
+}
+#text-new {
+  box-shadow: inset 0 0 0 1px var(--control);
+  min-height: 38px;
+}
+.text-empty {
+  padding: 16px 0;
+}
 @media (max-width: 600px) {
-  .text-shelf.has-text {
-    display: flex;
-    flex-direction: column;
-  }
   .text-shelf.has-text .text-intro {
     display: none;
   }
-  .text-shelf.has-text #text-form {
-    order: 4;
-    margin-top: 24px;
-  }
-  .text-shelf.has-text #text-error {
-    order: 3;
-  }
   .text-shelf.has-text .text-list-heading {
-    order: 0;
     padding-top: 12px;
   }
-  .text-shelf.has-text #text-items,
-  .text-shelf.has-text #text-empty {
-    order: 1;
+  #text-new {
+    min-height: 44px;
   }
 }
 #text-send:disabled {

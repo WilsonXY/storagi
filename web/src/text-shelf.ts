@@ -76,7 +76,7 @@ export function createTextShelf(
       ? 'Loading your text shelf…'
       : query && !visible.length
         ? 'No text matches your search.'
-        : 'Nothing to pick up yet. Send your first link or note above.';
+        : 'Nothing to pick up yet. Send your first link or note below.';
     const container = $('#text-items');
     // Keep existing nodes during polling: selecting text, scrolling and keyboard focus stay put.
     for (const el of container.querySelectorAll<HTMLElement>('article'))
@@ -102,7 +102,7 @@ export function createTextShelf(
           hour: 'numeric',
           minute: '2-digit',
         });
-        card.innerHTML = `<div class="text-card-meta mono"><span>${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}</span><time datetime="${esc(item.expiresAt)}">Expires ${esc(expiry)}</time></div><pre dir="auto" tabindex="0" aria-label="Text content"></pre><div class="text-card-actions"><button type="button" class="btn btn-sm text-copy" data-text-copy>Copy text</button>${url ? `<a class="btn btn-sm text-open" data-text-open href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open link <span aria-hidden="true">↗</span></a>` : ''}<button type="button" class="btn btn-ghost btn-sm text-remove" data-text-delete>Delete</button><span class="text-delete-confirm" hidden>Delete this text? <button type="button" class="btn btn-sm" data-text-cancel>Cancel</button><button type="button" class="btn btn-sm" data-text-confirm>Delete now</button></span></div>`;
+        card.innerHTML = `<div class="text-card-meta mono" id="text-meta-${esc(item.id)}"><span>${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}</span><time datetime="${esc(item.expiresAt)}">Expires ${esc(expiry)}</time></div><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><button type="button" class="btn btn-sm text-copy" data-text-copy aria-describedby="text-meta-${esc(item.id)}">Copy text</button>${url ? `<a class="btn btn-sm text-open" data-text-open aria-describedby="text-meta-${esc(item.id)}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open link <span aria-hidden="true">↗</span></a>` : ''}<button type="button" class="btn btn-ghost btn-sm text-remove" data-text-delete aria-describedby="text-meta-${esc(item.id)}">Delete</button><span class="text-delete-confirm" role="group" aria-label="Delete this text?" hidden>Delete this text? <button type="button" class="btn btn-sm" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="btn btn-sm" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete now</button></span></div>`;
         card.querySelector('pre')!.textContent = item.text;
       }
       if (container.children[index] !== card)
@@ -155,6 +155,9 @@ export function createTextShelf(
     if ($('#text-sync').textContent !== message)
       $('#text-sync').textContent = message;
   }
+  listen($('#text-new'), 'click', () => {
+    if (active) draft.focus();
+  });
   listen(draft, 'input', updateDraft);
   listen($('#text-form'), 'submit', async (event: SubmitEvent) => {
     event.preventDefault();

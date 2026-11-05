@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { mkdirSync, statfsSync, statSync } from 'node:fs';
 import path from 'node:path';
 export const DAY = 86400000;
@@ -69,6 +70,17 @@ export class Storage {
         'SELECT * FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
       )
       .all(this.now()) as TextRow[];
+  }
+  textsEtag(): string {
+    const ids = this.db
+      .prepare(
+        'SELECT id FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
+      )
+      .all(this.now()) as { id: string }[];
+    // Immutable bodies: ordered live IDs change on send, deletion and expiry.
+    return `W/"${createHash('sha256')
+      .update(ids.map((row) => row.id).join(','))
+      .digest('base64url')}"`;
   }
   textCount(): number {
     return (
