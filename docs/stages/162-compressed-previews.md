@@ -27,7 +27,7 @@ The coordinator's prototype on this host (Ubuntu 26.04, ffmpeg 8.0.1, with `libw
 - Output is buffered (8 MiB cap) and sent with `Content-Length`; `ffmpeg` gets SIGKILL on client disconnect, on the cap or after 20 s.
 - A missing `ffmpeg` answers 503 and a file it cannot convert 422. The dashboard then loads the original once, so previews still work without `ffmpeg`.
 - HEAD on `/preview` is 405, since a HEAD would need the full transcode.
-- The media tests skip with a reason when `ffmpeg` is absent; CI was not changed.
+- The media tests skip with a reason when `ffmpeg` is absent, except on CI. At the owner's request (2026-11-05), CI installs `ffmpeg` before `npm run check`, so the real-media test runs on every PR.
 
 ## Changes
 
@@ -38,6 +38,8 @@ The coordinator's prototype on this host (Ubuntu 26.04, ffmpeg 8.0.1, with `libw
 - `README.md`: one feature line naming the `ffmpeg` requirement and the fallback.
 
 - Merged `main` at `66dfbe8` (the hover preview placeholder, stages 162-165 `preview-skeleton`). The image preview test now expects `/preview` alongside the placeholder, and the fallback test expects the placeholder to stay while the original loads. The inner `retry` helper was renamed `fallback`, since it shadowed the dashboard's offline `retry`.
+- Merged `main` at `14439a4` (long press previews on phones, PR #38); only the preview comment conflicted. Long press previews use the same loader, so they get the small copy too.
+- `.github/workflows/check.yml`: an `Install ffmpeg` step before `npm run check`.
 
 ## Verification
 

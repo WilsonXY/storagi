@@ -1293,6 +1293,129 @@ test('a mouse resting on an image row previews it once loaded, reuses it, and th
   expect(tip('img-id')).toBe('Photo.JPG');
   localStorage.clear();
 });
+test('a finger held still on a name previews it above the finger until it lifts or moves', async () => {
+  vi.useFakeTimers();
+  const images: HTMLImageElement[] = [];
+  vi.stubGlobal(
+    'Image',
+    class extends Image {
+      constructor() {
+        super();
+        images.push(this);
+      }
+    },
+  );
+  const photo = {
+    id: 'img-id',
+    name: 'photo.png',
+    size: 4096,
+    uploadedAt: '2026-10-18T12:00:00Z',
+    expiresAt: '2099-11-17T00:00:00Z',
+  };
+  await mount(
+    vi.fn(
+      async (url: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(url) === '/api/session'
+              ? { authenticated: true, csrfToken: 'test-csrf' }
+              : { ...listing, files: [photo] },
+          ),
+        ),
+    ),
+  );
+  const box = document.querySelector<HTMLElement>('#hover-preview')!,
+    groups = document.querySelector('#groups')!;
+  const touch = (type: string, x = 100, part = '.name', y = 300) =>
+    document.querySelector(`[data-id="img-id"] ${part}`)!.dispatchEvent(
+      Object.assign(new Event(type, { bubbles: true }), {
+        clientX: x,
+        clientY: y,
+        pointerType: 'touch',
+        buttons: 1,
+        button: 0,
+      }),
+    );
+  // Only the name cell, as with the mouse.
+  touch('pointerdown', 100, '.cell.size');
+  vi.advanceTimersByTime(1000);
+  expect(images).toHaveLength(0);
+  touch('pointerup', 100, '.cell.size');
+  vi.advanceTimersByTime(400);
+  touch('pointerdown');
+  vi.advanceTimersByTime(400);
+  expect(images).toHaveLength(0);
+  // A finger never rests perfectly still: a small wobble keeps the press.
+  touch('pointermove', 104);
+  vi.advanceTimersByTime(99);
+  expect(box.hidden).toBe(true);
+  vi.advanceTimersByTime(1);
+  expect(images).toHaveLength(1);
+  // The same placeholder as the mouse's shows while it loads, so the press visibly did something.
+  expect(box.firstElementChild?.className).toBe('preview-skeleton');
+  images[0].dispatchEvent(new Event('load'));
+  expect(box.firstElementChild).toBe(images[0]);
+  // Above the finger, so the hand does not cover it.
+  expect(box.style.top).toBe('44px');
+  touch('pointermove', 104);
+  expect(box.hidden).toBe(false);
+  // Lifting the finger ends the press (a touch sends pointerleave after pointerup).
+  groups.dispatchEvent(new Event('pointerleave'));
+  expect(box.hidden).toBe(true);
+  // Moving away, to scroll or swipe, hides it too.
+  touch('pointerdown');
+  vi.advanceTimersByTime(500);
+  expect(box.hidden).toBe(false);
+  touch('pointermove', 120);
+  expect(box.hidden).toBe(true);
+  // A quick tap shows nothing.
+  touch('pointerdown');
+  vi.advanceTimersByTime(200);
+  touch('pointerup');
+  groups.dispatchEvent(new Event('pointerleave'));
+  vi.advanceTimersByTime(100);
+  expect(box.hidden).toBe(true);
+  // A second touch straight after a tap selects by dragging, so holding it still shows no preview.
+  touch('pointerdown');
+  vi.advanceTimersByTime(1000);
+  expect(box.hidden).toBe(true);
+  touch('pointerup');
+  groups.dispatchEvent(new Event('pointerleave'));
+  vi.advanceTimersByTime(1000);
+  // The whole name column counts, the full height of the row: the details line under the name on a phone, and the row's own padding beside it.
+  const name = document.querySelector('[data-id="img-id"] .name')!;
+  name.getBoundingClientRect = () => new DOMRect(50, 0, 200, 20);
+  for (const [part, x, shows] of [
+    ['.meta-phone', 100, true],
+    ['', 100, true],
+    ['', 300, false],
+    ['.lead', 60, false],
+  ] as const) {
+    touch('pointerdown', x, part);
+    vi.advanceTimersByTime(500);
+    expect(box.hidden, `${part || 'row'} at ${x}`).toBe(!shows);
+    touch('pointerup', x, part);
+    groups.dispatchEvent(new Event('pointerleave'));
+    vi.advanceTimersByTime(400);
+  }
+  // In a short landscape window with no room above the finger, the preview stays on screen below it.
+  const height = innerHeight;
+  Object.defineProperty(window, 'innerHeight', {
+    value: 390,
+    configurable: true,
+  });
+  try {
+    touch('pointerdown', 100, '.name', 180);
+    vi.advanceTimersByTime(500);
+    expect(box.hidden).toBe(false);
+    expect(box.style.top).toBe(`${390 - 8 - 240}px`);
+  } finally {
+    Object.defineProperty(window, 'innerHeight', {
+      value: height,
+      configurable: true,
+    });
+  }
+});
 test('image previews follow the list: one load at a time, and stale or dismissed previews hide', async () => {
   vi.useFakeTimers();
   const images: HTMLImageElement[] = [];

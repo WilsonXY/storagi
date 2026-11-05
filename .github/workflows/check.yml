@@ -42,4 +42,7 @@ jobs:
           tar -xzf gitleaks_8.30.1_linux_x64.tar.gz gitleaks
           echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
       - run: npm run secrets:history
+      # The hover preview tests convert real images and videos with ffmpeg (libwebp, libx264).
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: npm run check

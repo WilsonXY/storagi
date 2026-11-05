@@ -6,7 +6,9 @@ import path from 'node:path';
 import { fixture } from './fixtures.js';
 import { upload } from './uploads.js';
 
+// CI installs ffmpeg, so there a missing one fails the test instead of skipping it.
 const skip =
+  !process.env.CI &&
   spawnSync('ffmpeg', ['-version']).status !== 0 &&
   'ffmpeg is not installed, so previews cannot be made';
 // Synthetic media from ffmpeg's own test pattern.

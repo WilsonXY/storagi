@@ -649,7 +649,7 @@ export async function createDashboard(
       focusKey(`x-${id}`);
     }
   });
-  // Resting the mouse on an image, video or text row previews it. Images and videos load the server's small re-encoded copy; if that fails, the original once.
+  // Resting the mouse on (or long pressing) an image, video or text row previews it. Images and videos load the server's small re-encoded copy; if that fails, the original once.
   // Browsers sniff <img> and <video> content, so the download URL works despite its octet-stream type.
   const previewBox = $('#hover-preview'),
     previews = new Map<string, HTMLElement>();
@@ -658,7 +658,8 @@ export async function createDashboard(
     loading: { id: string; keep: boolean; cancel: () => void } | undefined,
     previewTimer: ReturnType<typeof setTimeout> | undefined,
     skeletonTimer: ReturnType<typeof setTimeout> | undefined,
-    pointer = { x: 0, y: 0 };
+    pointer = { x: 0, y: 0 },
+    press: { x: number; y: number } | undefined;
   // Each video's own 6 s cap, so stopping one video never clears another's.
   const videoCaps = new WeakMap<
     HTMLVideoElement,
@@ -705,6 +706,7 @@ export async function createDashboard(
     clearTimeout(previewTimer);
     clearTimeout(skeletonTimer);
     previewId = '';
+    press = undefined;
     previewBox.hidden = true;
     // Videos are not kept: hiding one, shown or still loading, stops it and its download.
     const video = previewBox.querySelector('video');
@@ -719,12 +721,13 @@ export async function createDashboard(
     cancelLoad();
   });
   // Beside the cursor, flipped to the other side near the window's right or bottom edge, and kept on screen.
+  // A finger's preview goes above it when there is room, so the hand does not cover it.
   function place() {
     const w = previewBox.offsetWidth || 320,
       h = previewBox.offsetHeight || 240,
       { x, y } = pointer;
     previewBox.style.left = `${Math.max(8, x + 16 + w > innerWidth ? x - 16 - w : x + 16)}px`;
-    previewBox.style.top = `${Math.max(8, y + 16 + h > innerHeight ? y - 16 - h : y + 16)}px`;
+    previewBox.style.top = `${Math.max(8, Math.min(innerHeight - 8 - h, (press ? y - 16 - h >= 8 : y + 16 + h > innerHeight) ? y - 16 - h : y + 16))}px`;
   }
   function reveal(el: HTMLElement) {
     previewBox.replaceChildren(el);
@@ -849,11 +852,46 @@ export async function createDashboard(
       })();
     }
   }
+  // A placeholder while a preview loads. A preview already loaded or on show skips it.
+  const placeholder = (id: string) => {
+    if (previewId !== id || previews.has(id) || !previewBox.hidden) return;
+    const skeleton = document.createElement('div');
+    skeleton.className = 'preview-skeleton';
+    reveal(skeleton);
+  };
+  // Only the name column previews, the full height of the row (the phone's details line under the name and the row's own padding count), so the rest of the row stays clear for its buttons.
+  const nameId = (e: PointerEvent) => {
+    const t = e.target as Element,
+      row = t.closest<HTMLElement>('.row');
+    if (!row) return '';
+    if (t.closest('.name, .meta-phone')) return row.dataset.id!;
+    const name = row.querySelector('.name')!.getBoundingClientRect();
+    return t === row && e.clientX >= name.left && e.clientX <= name.right
+      ? row.dataset.id!
+      : '';
+  };
+  // A finger has no hover: holding it still on a name for half a second previews that file until it lifts or moves.
+  // Not while a row gesture runs: a touch straight after a tap is a drag to select.
+  listen($('#groups'), 'pointerdown', (e: PointerEvent) => {
+    hidePreview();
+    const id = nameId(e);
+    if (e.pointerType !== 'touch' || gestures.busy() || !previewable(id))
+      return;
+    pointer = press = { x: e.clientX, y: e.clientY };
+    previewId = id;
+    previewTimer = setTimeout(() => {
+      if (gestures.busy()) return hidePreview();
+      showPreview(id);
+      placeholder(id);
+    }, 500);
+  });
   listen($('#groups'), 'pointermove', (e: PointerEvent) => {
-    // Only the name cell previews, so the rest of the row stays clear for its buttons.
-    const id =
-      (e.target as Element).closest('.name')?.closest<HTMLElement>('.row')
-        ?.dataset.id ?? '';
+    if (e.pointerType === 'touch') {
+      if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) >= 8)
+        hidePreview();
+      return;
+    }
+    const id = nameId(e);
     // Escape dismisses the preview until the mouse leaves that name.
     if (id !== dismissedId) dismissedId = '';
     if (
@@ -870,20 +908,14 @@ export async function createDashboard(
     previewId = id;
     // A short pause, so sweeping the mouse across the list does not start a download per row.
     previewTimer = setTimeout(() => showPreview(id), 300);
-    // A placeholder after 0.2 s, before the load even starts, so the mouse resting there visibly did something. A preview already loaded skips it.
-    skeletonTimer = setTimeout(() => {
-      if (previews.has(id) || !previewBox.hidden) return;
-      const skeleton = document.createElement('div');
-      skeleton.className = 'preview-skeleton';
-      reveal(skeleton);
-    }, 200);
+    // A placeholder after 0.2 s, before the load even starts, so the mouse resting there visibly did something.
+    skeletonTimer = setTimeout(() => placeholder(id), 200);
   });
   listen($('#groups'), 'pointerleave', () => {
     dismissedId = '';
     hidePreview();
   });
-  for (const name of ['pointerdown', 'wheel'])
-    listen($('#groups'), name, hidePreview);
+  listen($('#groups'), 'wheel', hidePreview);
   listen(window, 'scroll', hidePreview);
   listen($('.list-head'), 'click', (e: MouseEvent) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-sort]');
