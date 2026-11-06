@@ -1187,11 +1187,13 @@ body.painting * {
   color: #fff;
 }
 /* the rest of the screen says it too, quietly */
-.app.is-offline #pond {
+.app.is-offline #pond,
+.app.is-offline #text-pond {
   filter: grayscale(1);
   opacity: 0.4;
 }
-#pond {
+#pond,
+#text-pond {
   transition:
     filter 0.6s ease,
     opacity 0.6s ease;
@@ -1921,7 +1923,19 @@ body.selecting .toast {
   grid-template-columns: minmax(0, 1fr);
 }
 .text-shelf {
+  position: relative;
   margin: 0 calc(-1 * var(--gut));
+  min-height: min(640px, calc(100svh - var(--top) - 120px));
+}
+#text-pond {
+  height: min(640px, calc(100svh - var(--top) - 120px));
+  pointer-events: none;
+}
+.text-pond-zone,
+#text-items,
+.text-empty,
+.text-error {
+  position: relative;
 }
 .text-pond-zone {
   position: relative;
@@ -1934,11 +1948,11 @@ body.selecting .toast {
   margin: 0 auto;
   padding: 14px 14px 12px;
   border-radius: 16px;
-  background: rgb(10 10 10 / 64%);
+  background: rgb(10 10 10 / 70%);
   transition: background 0.2s;
 }
 .text-composer:focus-within {
-  background: rgb(12 12 12 / 72%);
+  background: rgb(12 12 12 / 84%);
 }
 .text-composer textarea,
 .text-copy-fallback {
@@ -1946,7 +1960,7 @@ body.selecting .toast {
   width: 100%;
   min-height: 62px;
   max-height: 320px;
-  resize: vertical;
+  resize: none;
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -1976,7 +1990,9 @@ body.selecting .toast {
   padding: 0 14px;
 }
 #text-send:disabled {
-  opacity: 0.35;
+  background: var(--active);
+  color: var(--faint);
+  opacity: 1;
   cursor: default;
 }
 .text-shelf .btn {
@@ -2066,6 +2082,7 @@ body.selecting .toast {
   color: var(--negative);
 }
 .text-error {
+  white-space: pre-line;
   color: var(--negative);
   font-size: 13px;
   line-height: 1.7;

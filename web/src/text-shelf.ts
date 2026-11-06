@@ -54,6 +54,8 @@ export function createTextShelf(
     $('#text-error').hidden = !message;
   };
   function updateDraft() {
+    draft.style.height = 'auto';
+    draft.style.height = `${Math.min(draft.scrollHeight, 240)}px`;
     const size = new TextEncoder().encode(draft.value).length;
     $('#text-count').textContent =
       `${(size / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })} / 64 KiB`;
@@ -105,6 +107,7 @@ export function createTextShelf(
         card.innerHTML = `<span class="sr-only" id="text-meta-${esc(item.id)}">${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}. Expires ${esc(expiry)}</span><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><button type="button" class="btn btn-sm text-copy" data-text-copy aria-describedby="text-meta-${esc(item.id)}">Copy</button><time class="text-expiry mono" datetime="${esc(item.expiresAt)}" title="Automatically deleted ${esc(expiry)}"></time><button type="button" class="icon-btn text-remove" data-text-delete aria-label="Delete text" title="Delete text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg></button><span class="text-delete-confirm" role="group" aria-label="Delete this text?" hidden><button type="button" class="btn btn-sm" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="btn btn-sm text-delete-now" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete</button></span></div>`;
         const content = card.querySelector('pre')!;
         if (url) {
+          content.tabIndex = -1;
           const link = document.createElement('a');
           link.href = url;
           link.target = '_blank';
@@ -178,6 +181,7 @@ export function createTextShelf(
       $('#text-sync').textContent = message;
   }
   listen(draft, 'input', updateDraft);
+  listen(window, 'resize', updateDraft);
   listen($('#text-form'), 'submit', async (event: SubmitEvent) => {
     event.preventDefault();
     updateDraft();
@@ -207,8 +211,11 @@ export function createTextShelf(
         draft.focus();
       else if (document.activeElement === draft) draft.blur();
     } catch (e) {
+      const failure = e as Error & { status?: number };
       error(
-        `${(e as Error).message} Your draft is kept. If the connection dropped, refresh to check whether it arrived before sending again.`,
+        failure.status && failure.status < 500
+          ? `${failure.message}\nYour draft is still here.`
+          : "Couldn't confirm the send. Your draft is still here.\nRefresh to check whether it arrived before sending again.",
       );
     } finally {
       if (alive) {
@@ -251,13 +258,14 @@ export function createTextShelf(
           fallback.value = item.text;
           const hint = document.createElement('p');
           hint.className = 'muted text-copy-hint';
+          hint.id = `text-copy-hint-${item.id}`;
+          fallback.setAttribute('aria-describedby', hint.id);
           hint.textContent =
             'Clipboard access is unavailable. Select and copy the text below.';
           card.append(hint, fallback);
         }
         fallback.focus();
         fallback.select();
-        toast('Select and copy the highlighted text.');
       }
     } else if (
       button.hasAttribute('data-text-delete') ||
@@ -294,7 +302,8 @@ export function createTextShelf(
         toast('Text deleted.');
         if (active)
           (
-            root.querySelector<HTMLElement>('[data-text-copy]') ?? draft
+            root.querySelector<HTMLElement>('[data-text-copy]') ??
+            $('#page-title')
           ).focus();
       } catch (e) {
         error((e as Error).message);
@@ -326,7 +335,10 @@ export function createTextShelf(
     },
     activate(on: boolean) {
       active = on;
-      if (on) void refresh();
+      if (on) {
+        updateDraft();
+        void refresh();
+      }
     },
     refresh,
     search(value: string) {

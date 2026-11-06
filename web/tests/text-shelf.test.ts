@@ -142,7 +142,7 @@ test('failed send keeps draft and exposes inline retryable error; whitespace and
   await tick();
   expect(draft().value).toBe('keep me');
   expect(document.querySelector('#text-error')?.textContent).toContain(
-    'Host offline',
+    "Couldn't confirm the send. Your draft is still here.",
   );
   expect(
     document.querySelector<HTMLButtonElement>('#text-send')!.disabled,
@@ -366,4 +366,53 @@ test('compact composition precedes pickup, byte count appears near the limit and
   expect(
     items.querySelector('.text-delete-confirm')?.getAttribute('role'),
   ).toBe('group');
+});
+
+test('links have one keyboard stop and clipboard denial uses only inline recovery', async () => {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+  });
+  const { shelf, toast } = mount();
+  shelf.activate(true);
+  await tick();
+  expect(
+    document.querySelector<HTMLPreElement>('#text-items pre')!.tabIndex,
+  ).toBe(-1);
+  click('[data-text-copy]');
+  await tick();
+  expect(toast).not.toHaveBeenCalled();
+  const fallback = document.querySelector<HTMLTextAreaElement>(
+    '.text-copy-fallback',
+  )!;
+  expect(
+    document.getElementById(fallback.getAttribute('aria-describedby')!)
+      ?.textContent,
+  ).toContain('Clipboard');
+});
+
+test('draft auto-grows within a bound and shrinks after clearing', () => {
+  mount();
+  Object.defineProperty(draft(), 'scrollHeight', {
+    configurable: true,
+    get: () => (draft().value ? 600 : 62),
+  });
+  type('line\n'.repeat(80));
+  expect(draft().style.height).toBe('240px');
+  type('');
+  expect(draft().style.height).toBe('62px');
+});
+
+test('removing the last text restores header focus instead of opening the phone keyboard', async () => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: true }) as MediaQueryList),
+  );
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  click('[data-text-delete]');
+  click('[data-text-confirm]');
+  await tick();
+  expect(document.activeElement?.id).toBe('page-title');
 });

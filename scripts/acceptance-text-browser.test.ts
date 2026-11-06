@@ -118,13 +118,47 @@ test('text moves between two browser devices using the actual authenticated serv
         )
         .waitFor({ state: 'visible' });
     };
+    const settled = async (page: any) => {
+      await page.evaluate(
+        'Promise.all(document.getAnimations().filter(a => a.effect && a.effect.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})))',
+      );
+    };
     const sender = await desktop.newPage();
     const receiver = await phone.newPage();
+    let releaseLoading!: () => void;
+    const loadingGate = new Promise<void>((resolve) => {
+      releaseLoading = resolve;
+    });
+    let initialText = true;
+    await sender.route('**/api/texts', async (route: any) => {
+      if (initialText && route.request().method() === 'GET') {
+        initialText = false;
+        await loadingGate;
+      }
+      await route.continue();
+    });
     for (const page of [sender, receiver]) {
       page.setDefaultTimeout(15000);
       page.on('pageerror', (e: Error) => errors.push(e.message));
       await page.goto(origin + '/#text');
       await page.locator('#text-shelf').waitFor({ state: 'visible' });
+      if (page === sender) {
+        await sender
+          .locator('#text-empty')
+          .filter({ hasText: 'Loading' })
+          .waitFor();
+        await settled(sender);
+        await sender.screenshot({
+          path: path.join(artifacts, 'text-loading-1440.png'),
+          fullPage: true,
+        });
+        releaseLoading();
+        await sender
+          .locator('#text-empty')
+          .filter({ hasText: 'Text you send' })
+          .waitFor();
+        await sender.unroute('**/api/texts');
+      }
     }
     // Owner's refinement: one navigation location and a quiet, recognisable koi surface.
     for (const page of [sender, receiver]) {
@@ -139,6 +173,13 @@ test('text moves between two browser devices using the actual authenticated serv
         'no redundant Text headings',
       );
       await page.locator('#text-pond').waitFor({ state: 'visible' });
+      assert.equal(
+        await page
+          .locator('#text-draft')
+          .evaluate((el: HTMLElement) => getComputedStyle(el).resize),
+        'none',
+      );
+
       await page.waitForFunction(
         "(() => {const c=document.querySelector('#text-pond');if(!c?.width||!c?.height)return false;return c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0)})()",
       );
@@ -181,6 +222,17 @@ test('text moves between two browser devices using the actual authenticated serv
       pickup && pickup.y >= 0 && pickup.y + pickup.height <= 844,
       'phone pickup action is visible without scrolling',
     );
+    const water = await receiver.locator('#text-pond').boundingBox();
+    assert.ok(
+      water &&
+        pickup &&
+        water.y + water.height > pickup.y + pickup.height + 100,
+      'phone koi have open water beyond the input and first card',
+    );
+    assert.ok(
+      water!.height <= 640,
+      'pond canvas stays bounded on long shelves',
+    );
     await receiver.screenshot({
       path: path.join(artifacts, 'text-phone-390.png'),
       fullPage: true,
@@ -199,6 +251,13 @@ test('text moves between two browser devices using the actual authenticated serv
     assert.equal(opened.url(), link);
     await opened.close();
     await sender.locator('[data-text-copy]').click();
+    await sender.locator('#notice').waitFor({ state: 'visible' });
+    await settled(sender);
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-copied-1440.png'),
+      fullPage: true,
+    });
+
     assert.equal(
       await sender.evaluate(() => navigator.clipboard.readText()),
       link,
@@ -254,7 +313,36 @@ test('text moves between two browser devices using the actual authenticated serv
     await receiver.locator('#inbox').waitFor({ state: 'visible' });
     await navigate(receiver, 'text');
     await sender.setViewportSize({ width: 1440, height: 1000 });
-    const exact = '  A note from the phone\nsecond line 🐟  ';
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-menu-focus-390.png'),
+      fullPage: true,
+    });
+    assert.equal(
+      await receiver.evaluate(() => document.activeElement?.id),
+      'page-title',
+    );
+    await receiver.locator('#text-draft').fill('x'.repeat(60 * 1024));
+    assert.equal(await receiver.locator('#text-count').isVisible(), true);
+    await settled(receiver);
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-near-limit-390.png'),
+      fullPage: true,
+    });
+    await receiver.locator('#text-draft').fill('x'.repeat(65 * 1024));
+    assert.equal(await receiver.locator('#text-send').isDisabled(), true);
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-over-limit-390.png'),
+      fullPage: true,
+    });
+    await receiver.locator('#text-draft').fill('');
+    const exact =
+      '  A note from the phone\nsecond line 🐟\n' +
+      Array.from(
+        { length: 18 },
+        (_, i) => `Detail ${i + 1}: synthetic handoff notes.`,
+      ).join('\n') +
+      '  ';
+
     await receiver.locator('#text-draft').fill(exact);
     await receiver.locator('#text-send').click();
     await sender
@@ -265,6 +353,15 @@ test('text moves between two browser devices using the actual authenticated serv
       await sender.locator('#text-items pre').first().textContent(),
       exact,
     );
+    await settled(sender);
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-long-1440.png'),
+      fullPage: true,
+    });
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-long-390.png'),
+      fullPage: true,
+    });
     await sender
       .getByRole('searchbox', { name: 'Search text' })
       .fill('second line');
@@ -277,6 +374,11 @@ test('text moves between two browser devices using the actual authenticated serv
     });
     await sender.getByRole('searchbox').fill('');
     await sender.locator('[data-text-delete]').first().click();
+    await settled(sender);
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-delete-1440.png'),
+      fullPage: true,
+    });
     await sender.locator('[data-text-cancel]').first().click();
     assert.equal(await sender.locator('#text-items article').count(), 2);
     await sender.locator('[data-text-delete]').first().click();
@@ -286,6 +388,7 @@ test('text moves between two browser devices using the actual authenticated serv
       .nth(1)
       .waitFor({ state: 'detached' });
     assert.equal(await receiver.locator('#text-items article').count(), 1);
+    await sender.locator('#notice').waitFor({ state: 'detached' });
     // An unavailable host retains a draft and exposes a useful error.
     await sender.route('**/api/texts', (route: any) =>
       route.request().method() === 'POST'
@@ -299,6 +402,7 @@ test('text moves between two browser devices using the actual authenticated serv
       await sender.locator('#text-draft').inputValue(),
       'keep this draft',
     );
+    await settled(sender);
     await sender.screenshot({
       path: path.join(artifacts, 'text-error-1440.png'),
       fullPage: true,
@@ -346,6 +450,8 @@ test('text moves between two browser devices using the actual authenticated serv
             'real koi canvas on desktop and phone',
             'quiet hierarchy without central tabs or repeated headings',
             'composer keyboard order',
+            'bounded open phone water, solid disabled state and grip-free auto-grow',
+            'settled loading/copy/delete/near-limit/long-text/error proof',
           ],
         },
         null,

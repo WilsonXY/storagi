@@ -252,15 +252,23 @@ export async function createDashboard(
   });
   const textPond = pond('#text-pond', {
     count: innerWidth < 640 ? 2 : 3,
-    size: innerWidth < 640 ? [120, 170] : [150, 230],
+    size: innerWidth < 640 ? [80, 130] : [110, 190],
     font: 11,
     opacity: 0.9,
     speed: 0.8,
+    ripples: false,
     flee: 130,
-    avoid: () => [relative($('#text-form'), $('#text-pond'), 0.7)],
-    pointerTarget: $('#text-pond-zone'),
-    splashTarget: $('#text-pond-zone'),
-    canSplash: (e) => !(e.target as Element).closest('form,button,a,textarea'),
+    avoid: () => [
+      relative($('#text-draft'), $('#text-pond'), 0),
+      relative($('#text-form'), $('#text-pond'), 0.32),
+      relative($('#text-items'), $('#text-pond'), 0.08),
+      relative($('#text-empty'), $('#text-pond'), 0.08),
+      relative($('#text-error'), $('#text-pond'), 0.08),
+    ],
+    pointerTarget: $('#text-shelf'),
+    splashTarget: $('#text-shelf'),
+    canSplash: (e) =>
+      !(e.target as Element).closest('form,article,button,a,textarea'),
   });
   const stillPond = () => {
     for (const [p, visible] of [
