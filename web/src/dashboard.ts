@@ -1151,6 +1151,9 @@ export async function createDashboard(
   listen(window, 'resize', () => {
     if (!retentionOptions.hidden) positionRetentionMenu();
   });
+  listen(window, 'scroll', () => {
+    if (!retentionOptions.hidden) positionRetentionMenu();
+  });
   listen(retentionDays, 'click', () => {
     if (!retentionOptions.hidden) return closeRetentionMenu();
     openRetentionMenu();
@@ -1384,10 +1387,16 @@ export async function createDashboard(
     if (
       !active ||
       $<HTMLDialogElement>('#paste-confirm').open ||
-      retentionDialog.open ||
-      !retentionOptions.hidden
+      retentionDialog.open
     )
       return;
+    if (!retentionOptions.hidden) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeRetentionMenu(true);
+      }
+      return;
+    }
     const typing =
       e.target instanceof Element &&
       (e.target.matches('input,textarea,select,[contenteditable]') ||

@@ -165,6 +165,12 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page.locator('#retention-days').click();
     await page
       .locator('#retention-options [value="30"]')
+      .evaluate((el) => (el as HTMLElement).blur());
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#retention-options').isVisible(), false);
+    await page.locator('#retention-days').click();
+    await page
+      .locator('#retention-options [value="30"]')
       .evaluate((el) =>
         el.dispatchEvent(
           new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),

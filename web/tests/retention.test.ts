@@ -137,6 +137,16 @@ test('outside pointer and focus dismiss the menu without discarding the draft', 
   document.querySelector<HTMLButtonElement>('#retention-save')!.focus();
   expect(menu.hidden).toBe(true);
   expect(document.activeElement?.id).toBe('retention-save');
+  click('#retention-days');
+  vi.spyOn(
+    document.querySelector('#retention-days')!,
+    'getBoundingClientRect',
+  ).mockReturnValue(new DOMRect(0, 300, 116, 34));
+  window.dispatchEvent(new Event('scroll'));
+  expect(menu.hidden).toBe(false);
+  expect(menu.style.getPropertyValue('--retention-room')).toBe(
+    `${innerHeight - 334 - 16}px`,
+  );
 });
 
 test('an unknown focus destination during an option press does not discard its click', async () => {
@@ -148,6 +158,19 @@ test('an unknown focus destination during an option press does not discard its c
   expect(
     document.querySelector<HTMLElement>('#retention-options')!.hidden,
   ).toBe(false);
+  (document.activeElement as HTMLElement).blur();
+  document.body.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  expect(
+    document.querySelector<HTMLElement>('#retention-options')!.hidden,
+  ).toBe(true);
+  expect(document.activeElement?.id).toBe('retention-days');
+  click('#retention-days');
   click('#retention-options [value="7"]');
   expect(
     document.querySelector<HTMLButtonElement>('#retention-days')!.value,
