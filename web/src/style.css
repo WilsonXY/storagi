@@ -799,11 +799,7 @@ dialog.paste-confirm::backdrop {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background:
-    radial-gradient(ellipse at 15% 20%, #b5f6c6, transparent 60%),
-    radial-gradient(ellipse at 85% 15%, #34d399, transparent 55%),
-    radial-gradient(ellipse at 65% 95%, #119867, transparent 60%),
-    var(--positive);
+  background: var(--positive);
   opacity: 0;
   pointer-events: none;
 }
@@ -815,7 +811,7 @@ dialog.paste-confirm::backdrop {
   animation: retention-saved 900ms ease-in-out both;
 }
 #retention-save.is-saved::before {
-  animation: retention-saved-mesh 900ms ease-in-out both;
+  animation: retention-saved-color 900ms ease-in-out both;
 }
 @keyframes retention-saved {
   0%,
@@ -826,21 +822,12 @@ dialog.paste-confirm::backdrop {
     opacity: 1;
   }
 }
-@keyframes retention-saved-mesh {
+@keyframes retention-saved-color {
   0%,
   100% {
     opacity: 0;
   }
   45% {
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  #retention-save.is-saved,
-  #retention-save.is-saved::before {
-    animation: none;
-  }
-  #retention-save.is-saved::before {
     opacity: 1;
   }
 }

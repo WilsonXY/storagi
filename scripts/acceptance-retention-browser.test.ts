@@ -90,6 +90,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     const markSyntheticProof = () =>
       document.addEventListener('DOMContentLoaded', () => {
         const banner = document.createElement('div');
+        banner.dataset.syntheticProof = 'true';
         banner.textContent =
           'SYNTHETIC PROOF · Real dashboard and service · Signed test identity · Empty sample files';
         banner.style.cssText =
@@ -439,42 +440,49 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page
       .locator('#retention-save[disabled][aria-busy="false"]')
       .waitFor();
-    const pulse = await page.locator('#retention-save').evaluate((el) => {
-      const animations = el
-        .getAnimations({ subtree: true })
-        .filter((a) => a instanceof CSSAnimation);
-      const duration = Math.max(
-        ...animations.map((a) => Number(a.effect!.getTiming().duration)),
-      );
-      const samples = [0, duration / 2, duration - 1].map((time) => {
-        for (const animation of animations) {
-          animation.pause();
-          animation.currentTime = time;
-        }
-        const rect = el.getBoundingClientRect();
+    const sampleFeedback = () =>
+      page.locator('#retention-save').evaluate((el) => {
+        const animations = el
+          .getAnimations({ subtree: true })
+          .filter((a) => a instanceof CSSAnimation);
+        const duration = Math.max(
+          ...animations.map((a) => Number(a.effect!.getTiming().duration)),
+        );
+        const samples = [0, duration / 2, duration - 1].map((time) => {
+          for (const animation of animations) {
+            animation.pause();
+            animation.currentTime = time;
+          }
+          const rect = el.getBoundingClientRect();
+          return {
+            colorOpacity: Number(getComputedStyle(el, '::before').opacity),
+            transform: getComputedStyle(el).transform,
+            width: rect.width,
+            height: rect.height,
+          };
+        });
+        for (const animation of animations)
+          animation.currentTime = duration / 2;
         return {
-          meshOpacity: Number(getComputedStyle(el, '::before').opacity),
-          transform: getComputedStyle(el).transform,
-          width: rect.width,
-          height: rect.height,
+          saved: el.classList.contains('is-saved'),
+          count: animations.length,
+          duration,
+          backgroundImage: getComputedStyle(el, '::before').backgroundImage,
+          color: getComputedStyle(el, '::before').backgroundColor,
+          disabled: (el as HTMLButtonElement).disabled,
+          samples,
         };
       });
-      for (const animation of animations) animation.currentTime = duration / 2;
-      return {
-        saved: el.classList.contains('is-saved'),
-        count: animations.length,
-        duration,
-        mesh: getComputedStyle(el, '::before').backgroundImage,
-        samples,
-      };
-    });
+    const pulse = await sampleFeedback();
     assert.equal(pulse.saved, true);
+    assert.equal(pulse.disabled, true);
     assert.ok(pulse.count > 0);
     assert.ok(pulse.duration >= 600 && pulse.duration <= 1200);
-    assert.ok((pulse.mesh.match(/radial-gradient/g) || []).length >= 2);
-    assert.ok(pulse.samples[0].meshOpacity < 0.1);
-    assert.ok(pulse.samples[1].meshOpacity > 0.5);
-    assert.ok(pulse.samples[2].meshOpacity < 0.1);
+    assert.equal(pulse.backgroundImage, 'none');
+    assert.equal(pulse.color, 'rgb(63, 192, 122)');
+    assert.ok(pulse.samples[0].colorOpacity < 0.1);
+    assert.ok(pulse.samples[1].colorOpacity > 0.5);
+    assert.ok(pulse.samples[2].colorOpacity < 0.1);
     for (const sample of pulse.samples) {
       assert.equal(sample.transform, 'none');
       assert.equal(sample.width, pulse.samples[0].width);
@@ -555,18 +563,19 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await chooseDays(90);
     await page.locator('#retention-save').click();
     await page.locator('#retention-save.is-saved').waitFor();
-    const reduced = await page.locator('#retention-save').evaluate((el) => ({
-      animations: el
-        .getAnimations({ subtree: true })
-        .filter((a) => a instanceof CSSAnimation).length,
-      meshOpacity: Number(getComputedStyle(el, '::before').opacity),
-      disabled: (el as HTMLButtonElement).disabled,
-      transform: getComputedStyle(el).transform,
-    }));
-    assert.equal(reduced.animations, 0);
-    assert.ok(reduced.meshOpacity > 0.5);
+    const reduced = await sampleFeedback();
+    assert.equal(reduced.count, pulse.count);
+    assert.equal(reduced.backgroundImage, 'none');
+    assert.equal(reduced.color, pulse.color);
     assert.equal(reduced.disabled, true);
-    assert.equal(reduced.transform, 'none');
+    assert.ok(reduced.samples[0].colorOpacity < 0.1);
+    assert.ok(reduced.samples[1].colorOpacity > 0.5);
+    assert.ok(reduced.samples[2].colorOpacity < 0.1);
+    for (const sample of reduced.samples) {
+      assert.equal(sample.transform, 'none');
+      assert.equal(sample.width, reduced.samples[0].width);
+      assert.equal(sample.height, reduced.samples[0].height);
+    }
     await page.screenshot({
       path: path.join(artifacts, 'save-feedback-reduced-motion.png'),
       fullPage: true,
@@ -580,6 +589,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     // A separate, unaltered recording shows the real one-shot timing and replay.
     const recording = await browser.newContext({
       viewport: { width: 728, height: 640 },
+      reducedMotion: 'reduce',
       recordVideo: {
         dir: path.join(artifacts, 'video'),
         size: { width: 728, height: 640 },
@@ -589,6 +599,9 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await recording.addInitScript(markSyntheticProof);
     const demo = await recording.newPage();
     await demo.goto(origin);
+    await demo.locator('[data-synthetic-proof]').evaluate((el) => {
+      el.textContent += ' · Reduced motion emulated';
+    });
     await demo
       .locator('#retention-days:not([disabled])')
       .waitFor({ state: 'attached' });
@@ -622,6 +635,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
           saves,
           pulse,
           reduced,
+          recordingMotion: 'reduce',
           errors,
           result: 'PASS',
         },
