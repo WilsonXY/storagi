@@ -194,6 +194,24 @@ test('text moves between two browser devices using the actual authenticated serv
     });
     await receiver.locator('#text-draft').fill('Keyboard probe');
     await receiver.locator('#text-draft').focus();
+    const focusStyle = await receiver
+      .locator('#text-draft')
+      .evaluate((el: HTMLElement) => {
+        const style = getComputedStyle(el);
+        return { outline: style.outlineStyle, shadow: style.boxShadow };
+      });
+    assert.equal(focusStyle.outline, 'none', 'no red or orange input outline');
+    const focusColor = focusStyle.shadow.match(/rgb\((\d+), (\d+), (\d+)\)/);
+    assert.ok(
+      focusColor &&
+        focusColor[1] === focusColor[2] &&
+        focusColor[2] === focusColor[3],
+      'input keeps a neutral visible focus cue',
+    );
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-input-focus-390.png'),
+      fullPage: true,
+    });
     await receiver.keyboard.press('Tab');
     assert.equal(
       await receiver.evaluate(() => document.activeElement?.id),
@@ -217,7 +235,22 @@ test('text moves between two browser devices using the actual authenticated serv
       await receiver.locator('[data-text-open]').getAttribute('href'),
       link,
     );
-    const pickup = await receiver.locator('[data-text-copy]').boundingBox();
+    const copyControl = receiver.getByRole('button', {
+      name: 'Copy text',
+      exact: true,
+    });
+    assert.equal(
+      (await copyControl.textContent()).trim(),
+      '',
+      'Copy is an icon rather than a text label',
+    );
+    assert.equal(await copyControl.locator('svg').count(), 1);
+    const pickup = await copyControl.boundingBox();
+    const expiry = await receiver.locator('.text-expiry').boundingBox();
+    assert.ok(
+      expiry && pickup && expiry.x < pickup.x,
+      'expiry is left of the right-aligned copy icon',
+    );
     assert.ok(
       pickup && pickup.y >= 0 && pickup.y + pickup.height <= 844,
       'phone pickup action is visible without scrolling',
@@ -230,8 +263,8 @@ test('text moves between two browser devices using the actual authenticated serv
       'phone koi have open water beyond the input and first card',
     );
     assert.ok(
-      water!.height <= 640,
-      'pond canvas stays bounded on long shelves',
+      water!.height >= 844 - 80 && water!.height <= 844,
+      'pond covers the available phone viewport without a long-list-sized canvas',
     );
     await receiver.screenshot({
       path: path.join(artifacts, 'text-phone-390.png'),
@@ -408,6 +441,81 @@ test('text moves between two browser devices using the actual authenticated serv
       fullPage: true,
     });
     await sender.unroute('**/api/texts');
+    // A fresh receiver page keeps gesture proof separate from clipboard recovery.
+    await receiver.reload();
+    await receiver.locator('[data-text-copy]').waitFor();
+    // A native phone touch swipe uses the same red reveal and Undo rhythm as Inbox.
+    const cdp = await phone.newCDPSession(receiver);
+    const swipe = async (distance: number, cancel = false, capture = false) => {
+      const row = receiver.locator('#text-items article').first();
+      await row.scrollIntoViewIfNeeded();
+      const box = await row.locator('.text-card-actions').boundingBox();
+      const x = box.x + box.width * 0.65,
+        y = box.y + box.height / 2;
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x, y }],
+      });
+      for (let step = 1; step <= 6; step++)
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [{ x: x - (distance * step) / 6, y }],
+        });
+      if (capture)
+        await receiver.screenshot({
+          path: path.join(artifacts, 'text-swipe-390.png'),
+          fullPage: true,
+        });
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: cancel ? 'touchCancel' : 'touchEnd',
+        touchPoints: [],
+      });
+      await settled(receiver);
+    };
+    await swipe(35);
+    assert.equal(
+      await receiver.locator('[data-text-undo]').isVisible(),
+      false,
+      'short swipe snaps back',
+    );
+    await swipe(220, true);
+    assert.equal(
+      await receiver.locator('[data-text-undo]').isVisible(),
+      false,
+      'cancelled swipe keeps text',
+    );
+    await swipe(220, false, true);
+    await receiver.locator('[data-text-undo]').waitFor();
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-swipe-undo-390.png'),
+      fullPage: true,
+    });
+    await receiver.locator('[data-text-undo]').click();
+    await receiver.locator('[data-text-copy]').waitFor();
+    assert.equal(
+      await receiver.locator('#text-items article').count(),
+      1,
+      'Undo restores text',
+    );
+    await receiver.evaluate(() =>
+      localStorage.setItem('storagi.gestures', 'off'),
+    );
+    await swipe(220);
+    assert.equal(
+      await receiver.locator('[data-text-undo]').isVisible(),
+      false,
+      'gesture preference off keeps text',
+    );
+    await receiver.evaluate(() =>
+      localStorage.setItem('storagi.gestures', 'on'),
+    );
+    await swipe(220);
+    await receiver.locator('[data-text-undo]').waitFor();
+    await receiver
+      .locator('#text-items article')
+      .waitFor({ state: 'detached' });
+    await sender.locator('#text-items article').waitFor({ state: 'detached' });
+    await cdp.detach();
     // The existing file shelf still uploads and lists files.
     await navigate(sender, 'inbox');
     await sender.locator('#picker').setInputFiles({
@@ -420,10 +528,70 @@ test('text moves between two browser devices using the actual authenticated serv
       .filter({ hasText: 'handoff-proof' })
       .waitFor();
     await navigate(sender, 'text');
+    await sender.locator('#text-draft').fill('Synthetic scroll proof');
+    await sender.locator('#text-send').click();
+    await sender.locator('#text-error').waitFor({ state: 'hidden' });
+    await sender.evaluate(async () => {
+      const session = await (await fetch('/api/session')).json();
+      for (let i = 0; i < 15; i++) {
+        const response = await fetch('/api/texts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': session.csrfToken,
+          },
+          body: JSON.stringify({
+            text: `Synthetic note ${i + 1}\nFull-page koi scroll proof.`,
+          }),
+        });
+        if (!response.ok)
+          throw new Error(`Fixture send failed: ${response.status}`);
+      }
+    });
+    await sender.locator('#refresh').click();
+    await sender.locator('#text-items article').nth(14).waitFor();
+    await sender.setViewportSize({ width: 1440, height: 1400 });
+    await sender.evaluate(() => window.scrollTo(0, 0));
+    await sender.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await sender.locator('#notice').waitFor({ state: 'detached' });
+    const tallPond = await sender.locator('#text-pond').boundingBox();
+    assert.ok(
+      tallPond && tallPond.y <= 80 && tallPond.y + tallPond.height >= 1395,
+      'koi fills tall desktop beyond old 640px cap',
+    );
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-tall-1440.png'),
+    });
+    await sender.locator('#text-items article').last().scrollIntoViewIfNeeded();
+    await sender.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    const scrolledPond = await sender.locator('#text-pond').boundingBox();
+    assert.ok(
+      scrolledPond &&
+        scrolledPond.y <= 80 &&
+        scrolledPond.y + scrolledPond.height >= 1395 &&
+        scrolledPond.height <= 1400,
+      'koi follows long-list scrolling with a viewport-sized canvas',
+    );
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-scrolled-1440.png'),
+    });
+    await sender.setViewportSize({ width: 1440, height: 1000 });
     now += 86400001;
     await app.cleanup();
     await sender.locator('#refresh').click();
-    await sender.locator('#text-items article').waitFor({ state: 'detached' });
+    await sender.waitForFunction(
+      () => document.querySelectorAll('#text-items article').length === 0,
+    );
     assert.equal((await fetch(origin + '/api/texts')).status, 401);
     assert.deepEqual(errors, []);
     await writeFile(
@@ -434,6 +602,7 @@ test('text moves between two browser devices using the actual authenticated serv
           passed: true,
           checks: [
             'desktop to phone automatic receipt',
+            'native phone touch swipe short/cancel/Undo/commit and cross-device deletion',
             'safe external link opens',
             'exact clipboard copy',
             'denied clipboard native selection',
@@ -445,12 +614,13 @@ test('text moves between two browser devices using the actual authenticated serv
             'existing file upload',
             'expiry cleanup',
             'unauthenticated denial',
+            'full-height desktop koi and viewport-sized long-list scrolling',
             'zero browser errors',
             'sidebar/menu-only navigation including 1000px Transfers',
             'real koi canvas on desktop and phone',
             'quiet hierarchy without central tabs or repeated headings',
             'composer keyboard order',
-            'bounded open phone water, solid disabled state and grip-free auto-grow',
+            'full viewport koi, neutral input focus, right-aligned icon Copy and left expiry, grip-free auto-grow',
             'settled loading/copy/delete/near-limit/long-text/error proof',
           ],
         },

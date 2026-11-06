@@ -416,3 +416,155 @@ test('removing the last text restores header focus instead of opening the phone 
   await tick();
   expect(document.activeElement?.id).toBe('page-title');
 });
+
+test('expiry precedes named icon-only Copy and Delete actions', async () => {
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const actions = document.querySelector('.text-card-actions')!;
+  expect(actions.firstElementChild?.tagName).toBe('TIME');
+  const copy = actions.querySelector('[data-text-copy]')!;
+  expect(copy.getAttribute('aria-label')).toBe('Copy text');
+  expect(copy.textContent?.trim()).toBe('');
+  expect(copy.querySelector('svg')).not.toBeNull();
+});
+
+function swipe(dx: number, dy = 0, cancel = false) {
+  const card = document.querySelector<HTMLElement>('.text-card')!;
+  Object.defineProperty(card, 'offsetWidth', {
+    configurable: true,
+    value: 400,
+  });
+  const pointer = (target: EventTarget, name: string, x: number, y: number) => {
+    const e = new MouseEvent(name, {
+      bubbles: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+    });
+    Object.defineProperties(e, {
+      pointerType: { value: 'touch' },
+      pointerId: { value: 1 },
+    });
+    target.dispatchEvent(e);
+  };
+  pointer(card, 'pointerdown', 300, 200);
+  pointer(window, 'pointermove', 300 + dx, 200 + dy);
+  pointer(window, cancel ? 'pointercancel' : 'pointerup', 300 + dx, 200 + dy);
+}
+
+test('a full Text swipe offers four-second Undo before deleting; partial and vertical gestures keep text', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  swipe(-30);
+  swipe(-180, 200);
+  swipe(-180, 0, true);
+  await tick();
+  expect(
+    document.querySelector('[data-text-undo]')?.hasAttribute('hidden'),
+  ).not.toBe(false);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  swipe(-180);
+  await tick();
+  expect(
+    document.querySelector('[data-text-undo]')?.hasAttribute('hidden'),
+  ).toBe(false);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  await vi.advanceTimersByTimeAsync(0);
+  click('[data-text-undo]');
+  await vi.advanceTimersByTimeAsync(4100);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  expect(
+    document.querySelector('.text-card')?.classList.contains('text-pending'),
+  ).toBe(false);
+  swipe(-180);
+  await vi.advanceTimersByTimeAsync(4100);
+  expect(request).toHaveBeenCalledWith('/api/texts/one', 'DELETE');
+  expect(document.querySelector('.text-card')).toBeNull();
+});
+
+test('gesture preference, native horizontal text scrolling and leaving cancel unreleased Text swipes', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  localStorage.setItem('storagi.gestures', 'off');
+  swipe(-180);
+  localStorage.removeItem('storagi.gestures');
+  const card = document.querySelector<HTMLElement>('.text-card')!;
+  const wheel = (target: Element) =>
+    target.dispatchEvent(
+      new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 180 }),
+    );
+  wheel(card.querySelector('pre')!);
+  await vi.advanceTimersByTimeAsync(200);
+  expect(card.classList.contains('text-pending')).toBe(false);
+  wheel(card);
+  shelf.activate(false);
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  shelf.activate(true);
+  await tick();
+  wheel(card);
+  window.dispatchEvent(new Event('pagehide'));
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+});
+
+test('failed swipe deletion restores the row and teardown cancels pending deletion', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  request.mockRejectedValueOnce(new Error('Try again'));
+  swipe(-180);
+  expect(document.querySelector('.text-expiry')?.textContent).toBe(
+    'Deleting in 4s',
+  );
+  await vi.advanceTimersByTimeAsync(4100);
+  expect(
+    document.querySelector('.text-card')?.classList.contains('text-pending'),
+  ).toBe(false);
+  expect(document.querySelector('#text-error')?.textContent).toBe('Try again');
+  const calls = request.mock.calls.length;
+  swipe(-180);
+  shelf.destroy();
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(request).toHaveBeenCalledTimes(calls);
+});
+
+test('flushing the Text shelf commits released deletion', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  swipe(-180);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  shelf.flush();
+  await tick();
+  expect(request).toHaveBeenCalledWith('/api/texts/one', 'DELETE');
+});
+
+test('mouse text selection never starts a Text swipe', async () => {
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const card = document.querySelector<HTMLElement>('.text-card')!;
+  Object.defineProperty(card, 'offsetWidth', {
+    configurable: true,
+    value: 400,
+  });
+  const pointer = (target: EventTarget, type: string, clientX: number) =>
+    target.dispatchEvent(
+      Object.assign(
+        new MouseEvent(type, { bubbles: true, button: 0, clientX }),
+        { pointerId: 1, pointerType: 'mouse' },
+      ),
+    );
+  pointer(card.querySelector('pre')!, 'pointerdown', 300);
+  pointer(window, 'pointermove', 50);
+  pointer(window, 'pointerup', 50);
+  expect(card.classList.contains('text-pending')).toBe(false);
+});

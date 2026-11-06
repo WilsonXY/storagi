@@ -231,6 +231,7 @@ export async function createDashboard(
     gestures.cancel();
     leaving = true;
     for (const op of [...pending]) op.flush();
+    texts.flush();
     leaving = false;
     closeToast();
   });
@@ -290,6 +291,15 @@ export async function createDashboard(
   };
   cleanups.push(onMotionChange(stillPond));
   listen(window, 'resize', stillPond);
+  // The Text canvas stays in the viewport while its masked content scrolls.
+  listen(window, 'scroll', () => {
+    if (
+      textPond?.still &&
+      app.dataset.tab === 'text' &&
+      app.dataset.view !== 'settings'
+    )
+      textPond.paintStill();
+  });
   const auto = new AutoRefresh(async () => {
     const result: Shelf = await (
       await request('/api/files')

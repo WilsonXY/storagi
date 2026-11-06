@@ -1919,16 +1919,24 @@ body.selecting .toast {
 .app[data-tab='text'] .fresh-pill {
   display: none !important;
 }
+.app[data-tab='text'] .center {
+  padding-bottom: 0;
+}
 .app[data-tab='text'] .body {
   grid-template-columns: minmax(0, 1fr);
 }
 .text-shelf {
   position: relative;
   margin: 0 calc(-1 * var(--gut));
-  min-height: min(640px, calc(100svh - var(--top) - 120px));
+  min-height: calc(100svh - var(--top));
 }
 #text-pond {
-  height: min(640px, calc(100svh - var(--top) - 120px));
+  position: sticky;
+  inset: auto;
+  top: var(--top);
+  display: block;
+  height: calc(100svh - var(--top));
+  margin-bottom: calc(var(--top) - 100svh);
   pointer-events: none;
 }
 .text-pond-zone,
@@ -1968,6 +1976,10 @@ body.selecting .toast {
   font: 14px/1.6 var(--mono);
   padding: 4px;
   overflow-wrap: anywhere;
+}
+.text-composer textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--muted);
 }
 .text-composer textarea::placeholder {
   color: var(--faint);
@@ -2039,7 +2051,8 @@ body.selecting .toast {
   font-size: 12px;
 }
 .text-card-actions .text-copy {
-  background: var(--active);
+  color: var(--text);
+  background: transparent;
 }
 .text-card-actions .text-copy:hover {
   background: var(--raised);
@@ -2061,7 +2074,7 @@ body.selecting .toast {
   color: var(--faint);
 }
 .text-expiry {
-  margin-left: auto;
+  margin-right: auto;
   color: var(--faint);
   font-size: 11px;
   white-space: nowrap;
@@ -2140,4 +2153,28 @@ body.selecting .toast {
   .text-card {
     padding: 16px 0;
   }
+}
+
+/* Text reuses the Inbox swipe affordance without file selection. */
+#text-items {
+  overflow: hidden;
+}
+.app.gestures .text-card {
+  touch-action: pan-y;
+}
+.text-card.swiping {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+}
+.text-card.text-pending pre {
+  opacity: 0.35;
+}
+.text-card.text-pending .text-copy,
+.text-card.text-pending .text-remove {
+  visibility: hidden;
+}
+
+.text-undo {
+  color: var(--text);
 }

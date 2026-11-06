@@ -1,4 +1,6 @@
 import { esc } from './ui';
+import { rowGestures } from './gestures';
+import { deferredDelete } from './deferred-delete';
 type TextItem = {
   id: string;
   text: string;
@@ -47,6 +49,10 @@ export function createTextShelf(
     refreshError = false;
   let etag: string | null = null;
   const deleting = new Set<string>();
+  const pending = new Map<
+    string,
+    { op: ReturnType<typeof deferredDelete>; left: number }
+  >();
   const error = (message = '', fromRefresh = false) => {
     if (!alive) return;
     refreshError = fromRefresh;
@@ -65,7 +71,7 @@ export function createTextShelf(
     $('#text-count').hidden = size < LIMIT * 0.875;
   }
   function render() {
-    if (!alive) return;
+    if (!alive || gestures?.busy()) return;
     const now = Date.now();
     items = items.filter((x) => Date.parse(x.expiresAt) > now);
     $('#text-shelf').classList.toggle('has-text', items.length > 0);
@@ -91,6 +97,7 @@ export function createTextShelf(
         card = document.createElement('article');
         card.className = 'text-card';
         card.dataset.textId = item.id;
+        card.dataset.id = item.id;
         const url = linkFor(item.text);
         const expiry = new Date(item.expiresAt).toLocaleString(undefined, {
           month: 'short',
@@ -104,7 +111,7 @@ export function createTextShelf(
           hour: 'numeric',
           minute: '2-digit',
         });
-        card.innerHTML = `<span class="sr-only" id="text-meta-${esc(item.id)}">${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}. Expires ${esc(expiry)}</span><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><button type="button" class="btn btn-sm text-copy" data-text-copy aria-describedby="text-meta-${esc(item.id)}">Copy</button><time class="text-expiry mono" datetime="${esc(item.expiresAt)}" title="Automatically deleted ${esc(expiry)}"></time><button type="button" class="icon-btn text-remove" data-text-delete aria-label="Delete text" title="Delete text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg></button><span class="text-delete-confirm" role="group" aria-label="Delete this text?" hidden><button type="button" class="btn btn-sm" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="btn btn-sm text-delete-now" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete</button></span></div>`;
+        card.innerHTML = `<span class="sr-only" id="text-meta-${esc(item.id)}">${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}. Expires ${esc(expiry)}</span><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><time class="text-expiry mono" datetime="${esc(item.expiresAt)}" title="Automatically deleted ${esc(expiry)}"></time><button type="button" class="icon-btn text-copy" data-text-copy aria-label="Copy text" title="Copy text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="7.5" height="8" rx="1.5"/><path d="M10.5 5.5V3A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h2.5"/></svg></button><button type="button" class="icon-btn text-remove" data-text-delete aria-label="Delete text" title="Delete text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg></button><span class="text-delete-confirm" role="group" aria-label="Delete this text?" hidden><button type="button" class="btn btn-sm" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="btn btn-sm text-delete-now" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete</button></span><button type="button" class="btn btn-sm text-undo" data-text-undo title="Undo deletion (4 seconds)" hidden>Undo</button></div>`;
         const content = card.querySelector('pre')!;
         if (url) {
           content.tabIndex = -1;
@@ -128,8 +135,17 @@ export function createTextShelf(
       );
       const remaining =
         minutes >= 60 ? `${Math.ceil(minutes / 60)}h left` : `${minutes}m left`;
+      card.classList.toggle('text-pending', pending.has(item.id));
+      const undo = card.querySelector<HTMLButtonElement>('[data-text-undo]')!;
+      undo.hidden = !pending.has(item.id);
+      undo.disabled = deleting.has(item.id);
       const time = card.querySelector('time')!;
-      if (time.textContent !== remaining) time.textContent = remaining;
+      const label = pending.has(item.id)
+        ? pending.get(item.id)!.left
+          ? `Deleting in ${pending.get(item.id)!.left}s`
+          : 'Deleting…'
+        : remaining;
+      if (time.textContent !== label) time.textContent = label;
       if (container.children[index] !== card)
         container.insertBefore(card, container.children[index] ?? null);
     });
@@ -280,39 +296,78 @@ export function createTextShelf(
           confirm ? '[data-text-cancel]' : '[data-text-delete]',
         )!
         .focus();
-    } else if (
-      button.hasAttribute('data-text-confirm') &&
-      !deleting.has(item.id)
-    ) {
-      deleting.add(item.id);
-      button.setAttribute('disabled', '');
-      error();
-      try {
-        await request(
-          `/api/texts/${encodeURIComponent(item.id)}`,
-          'DELETE',
-        ).catch((e) => {
-          if (e.status !== 404 && e.status !== 410) throw e;
-        });
-        if (!alive) return;
-        revision++;
-        etag = null;
-        items = items.filter((x) => x.id !== item.id);
-        render();
-        toast('Text deleted.');
-        if (active)
-          (
-            root.querySelector<HTMLElement>('[data-text-copy]') ??
-            $('#page-title')
-          ).focus();
-      } catch (e) {
-        error((e as Error).message);
-      } finally {
-        deleting.delete(item.id);
-        button.removeAttribute('disabled');
-      }
+    } else if (button.hasAttribute('data-text-undo')) {
+      pending.get(item.id)?.op.undo();
+    } else if (button.hasAttribute('data-text-confirm')) {
+      void remove(item.id, true);
     }
   });
+  async function remove(id: string, focus: boolean) {
+    if (deleting.has(id)) return;
+    deleting.add(id);
+    render();
+    error();
+    try {
+      await request(`/api/texts/${encodeURIComponent(id)}`, 'DELETE').catch(
+        (e) => {
+          if (e.status !== 404 && e.status !== 410) throw e;
+        },
+      );
+      if (!alive) return;
+      revision++;
+      etag = null;
+      items = items.filter((x) => x.id !== id);
+      pending.delete(id);
+      render();
+      toast('Text deleted.');
+      if (active && focus)
+        (
+          root.querySelector<HTMLElement>('[data-text-copy]') ??
+          $('#page-title')
+        ).focus();
+    } catch (e) {
+      pending.delete(id);
+      render();
+      error((e as Error).message);
+    } finally {
+      deleting.delete(id);
+    }
+  }
+  const gestures = rowGestures(
+    $('#text-items'),
+    null,
+    () => [],
+    (id) =>
+      !active ||
+      pending.has(id) ||
+      deleting.has(id) ||
+      !![...$('#text-items').querySelectorAll<HTMLElement>('article')]
+        .find((card) => card.dataset.textId === id)
+        ?.querySelector('.text-delete-confirm:not([hidden])') ||
+      !!window.getSelection()?.toString(),
+    (id) => {
+      pending.set(id, {
+        op: deferredDelete(() => remove(id, false), {
+          onUndo: () => {
+            pending.delete(id);
+            render();
+          },
+          onTick: (left) => {
+            const state = pending.get(id);
+            if (state) {
+              state.left = left;
+              render();
+            }
+          },
+        }),
+        left: 4,
+      });
+      render();
+    },
+    render,
+    events.signal,
+    '.text-card',
+  );
   listen($('#text-items'), 'keydown', (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return;
     const card = (event.target as Element).closest('article');
@@ -320,6 +375,9 @@ export function createTextShelf(
       card?.querySelector<HTMLElement>('.text-delete-confirm')?.hidden === false
     )
       card.querySelector<HTMLButtonElement>('[data-text-cancel]')!.click();
+  });
+  listen(window, 'pagehide', () => {
+    gestures.cancel();
   });
   const receive = () => {
     if (document.visibilityState === 'visible') void refresh();
@@ -329,12 +387,17 @@ export function createTextShelf(
   const timer = setInterval(receive, 5000);
   updateDraft();
   return {
+    flush() {
+      gestures.cancel();
+      for (const { op } of [...pending.values()]) op.flush();
+    },
     setCount(count?: number) {
       if (!alive || active || count === undefined) return;
       $('#nav-texts').textContent = String(count);
     },
     activate(on: boolean) {
       active = on;
+      if (!on) gestures.cancel();
       if (on) {
         updateDraft();
         void refresh();
@@ -349,6 +412,9 @@ export function createTextShelf(
       alive = false;
       active = false;
       clearInterval(timer);
+      gestures.destroy();
+      for (const { op } of pending.values()) op.destroy();
+      pending.clear();
       events.abort();
       items = [];
       draft.value = '';
