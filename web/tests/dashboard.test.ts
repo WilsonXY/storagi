@@ -496,7 +496,7 @@ test('settings persist switches, phone menu opens, and tabs and shortcuts change
   expect(document.querySelector<HTMLElement>('#sheet')!.hidden).toBe(false);
   click('#sheet-close');
   vi.stubGlobal('innerWidth', 390);
-  click('.tabs [data-tab="transfers"]');
+  click('.nav-item[data-tab="transfers"]');
   expect(document.querySelector('#shelf-app')?.getAttribute('data-tab')).toBe(
     'transfers',
   );
@@ -1917,7 +1917,7 @@ test('Text navigation uses authenticated JSON mutations, search and manual refre
   expect(fetcher.mock.calls.some((c) => String(c[0]) === '/api/texts')).toBe(
     false,
   );
-  click('.tabs [data-tab="text"]');
+  click('.nav-item[data-tab="text"]');
   await tick();
   expect(document.querySelector('#page-title')?.textContent).toBe('Text');
   expect(document.querySelector<HTMLInputElement>('#search')!.placeholder).toBe(
@@ -1944,7 +1944,7 @@ test('Text navigation uses authenticated JSON mutations, search and manual refre
   );
   click('#refresh');
   await tick();
-  click('.tabs [data-tab="inbox"]');
+  click('.nav-item[data-tab="inbox"]');
   expect(rows()).toHaveLength(2);
   expect(document.querySelector('#page-title')?.textContent).toBe('Inbox');
 });
@@ -1959,7 +1959,7 @@ test('desktop Transfers navigation leaves Text so the transfer panel is visible'
         : api.fetcher(url),
     ),
   );
-  click('.tabs [data-tab="text"]');
+  click('.nav-item[data-tab="text"]');
   await tick();
   click('#nav-transfers');
   expect(document.querySelector<HTMLElement>('#shelf-app')!.dataset.tab).toBe(
@@ -1980,9 +1980,9 @@ test('returning to Inbox rerenders after the shared search is cleared', async ()
   search.value = 'missing';
   search.dispatchEvent(new Event('input'));
   expect(rows()).toHaveLength(0);
-  click('.tabs [data-tab="text"]');
+  click('.nav-item[data-tab="text"]');
   await tick();
-  click('.tabs [data-tab="inbox"]');
+  click('.nav-item[data-tab="inbox"]');
   expect(search.value).toBe('');
   expect(rows()).toHaveLength(2);
 });
@@ -2001,7 +2001,7 @@ test('pending Text send leaves Inbox search and focus alone', async () => {
       return api.fetcher(url);
     }),
   );
-  click('.tabs [data-tab="text"]');
+  click('.nav-item[data-tab="text"]');
   await tick();
   const draft = document.querySelector<HTMLTextAreaElement>('#text-draft')!;
   draft.value = 'hello';
@@ -2009,7 +2009,7 @@ test('pending Text send leaves Inbox search and focus alone', async () => {
   document
     .querySelector('#text-form')!
     .dispatchEvent(new Event('submit', { cancelable: true }));
-  click('.tabs [data-tab="inbox"]');
+  click('.nav-item[data-tab="inbox"]');
   const search = document.querySelector<HTMLInputElement>('#search')!;
   search.focus();
   search.value = 'archive';
@@ -2036,7 +2036,7 @@ test('Inbox shows waiting text count without fetching text bodies', async () => 
     ),
   );
   await mount(fetcher);
-  expect(document.querySelector('#tab-texts')?.textContent).toBe('3');
+  expect(document.querySelector('#nav-texts')?.textContent).toBe('3');
   expect(fetcher.mock.calls.map((x) => String(x[0]))).toEqual([
     '/api/session',
     '/api/files',
@@ -2060,8 +2060,7 @@ test('Text preference survives a login round trip without the URL hash', async (
   );
 });
 
-test('shelf tabs support Arrow, Home and End keyboard navigation', async () => {
-  vi.stubGlobal('innerWidth', 1440);
+test('shelf navigation exists only in the sidebar and phone menu, with Text koi canvas', async () => {
   const api = service();
   await mount(
     vi.fn(async (url: RequestInfo | URL) =>
@@ -2070,20 +2069,25 @@ test('shelf tabs support Arrow, Home and End keyboard navigation', async () => {
         : api.fetcher(url),
     ),
   );
-  const inbox = document.querySelector<HTMLElement>(
-    '.tabs [data-tab="inbox"]',
-  )!;
-  inbox.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
-  );
+  expect(
+    document.querySelector(
+      '.center .tabs, .center [data-tab="text"], .center [data-tab="inbox"]',
+    ),
+  ).toBeNull();
+  click('.nav-item[data-tab="text"]');
   await tick();
-  expect(document.activeElement?.getAttribute('data-tab')).toBe('text');
-  document.activeElement!.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'Home', bubbles: true }),
+  expect(document.querySelector('#text-pond')).not.toBeNull();
+  expect(
+    document
+      .querySelector('.nav-item[data-tab="text"]')
+      ?.getAttribute('aria-current'),
+  ).toBe('page');
+  vi.stubGlobal('innerWidth', 390);
+  click('#menu-btn');
+  click('#sheet-slot .nav-item[data-tab="transfers"]');
+  expect(document.querySelector<HTMLElement>('#sheet')!.hidden).toBe(true);
+  expect(document.querySelector<HTMLElement>('#shelf-app')!.dataset.tab).toBe(
+    'transfers',
   );
-  expect(document.activeElement?.getAttribute('data-tab')).toBe('inbox');
-  document.activeElement!.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'End', bubbles: true }),
-  );
-  expect(document.activeElement?.getAttribute('data-tab')).toBe('text');
+  expect(document.activeElement?.id).toBe('page-title');
 });

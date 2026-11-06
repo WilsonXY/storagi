@@ -279,9 +279,7 @@ test('coarse-pointer send does not focus the composer and retains Send accessibl
   click('#text-send');
   await tick();
   expect(document.activeElement).not.toBe(draft());
-  expect(document.querySelector('#text-send span')?.textContent).toBe(
-    'Send text',
-  );
+  expect(document.querySelector('#text-send span')?.textContent).toBe('Send');
   type('keep on full shelf');
   request.mockRejectedValueOnce(
     Object.assign(new Error('Your text shelf is full (100 items).'), {
@@ -339,17 +337,25 @@ test('late clipboard denial does not focus a fallback after leaving Text', async
   expect(document.querySelector('.text-copy-fallback')).toBeNull();
 });
 
-test('pickup precedes composition in DOM order, New text jumps to the draft and actions have card context', async () => {
+test('compact composition precedes pickup, byte count appears near the limit and actions retain context', async () => {
   const { shelf } = mount();
   shelf.activate(true);
   await tick();
-  const items = document.querySelector('#text-items')!;
-  const form = document.querySelector('#text-form')!;
+  const items = document.querySelector('#text-items')!,
+    form = document.querySelector('#text-form')!;
   expect(
-    items.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING,
+    form.compareDocumentPosition(items) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).not.toBe(0);
-  click('#text-new');
-  expect(document.activeElement).toBe(draft());
+  expect(
+    document.querySelector(
+      '.text-intro,.text-list-heading,.text-shortcut,#text-new',
+    ),
+  ).toBeNull();
+  expect(document.querySelector<HTMLElement>('#text-count')!.hidden).toBe(true);
+  type('x'.repeat(60 * 1024));
+  expect(document.querySelector<HTMLElement>('#text-count')!.hidden).toBe(
+    false,
+  );
   const pre = items.querySelector('pre')!;
   expect(pre.hasAttribute('aria-label')).toBe(false);
   const copy = items.querySelector('[data-text-copy]')!;

@@ -60,6 +60,7 @@ export function createTextShelf(
     send.disabled = sending || !draft.value.trim() || size > LIMIT;
     draft.setAttribute('aria-invalid', String(size > LIMIT));
     $('#text-count').classList.toggle('text-over-limit', size > LIMIT);
+    $('#text-count').hidden = size < LIMIT * 0.875;
   }
   function render() {
     if (!alive) return;
@@ -69,14 +70,13 @@ export function createTextShelf(
     const visible = items.filter((x) =>
       x.text.toLocaleLowerCase().includes(query),
     );
-    for (const id of ['nav-texts', 'tab-texts'])
-      $(`#${id}`).textContent = String(items.length);
+    $('#nav-texts').textContent = String(items.length);
     $('#text-empty').hidden = !!visible.length;
     $('#text-empty').textContent = !loaded
       ? 'Loading your text shelf…'
       : query && !visible.length
         ? 'No text matches your search.'
-        : 'Nothing to pick up yet. Send your first link or note below.';
+        : 'Text you send appears here on your other devices.';
     const container = $('#text-items');
     // Keep existing nodes during polling: selecting text, scrolling and keyboard focus stay put.
     for (const el of container.querySelectorAll<HTMLElement>('article'))
@@ -102,9 +102,31 @@ export function createTextShelf(
           hour: 'numeric',
           minute: '2-digit',
         });
-        card.innerHTML = `<div class="text-card-meta mono" id="text-meta-${esc(item.id)}"><span>${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}</span><time datetime="${esc(item.expiresAt)}">Expires ${esc(expiry)}</time></div><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><button type="button" class="btn btn-sm text-copy" data-text-copy aria-describedby="text-meta-${esc(item.id)}">Copy text</button>${url ? `<a class="btn btn-sm text-open" data-text-open aria-describedby="text-meta-${esc(item.id)}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open link <span aria-hidden="true">↗</span></a>` : ''}<button type="button" class="btn btn-ghost btn-sm text-remove" data-text-delete aria-describedby="text-meta-${esc(item.id)}">Delete</button><span class="text-delete-confirm" role="group" aria-label="Delete this text?" hidden>Delete this text? <button type="button" class="btn btn-sm" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="btn btn-sm" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete now</button></span></div>`;
-        card.querySelector('pre')!.textContent = item.text;
+        card.innerHTML = `<span class="sr-only" id="text-meta-${esc(item.id)}">${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}. Expires ${esc(expiry)}</span><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><button type="button" class="btn btn-sm text-copy" data-text-copy aria-describedby="text-meta-${esc(item.id)}">Copy</button><time class="text-expiry mono" datetime="${esc(item.expiresAt)}" title="Automatically deleted ${esc(expiry)}"></time><button type="button" class="icon-btn text-remove" data-text-delete aria-label="Delete text" title="Delete text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg></button><span class="text-delete-confirm" role="group" aria-label="Delete this text?" hidden><button type="button" class="btn btn-sm" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="btn btn-sm text-delete-now" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete</button></span></div>`;
+        const content = card.querySelector('pre')!;
+        if (url) {
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.dataset.textOpen = '';
+          link.setAttribute('aria-describedby', `text-meta-${item.id}`);
+          link.textContent = item.text;
+          link.insertAdjacentHTML(
+            'beforeend',
+            '<svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h7v7M13 3 4 12" /></svg>',
+          );
+          content.append(link);
+        } else content.textContent = item.text;
       }
+      const minutes = Math.max(
+        1,
+        Math.ceil((Date.parse(item.expiresAt) - now) / 60000),
+      );
+      const remaining =
+        minutes >= 60 ? `${Math.ceil(minutes / 60)}h left` : `${minutes}m left`;
+      const time = card.querySelector('time')!;
+      if (time.textContent !== remaining) time.textContent = remaining;
       if (container.children[index] !== card)
         container.insertBefore(card, container.children[index] ?? null);
     });
@@ -155,9 +177,6 @@ export function createTextShelf(
     if ($('#text-sync').textContent !== message)
       $('#text-sync').textContent = message;
   }
-  listen($('#text-new'), 'click', () => {
-    if (active) draft.focus();
-  });
   listen(draft, 'input', updateDraft);
   listen($('#text-form'), 'submit', async (event: SubmitEvent) => {
     event.preventDefault();
@@ -194,7 +213,7 @@ export function createTextShelf(
     } finally {
       if (alive) {
         sending = false;
-        $('#text-send-label').textContent = 'Send text';
+        $('#text-send-label').textContent = 'Send';
         updateDraft();
       }
     }
@@ -275,8 +294,7 @@ export function createTextShelf(
         toast('Text deleted.');
         if (active)
           (
-            root.querySelector<HTMLElement>('[data-text-copy]') ??
-            $('#tab-texts').closest('button')!
+            root.querySelector<HTMLElement>('[data-text-copy]') ?? draft
           ).focus();
       } catch (e) {
         error((e as Error).message);
@@ -304,8 +322,7 @@ export function createTextShelf(
   return {
     setCount(count?: number) {
       if (!alive || active || count === undefined) return;
-      for (const id of ['nav-texts', 'tab-texts'])
-        $(`#${id}`).textContent = String(count);
+      $('#nav-texts').textContent = String(count);
     },
     activate(on: boolean) {
       active = on;

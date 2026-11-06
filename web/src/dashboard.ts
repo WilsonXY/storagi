@@ -250,14 +250,38 @@ export async function createDashboard(
     canSplash: (e) =>
       !(e.target as Element).closest('#composer, button, a, input'),
   });
+  const textPond = pond('#text-pond', {
+    count: innerWidth < 640 ? 2 : 3,
+    size: innerWidth < 640 ? [120, 170] : [150, 230],
+    font: 11,
+    opacity: 0.9,
+    speed: 0.8,
+    flee: 130,
+    avoid: () => [relative($('#text-form'), $('#text-pond'), 0.7)],
+    pointerTarget: $('#text-pond-zone'),
+    splashTarget: $('#text-pond-zone'),
+    canSplash: (e) => !(e.target as Element).closest('form,button,a,textarea'),
+  });
   const stillPond = () => {
-    if (mainPond) {
-      mainPond.still = offline || reduced();
-      if (mainPond.still) mainPond.paintStill();
-      else mainPond.start();
+    for (const [p, visible] of [
+      [
+        mainPond,
+        app.dataset.view !== 'settings' &&
+          (app.dataset.tab === 'inbox' ||
+            (innerWidth >= 1180 && app.dataset.tab === 'transfers')),
+      ],
+      [textPond, app.dataset.view !== 'settings' && app.dataset.tab === 'text'],
+    ] as const) {
+      if (!p) continue;
+      p.still = offline || reduced() || !visible;
+      if (p.still) {
+        p.stop();
+        if (visible) p.paintStill();
+      } else p.start();
     }
   };
   cleanups.push(onMotionChange(stillPond));
+  listen(window, 'resize', stillPond);
   const auto = new AutoRefresh(async () => {
     const result: Shelf = await (
       await request('/api/files')
@@ -452,8 +476,7 @@ export async function createDashboard(
     $('#no-match').hidden = !all.length || !!files.length;
     $('#no-match').textContent =
       `No filenames match “${$<HTMLInputElement>('#search').value}”. Press Esc to clear the search.`;
-    for (const id of ['nav-files', 'tab-files'])
-      $(`#${id}`).textContent = String(all.length);
+    $('#nav-files').textContent = String(all.length);
     if (!all.length && !offline && !emptyMark) {
       mark('#koi-mark');
       emptyMark = true;
@@ -1100,7 +1123,8 @@ export async function createDashboard(
         !settings &&
         (app.dataset.tab === 'text'
           ? item.dataset.tab === 'text'
-          : item.dataset.tab === 'inbox');
+          : item.dataset.tab === 'inbox' &&
+            (innerWidth >= 1180 || app.dataset.tab !== 'transfers'));
       item.classList.toggle('is-active', selected);
       if (selected) item.setAttribute('aria-current', 'page');
       else item.removeAttribute('aria-current');
@@ -1113,6 +1137,7 @@ export async function createDashboard(
           ? 'Transfers'
           : 'Inbox';
     panel(!app.classList.contains('panel-closed'));
+    stillPond();
     if (settings && !settingsPond)
       settingsPond = pond('#set-pond', {
         count: 3,
@@ -1127,9 +1152,15 @@ export async function createDashboard(
   function panel(open = app.classList.contains('panel-closed')) {
     app.classList.toggle('panel-closed', !open);
     const visible =
-      open && app.dataset.tab !== 'text' && app.dataset.view !== 'settings';
+      app.dataset.view !== 'settings' &&
+      (innerWidth >= 1180
+        ? open && app.dataset.tab !== 'text'
+        : app.dataset.tab === 'transfers');
     $('#nav-transfers').classList.toggle('is-active', visible);
     $('#nav-transfers').setAttribute('aria-expanded', String(visible));
+    if (visible && innerWidth < 1180)
+      $('#nav-transfers').setAttribute('aria-current', 'page');
+    else $('#nav-transfers').removeAttribute('aria-current');
   }
   function tab(name: string) {
     const changed = app.dataset.tab !== name;
@@ -1152,30 +1183,8 @@ export async function createDashboard(
     if (name === 'text') texts.search(search.value);
     else renderInbox();
     view('shelf');
-    for (const b of root.querySelectorAll<HTMLElement>('.tabs [data-tab]')) {
-      b.setAttribute('aria-selected', String(b.dataset.tab === name));
-      b.tabIndex = b.dataset.tab === name ? 0 : -1;
-    }
     renderFresh();
   }
-  listen($('.tabs'), 'keydown', (event: KeyboardEvent) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    const tabs = [
-      ...root.querySelectorAll<HTMLElement>('.tabs [data-tab]'),
-    ].filter((b) => innerWidth < 1180 || b.dataset.tab !== 'transfers');
-    const current = tabs.indexOf(event.target as HTMLElement);
-    if (current < 0) return;
-    event.preventDefault();
-    const next =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? tabs.length - 1
-          : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) %
-            tabs.length;
-    tab(tabs[next].dataset.tab!);
-    tabs[next].focus();
-  });
   function openTransfers() {
     if (innerWidth >= 1180) {
       if (app.dataset.tab === 'text') tab('inbox');
@@ -1205,6 +1214,7 @@ export async function createDashboard(
     );
     if (!b) return;
     e.preventDefault();
+    const fromSheet = !$('#sheet').hidden;
     closeSheet();
     if (b.dataset.view) view(b.dataset.view);
     else if (b.dataset.tab === 'transfers' && innerWidth >= 1180) {
@@ -1219,6 +1229,7 @@ export async function createDashboard(
       if (b.classList.contains('brand'))
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    if (fromSheet) $('#page-title').focus();
   });
   function switches() {
     $('#koi-switch').setAttribute(

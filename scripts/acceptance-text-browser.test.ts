@@ -98,6 +98,26 @@ test('text moves between two browser devices using the actual authenticated serv
         },
       ]);
     }
+    const navigate = async (page: any, name: string) => {
+      const nav = page.locator(
+        name === 'settings'
+          ? '.nav-item[data-view="settings"]'
+          : `.nav-item[data-tab="${name}"]`,
+      );
+      if (!(await nav.isVisible())) await page.locator('#menu-btn').click();
+      await nav.click();
+      await page
+        .locator(
+          name === 'settings'
+            ? '#settings'
+            : name === 'text'
+              ? '#text-shelf'
+              : name === 'transfers'
+                ? '#details'
+                : '#inbox',
+        )
+        .waitFor({ state: 'visible' });
+    };
     const sender = await desktop.newPage();
     const receiver = await phone.newPage();
     for (const page of [sender, receiver]) {
@@ -106,6 +126,43 @@ test('text moves between two browser devices using the actual authenticated serv
       await page.goto(origin + '/#text');
       await page.locator('#text-shelf').waitFor({ state: 'visible' });
     }
+    // Owner's refinement: one navigation location and a quiet, recognisable koi surface.
+    for (const page of [sender, receiver]) {
+      assert.equal(
+        await page.locator('.center .tabs, .text-intro').count(),
+        0,
+        'no repeated shelf navigation or hero',
+      );
+      assert.equal(
+        await page.locator('#text-shelf h2, #text-shelf h3').count(),
+        0,
+        'no redundant Text headings',
+      );
+      await page.locator('#text-pond').waitFor({ state: 'visible' });
+      await page.waitForFunction(
+        "(() => {const c=document.querySelector('#text-pond');if(!c?.width||!c?.height)return false;return c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0)})()",
+      );
+    }
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-empty-1440.png'),
+      fullPage: true,
+    });
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-empty-390.png'),
+      fullPage: true,
+    });
+    await receiver.locator('#text-draft').fill('Keyboard probe');
+    await receiver.locator('#text-draft').focus();
+    await receiver.keyboard.press('Tab');
+    assert.equal(
+      await receiver.evaluate(() => document.activeElement?.id),
+      'text-send',
+      'composer keyboard order follows visible order',
+    );
+    await receiver.locator('#text-draft').fill('');
+    await receiver.evaluate(() =>
+      (document.activeElement as HTMLElement)?.blur(),
+    );
     const link = 'https://example.com/read/chapter-42/';
     await sender.locator('#text-draft').fill(link);
     await sender.locator('#text-send').click();
@@ -124,29 +181,10 @@ test('text moves between two browser devices using the actual authenticated serv
       pickup && pickup.y >= 0 && pickup.y + pickup.height <= 844,
       'phone pickup action is visible without scrolling',
     );
-    await receiver.locator('.tabs [data-tab="text"]').focus();
-    await receiver.keyboard.press('Tab');
-    assert.equal(
-      await receiver.evaluate(() => document.activeElement?.id),
-      'text-new',
-    );
-    await receiver.keyboard.press('Tab');
-    assert.equal(
-      await receiver.evaluate(() => document.activeElement?.tagName),
-      'PRE',
-    );
-    await receiver.keyboard.press('Tab');
-    assert.ok(
-      await receiver
-        .locator('[data-text-copy]')
-        .evaluate((el: HTMLElement) => el === document.activeElement),
-      'keyboard reaches visible pickup before composer',
-    );
-    await receiver.locator('#text-new').click();
-    assert.equal(
-      await receiver.evaluate(() => document.activeElement?.id),
-      'text-draft',
-    );
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-phone-390.png'),
+      fullPage: true,
+    });
     // Open in a new tab; intercept only the external navigation, never contact that site.
     await phone.route('https://example.com/**', (route: any) =>
       route.fulfill({
@@ -176,10 +214,15 @@ test('text moves between two browser devices using the actual authenticated serv
       link,
     );
     await sender.locator('#notice').waitFor({ state: 'detached' });
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-clipboard-fallback-390.png'),
+      fullPage: true,
+    });
     for (const [width, height] of [
       [390, 844],
       [728, 900],
       [1440, 1000],
+      [1920, 1080],
     ]) {
       await sender.setViewportSize({ width, height });
       assert.ok(
@@ -188,12 +231,29 @@ test('text moves between two browser devices using the actual authenticated serv
         ),
         `no overflow at ${width}`,
       );
-      await sender.locator('.tabs [data-tab="text"]').scrollIntoViewIfNeeded();
+      await sender.evaluate(() => window.scrollTo(0, 0));
       await sender.screenshot({
         path: path.join(artifacts, `text-${width}.png`),
         fullPage: true,
       });
     }
+    // Sidebar navigation stays available at the old sidebar/transfer-panel breakpoint.
+    await sender.setViewportSize({ width: 1000, height: 900 });
+    await navigate(sender, 'transfers');
+    assert.equal(
+      await sender.locator('.nav-item[data-tab="transfers"]').isVisible(),
+      true,
+    );
+    await navigate(sender, 'text');
+    await receiver.locator('#menu-btn').click();
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-menu-390.png'),
+      fullPage: true,
+    });
+    await receiver.locator('.nav-item[data-tab="inbox"]').click();
+    await receiver.locator('#inbox').waitFor({ state: 'visible' });
+    await navigate(receiver, 'text');
+    await sender.setViewportSize({ width: 1440, height: 1000 });
     const exact = '  A note from the phone\nsecond line 🐟  ';
     await receiver.locator('#text-draft').fill(exact);
     await receiver.locator('#text-send').click();
@@ -209,6 +269,12 @@ test('text moves between two browser devices using the actual authenticated serv
       .getByRole('searchbox', { name: 'Search text' })
       .fill('second line');
     assert.equal(await sender.locator('#text-items article').count(), 1);
+    await sender.getByRole('searchbox').fill('nothing-matches-this-query');
+    assert.equal(await sender.locator('#text-items article').count(), 0);
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-no-match-1440.png'),
+      fullPage: true,
+    });
     await sender.getByRole('searchbox').fill('');
     await sender.locator('[data-text-delete]').first().click();
     await sender.locator('[data-text-cancel]').first().click();
@@ -233,9 +299,13 @@ test('text moves between two browser devices using the actual authenticated serv
       await sender.locator('#text-draft').inputValue(),
       'keep this draft',
     );
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-error-1440.png'),
+      fullPage: true,
+    });
     await sender.unroute('**/api/texts');
     // The existing file shelf still uploads and lists files.
-    await sender.locator('.tabs [data-tab="inbox"]').click();
+    await navigate(sender, 'inbox');
     await sender.locator('#picker').setInputFiles({
       name: 'handoff-proof.txt',
       mimeType: 'text/plain',
@@ -245,7 +315,7 @@ test('text moves between two browser devices using the actual authenticated serv
       .locator('#groups .row')
       .filter({ hasText: 'handoff-proof' })
       .waitFor();
-    await sender.locator('.tabs [data-tab="text"]').click();
+    await navigate(sender, 'text');
     now += 86400001;
     await app.cleanup();
     await sender.locator('#refresh').click();
@@ -263,7 +333,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'safe external link opens',
             'exact clipboard copy',
             'denied clipboard native selection',
-            '390/728/1440 no overflow',
+            '390/728/1440/1920 no overflow',
             'phone to desktop exact multiline Unicode',
             'search',
             'delete cancel/confirm and cross-device disappearance',
@@ -272,6 +342,10 @@ test('text moves between two browser devices using the actual authenticated serv
             'expiry cleanup',
             'unauthenticated denial',
             'zero browser errors',
+            'sidebar/menu-only navigation including 1000px Transfers',
+            'real koi canvas on desktop and phone',
+            'quiet hierarchy without central tabs or repeated headings',
+            'composer keyboard order',
           ],
         },
         null,

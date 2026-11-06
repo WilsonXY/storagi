@@ -119,7 +119,7 @@
       <div class="crumb">
         <span class="muted">Shelf</span
         ><span class="faint" aria-hidden="true">/</span>
-        <h1 id="page-title">Inbox</h1>
+        <h1 id="page-title" tabindex="-1">Inbox</h1>
       </div>
       <label class="search"
         ><svg class="i" viewBox="0 0 16 16">
@@ -201,32 +201,6 @@
           </div>
         </div>
 
-        <div class="tabs" role="tablist" aria-label="Views">
-          <button
-            type="button"
-            role="tab"
-            aria-selected="true"
-            data-tab="inbox"
-          >
-            Inbox <b class="mono" id="tab-files">0</b>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected="false"
-            data-tab="text"
-          >
-            Text <b class="mono" id="tab-texts">—</b>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected="false"
-            data-tab="transfers"
-          >
-            Transfers <b class="mono" id="tab-open">0</b>
-          </button>
-        </div>
         <button
           type="button"
           class="pulse-line"
@@ -241,54 +215,42 @@
           aria-label="Text shelf"
           hidden
         >
-          <div class="text-intro">
-            <p class="text-eyebrow mono">A little handoff</p>
-            <h2>Copy here. Pick up there.</h2>
-            <p class="muted">
-              Links, notes, whatever you need on your other device.
-            </p>
+          <div class="text-pond-zone" id="text-pond-zone">
+            <canvas class="pond" id="text-pond" aria-hidden="true"></canvas>
+            <form id="text-form" class="text-composer">
+              <textarea
+                id="text-draft"
+                rows="2"
+                placeholder="Paste text or a link…"
+                aria-label="Text to send"
+                aria-describedby="text-hint text-count"
+                spellcheck="false"
+              ></textarea>
+              <div class="text-compose-foot">
+                <p id="text-hint" class="muted">Kept 24 hours</p>
+                <span id="text-count" class="mono muted" hidden></span>
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  id="text-send"
+                  aria-label="Send text"
+                  title="Send text (Ctrl / ⌘ + Enter)"
+                  disabled
+                >
+                  <span id="text-send-label">Send</span
+                  ><svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M3 8h10M9 4l4 4-4 4" />
+                  </svg>
+                </button>
+              </div>
+            </form>
           </div>
-          <div class="text-list-heading">
-            <h3>On your text shelf</h3>
-            <button type="button" class="btn btn-sm" id="text-new">
-              New text
-            </button>
-            <span class="muted" id="text-sync" role="status"
-              >Refreshes every 5s while open</span
-            >
-          </div>
+          <span id="text-sync" class="sr-only" role="status">Loading text</span>
+          <div id="text-error" class="text-error" role="alert" hidden></div>
           <p class="text-empty muted" id="text-empty">
-            Nothing to pick up yet. Send your first link or note below.
+            Text you send appears here on your other devices.
           </p>
           <div id="text-items"></div>
-          <form id="text-form" class="text-composer">
-            <label for="text-draft">Send text to your shelf</label>
-            <textarea
-              id="text-draft"
-              rows="4"
-              placeholder="Paste a link or write something…"
-              aria-describedby="text-hint text-count"
-              spellcheck="false"
-            ></textarea>
-            <div class="text-compose-foot">
-              <p id="text-hint" class="muted">Only you. Gone after 24 hours.</p>
-              <span id="text-count" class="mono muted">0 / 64 KiB</span>
-              <button
-                type="submit"
-                class="btn btn-primary"
-                id="text-send"
-                disabled
-              >
-                <span id="text-send-label">Send text</span>
-                <span aria-hidden="true">↗</span>
-              </button>
-            </div>
-            <p class="text-shortcut muted">
-              Ctrl / ⌘ + Enter to send. Open Storagi → Text on your other
-              device.
-            </p>
-          </form>
-          <div id="text-error" class="text-error" role="alert" hidden></div>
         </section>
 
         <section class="inbox" id="inbox" aria-label="Inbox">
