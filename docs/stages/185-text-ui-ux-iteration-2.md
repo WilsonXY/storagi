@@ -1,6 +1,6 @@
 # 185: Text UI/UX second refinement iteration
 
-- Status: in progress
+- Status: completed
 - Started / last updated: 2026-11-07 Asia/Kuala_Lumpur
 - Coordinator thread: e234a6d1-ef1f-41df-a303-c5d2ad3e4e8c
 - Agent/task: coordinator fixes to the concrete UI/UX review findings; no extra implementation delegate
@@ -45,3 +45,5 @@ Tracing deletion recovery found that deleting the final item focused the empty c
 - Fresh screenshots now include actual loading, copied feedback, clean/focused and near/over-limit input, long multiline cards, confirmation and recovery. First-phone-viewport pickup and a bounded pond with at least 100px open water beyond pickup passed.
 - Refreshed only the authorized isolated Tailscale preview build. Production services, data, credentials and mappings were untouched.
 - Ready for the next committed UI/UX-only review round. Neither the previous Sol 9 nor any backend score is reused as acceptance for this changed UI.
+
+Dedicated final UI/UX-only reviews: [Opus](186-text-ui-ux-opus-2.md) **9.0/10** and [Sol](187-text-ui-ux-sol-2.md) **9.1/10**, both high verified from own session evidence. The owner's joint UI/UX target is met on `7b6c617`; remote PR/CI is the final handoff.

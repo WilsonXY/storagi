@@ -1,6 +1,6 @@
 # 181: Text UI/UX refinement after owner preview
 
-- Status: in progress
+- Status: completed
 - Started / last updated: 2026-11-07 Asia/Kuala_Lumpur
 - Coordinator thread: e234a6d1-ef1f-41df-a303-c5d2ad3e4e8c
 - Agent/task: coordinator; native delegated UI implementation, then distinct Opus and Sol review tasks
@@ -50,3 +50,5 @@ The owner also pointed out that Text lacked Storagi's fish theme. The refinement
 - Current local screenshots in ignored `artifacts/text-handoff/` include clean empty/received states, phone menu, clipboard denial, no-match search and failed-send recovery. Coordinator directly inspected phone/desktop screenshots. Real canvas and visible fish were reviewed, not just pixel existence.
 - Only this private preview's copied web build was refreshed at the owner's already-authorized Tailscale preview. Its isolated data, actual backend, test identity and all network mappings were preserved; production is untouched.
 - Next: dedicated UI/UX-only Opus and Sol high reviews of the committed iteration. Overall backend/feature scores are explicitly excluded from the 9/10 UI/UX acceptance.
+
+Dedicated final UI/UX-only reviews: [Opus](186-text-ui-ux-opus-2.md) **9.0/10** and [Sol](187-text-ui-ux-sol-2.md) **9.1/10**, both high verified from own session evidence. The owner's joint UI/UX target is met on `7b6c617`; remote PR/CI is the final handoff.
