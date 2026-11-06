@@ -97,6 +97,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
         document.body.prepend(banner);
       }),
     );
+    app.storage.saveRetention(60);
     for (const [i, age] of [0, 7 * DAY - 1, 8 * DAY, 15 * DAY].entries()) {
       const file = randomUUID();
       app.storage.reserve(file, `synthetic-copy-${i}.txt`, 0);
@@ -105,6 +106,11 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     }
     const before = app.storage.rows();
     const page = await context.newPage();
+    const navigate = async (selector: string) => {
+      if (await page.locator('#menu-btn').isVisible())
+        await page.locator('#menu-btn').click();
+      await page.locator(selector).click();
+    };
     const chooseDays = async (days: number) => {
       await page.locator('#retention-days').click();
       await page
@@ -123,7 +129,81 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page
       .locator('#retention-days:not([disabled])')
       .waitFor({ state: 'attached' });
-    await page.locator('#nav-settings').click();
+    for (const [width, height] of [
+      [1440, 1000],
+      [728, 900],
+      [390, 844],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await navigate('.nav-item[data-tab="inbox"]');
+      const inboxRight = await page
+        .locator('#fresh')
+        .evaluate((el) => el.getBoundingClientRect().right);
+      await navigate('#nav-settings');
+      const settingsEdge = await page.locator('#fresh').evaluate((el) => {
+        const header = el.closest('header')!;
+        return {
+          right: el.getBoundingClientRect().right,
+          expected:
+            header.getBoundingClientRect().right -
+            parseFloat(getComputedStyle(header).paddingRight),
+        };
+      });
+      assert.ok(
+        Math.abs(settingsEdge.right - inboxRight) < 1,
+        `Settings status matches Inbox at ${width}px`,
+      );
+      assert.ok(
+        Math.abs(settingsEdge.right - settingsEdge.expected) < 1,
+        `Settings status respects the right header padding at ${width}px`,
+      );
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    assert.equal(
+      await page.locator('#retention-days').getAttribute('value'),
+      '60',
+    );
+    assert.equal(await page.locator('#retention-save').isDisabled(), true);
+    assert.ok(
+      await page
+        .locator('#retention-save')
+        .evaluate((el) => Number(getComputedStyle(el).opacity) < 1),
+    );
+    await chooseDays(7);
+    assert.equal(await page.locator('#retention-save').isDisabled(), false);
+    await chooseDays(60);
+    assert.equal(await page.locator('#retention-save').isDisabled(), true);
+    await chooseDays(7);
+    await navigate('.nav-item[data-tab="inbox"]');
+    await navigate('#nav-settings');
+    assert.equal(
+      await page.locator('#retention-days').getAttribute('value'),
+      '60',
+    );
+    assert.equal(await page.locator('#retention-save').isDisabled(), true);
+    const triggerBounds = await page.locator('#retention-days').boundingBox();
+    await page.mouse.move(
+      triggerBounds!.x + triggerBounds!.width / 2,
+      triggerBounds!.y + triggerBounds!.height / 2,
+    );
+    await page.mouse.down();
+    assert.equal(
+      await page
+        .locator('#retention-days')
+        .evaluate((el) => getComputedStyle(el).transform),
+      'none',
+      'pressing the duration trigger has no scale motion',
+    );
+    await page.mouse.up();
+    assert.deepEqual(
+      await page.locator('#retention-options').evaluate((el) => ({
+        name: getComputedStyle(el).animationName,
+        active: el.getAnimations().length,
+      })),
+      { name: 'none', active: 0 },
+      'the real duration menu has no opening animation',
+    );
+    await page.keyboard.press('Escape');
     await page.screenshot({
       path: path.join(artifacts, 'settings-desktop.png'),
       fullPage: true,
@@ -145,7 +225,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       await page.evaluate(
         () => (document.activeElement as HTMLButtonElement)?.value,
       ),
-      '30',
+      '60',
     );
     await page.keyboard.press('End');
     await page.keyboard.press('Space');
@@ -161,16 +241,16 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       '1',
     );
     assert.equal(saves.length, 0, 'choosing a duration never submits the form');
-    await chooseDays(30);
+    await chooseDays(60);
     await page.locator('#retention-days').click();
     await page
-      .locator('#retention-options [value="30"]')
+      .locator('#retention-options [value="60"]')
       .evaluate((el) => (el as HTMLElement).blur());
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#retention-options').isVisible(), false);
     await page.locator('#retention-days').click();
     await page
-      .locator('#retention-options [value="30"]')
+      .locator('#retention-options [value="60"]')
       .evaluate((el) =>
         el.dispatchEvent(
           new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
@@ -182,7 +262,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       await page.locator('#retention-days').getAttribute('value'),
       '7',
     );
-    await chooseDays(30);
+    await chooseDays(60);
     await page.locator('#retention-days').click();
     for (const [width, height] of [
       [1440, 1000],
@@ -213,6 +293,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       await page.evaluate(() => document.activeElement?.id),
       'retention-days',
     );
+    await chooseDays(7);
     await page.keyboard.press('Space');
     await page.keyboard.press('Tab');
     assert.equal(
@@ -290,7 +371,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       'retention-cancel',
     );
     assert.deepEqual(app.storage.rows(), before);
-    assert.equal(app.storage.retentionDays(), 30);
+    assert.equal(app.storage.retentionDays(), 60);
     for (const [width, height] of [
       [1440, 1000],
       [728, 900],
@@ -343,7 +424,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       .filter({ hasText: '3 files' })
       .waitFor();
     assert.deepEqual(app.storage.rows(), before);
-    assert.equal(app.storage.retentionDays(), 30);
+    assert.equal(app.storage.retentionDays(), 60);
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
       'retention-cancel',
@@ -358,11 +439,17 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       .locator('#retention-status')
       .filter({ hasText: 'Saved' })
       .waitFor();
-    await page.locator('#retention-save:not([disabled])').waitFor();
+    await page
+      .locator('#retention-save[disabled][aria-busy="false"]')
+      .waitFor();
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
-      'retention-save',
+      'retention-days',
       'completed save restores keyboard focus',
+    );
+    assert.equal(
+      await page.locator('#retention-days').getAttribute('value'),
+      '7',
     );
     assert.equal(app.storage.retentionDays(), 7);
     assert.equal(
@@ -384,6 +471,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
         .querySelector('#retention-copy')
         ?.textContent?.includes('60 days'),
     );
+    assert.equal(await page.locator('#retention-save').isDisabled(), true);
     assert.equal(
       await page
         .locator('#retention-confirm')

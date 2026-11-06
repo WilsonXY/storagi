@@ -731,12 +731,19 @@ dialog.paste-confirm::backdrop {
   justify-content: space-between;
   background: var(--control);
   color: var(--text);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.retention-trigger:active {
+  transform: none;
 }
 .retention-trigger:hover,
 .retention-trigger[aria-expanded='true'] {
   background: var(--active);
 }
 .retention-options {
+  animation: none;
   top: calc(100% + 8px);
   bottom: auto;
   max-height: min(300px, 50dvh, var(--retention-room, 300px));
@@ -775,6 +782,12 @@ dialog.paste-confirm::backdrop {
 #retention-save {
   width: var(--control-height);
   padding: 0;
+}
+#retention-save:disabled {
+  cursor: default;
+}
+#retention-save:disabled:not([aria-busy='true']) {
+  opacity: 0.45;
 }
 #retention-confirm {
   padding: 20px;
@@ -861,6 +874,9 @@ dialog.paste-confirm::backdrop {
 }
 .app[data-view='settings'] .search {
   display: none;
+}
+.app[data-view='settings'] .fresh {
+  margin-left: auto;
 }
 .app[data-view='settings'] #nav-transfers.is-active {
   background: none;

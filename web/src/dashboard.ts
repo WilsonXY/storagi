@@ -262,7 +262,12 @@ export async function createDashboard(
     if (!active) return;
     const known = new Set(shelf.files.map((f) => f.id));
     const hadFiles = shelf.files.length > 0;
+    const retentionChanged =
+      shelf.retentionDays !== undefined &&
+      Number(retentionDays.value) !== shelf.retentionDays;
     shelf = result;
+    if (!retentionChanged)
+      retentionDays.value = String(shelf.retentionDays ?? 30);
     renderRetention();
     for (const id of sel.ids)
       if (!shelf.files.some((f) => f.id === id)) sel.ids.delete(id);
@@ -1055,6 +1060,14 @@ export async function createDashboard(
   function view(name: string) {
     hidePreview();
     if (name !== 'settings') closeRetentionMenu();
+    if (name === 'settings' && app.dataset.view !== 'settings') {
+      retentionDays.value = String(shelf.retentionDays ?? 30);
+      retentionProposal = undefined;
+      if (retentionDialog.open) retentionDialog.close();
+      $('#retention-status').textContent = '';
+      renderRetention();
+      void auto.now();
+    }
     app.dataset.view = name;
     const settings = name === 'settings';
     $('#settings').hidden = !settings;
@@ -1084,19 +1097,17 @@ export async function createDashboard(
   const retentionChoices = Array.from(
     retentionOptions.querySelectorAll<HTMLButtonElement>('button'),
   );
-  let retentionDirty = false,
-    retentionSaving = false;
+  let retentionSaving = false;
   let retentionProposal: { days: number; count: number } | undefined;
   function closeRetention() {
     retentionProposal = undefined;
     if (retentionDialog.open) retentionDialog.close();
-    retentionSave.focus();
+    (retentionSave.disabled ? retentionDays : retentionSave).focus();
   }
   function renderRetention() {
     const days = shelf.retentionDays ?? 30;
     $('#retention-copy').textContent =
       `Kept ${days} ${days === 1 ? 'day' : 'days'}. Originals stay on your devices.`;
-    if (!retentionDirty) retentionDays.value = String(days);
     $('#retention-value').textContent =
       `${retentionDays.value} ${retentionDays.value === '1' ? 'day' : 'days'}`;
     for (const option of retentionChoices) {
@@ -1107,8 +1118,11 @@ export async function createDashboard(
       option.disabled = retentionSaving;
     }
     if (retentionSaving) closeRetentionMenu();
-    retentionDays.disabled = retentionSaving;
-    retentionSave.disabled = retentionSaving;
+    retentionDays.disabled =
+      retentionSaving || shelf.retentionDays === undefined;
+    retentionSave.disabled =
+      retentionDays.disabled ||
+      Number(retentionDays.value) === shelf.retentionDays;
     retentionSave.setAttribute('aria-busy', String(retentionSaving));
     retentionSave.setAttribute(
       'aria-label',
@@ -1190,7 +1204,6 @@ export async function createDashboard(
         if (retentionDialog.open) closeRetention();
         retentionProposal = undefined;
         retentionDays.value = option.value;
-        retentionDirty = true;
         $('#retention-status').textContent = '';
         renderRetention();
       }
@@ -1204,7 +1217,12 @@ export async function createDashboard(
       closeRetentionMenu();
   });
   async function saveRetention(days: number, confirmDeletes = 0) {
-    if (retentionSaving || retentionDays.disabled) return;
+    if (
+      retentionSaving ||
+      retentionDays.disabled ||
+      (!confirmDeletes && days === shelf.retentionDays)
+    )
+      return;
     retentionSaving = true;
     renderRetention();
     $('#retention-status').textContent = '';
@@ -1217,7 +1235,7 @@ export async function createDashboard(
       ).json();
       if (!active) return;
       shelf.retentionDays = result.retentionDays;
-      retentionDirty = false;
+      retentionDays.value = String(result.retentionDays);
       $('#retention-status').textContent = 'Saved for all your devices.';
       await auto.now();
     } catch (error) {
@@ -1243,8 +1261,13 @@ export async function createDashboard(
       retentionSaving = false;
       if (active) {
         renderRetention();
-        if (!retentionDialog.open && document.activeElement === document.body)
-          retentionSave.focus();
+        if (
+          !retentionDialog.open &&
+          (document.activeElement === document.body ||
+            (document.activeElement === retentionSave &&
+              retentionSave.disabled))
+        )
+          (retentionSave.disabled ? retentionDays : retentionSave).focus();
       }
     }
   }

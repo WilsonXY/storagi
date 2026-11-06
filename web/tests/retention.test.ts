@@ -20,6 +20,7 @@ async function mount(
     retentionDays: number;
     confirmDeletes: number;
   }) => Response | Promise<Response>,
+  listing?: () => Promise<void>,
 ) {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true;
@@ -33,10 +34,15 @@ async function mount(
     if (url === '/api/session')
       return Response.json({ authenticated: true, csrfToken: 'test-csrf' });
     if (url === '/api/settings') {
-      if (save) return save(JSON.parse(String(init?.body)));
+      if (save) {
+        const response = await save(JSON.parse(String(init?.body)));
+        if (response.ok) days = (await response.clone().json()).retentionDays;
+        return response;
+      }
       days = JSON.parse(String(init?.body)).retentionDays;
       return Response.json({ retentionDays: days });
     }
+    await listing?.();
     return Response.json({
       files: [],
       usedBytes: 0,
@@ -49,7 +55,11 @@ async function mount(
   dispose = await createDashboard(document.querySelector('#app')!, {
     fetch: fetcher,
   });
-  return fetcher;
+  return Object.assign(fetcher, {
+    setSavedDays: (value: number) => {
+      days = value;
+    },
+  });
 }
 
 test('duration menu marks the shared choice and selecting only changes the draft', async () => {
@@ -74,6 +84,147 @@ test('duration menu marks the shared choice and selecting only changes the draft
   expect(
     fetcher.mock.calls.filter(([url]) => url === '/api/settings'),
   ).toHaveLength(0);
+});
+
+test('only a draft different from the saved duration enables saving, including direct submission', async () => {
+  const fetcher = await mount();
+  const save = document.querySelector<HTMLButtonElement>('#retention-save')!;
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('60');
+  expect(save.disabled).toBe(true);
+  document
+    .querySelector('#retention-form')!
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await tick();
+  expect(
+    fetcher.mock.calls.filter(([url]) => url === '/api/settings'),
+  ).toHaveLength(0);
+  select(7);
+  expect(save.disabled).toBe(false);
+  select(60);
+  expect(save.disabled).toBe(true);
+  select(90);
+  document.querySelector<HTMLButtonElement>('#retention-save')!.focus();
+  click('#retention-save');
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('90');
+  expect(save.disabled).toBe(true);
+  expect(document.activeElement?.id).toBe('retention-days');
+});
+
+test('refresh preserves a different draft and follows new saved policy once they match', async () => {
+  const fetcher = await mount();
+  click('#nav-settings');
+  const trigger = document.querySelector<HTMLButtonElement>('#retention-days')!;
+  const save = document.querySelector<HTMLButtonElement>('#retention-save')!;
+  select(7);
+  click('#refresh');
+  await tick();
+  expect(trigger.value).toBe('7');
+  expect(save.disabled).toBe(false);
+  fetcher.setSavedDays(7);
+  click('#refresh');
+  await tick();
+  expect(trigger.value).toBe('7');
+  expect(save.disabled).toBe(true);
+  fetcher.setSavedDays(14);
+  click('#refresh');
+  await tick();
+  expect(trigger.value).toBe('14');
+  expect(save.disabled).toBe(true);
+  select(90);
+  fetcher.setSavedDays(30);
+  click('#refresh');
+  await tick();
+  expect(trigger.value).toBe('90');
+  expect(save.disabled).toBe(false);
+  select(30);
+  expect(save.disabled).toBe(true);
+});
+
+test('reopening Settings discards the draft and refreshes the saved server duration', async () => {
+  const fetcher = await mount();
+  click('#nav-settings');
+  await tick();
+  const trigger = document.querySelector<HTMLButtonElement>('#retention-days')!;
+  const save = document.querySelector<HTMLButtonElement>('#retention-save')!;
+  select(7);
+  click('#nav-settings');
+  expect(trigger.value).toBe('7');
+  click('.nav-item[data-tab="inbox"]');
+  click('#nav-settings');
+  expect(trigger.value).toBe('60');
+  expect(save.disabled).toBe(true);
+  await tick();
+  click('.nav-item[data-tab="inbox"]');
+  fetcher.setSavedDays(14);
+  click('#nav-settings');
+  await tick();
+  expect(trigger.value).toBe('14');
+  expect(save.disabled).toBe(true);
+});
+
+test('before the first listing loads both controls and direct saving stay disabled', async () => {
+  let release!: () => void;
+  const pending = mount(
+    undefined,
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.disabled,
+  ).toBe(true);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(true);
+  document
+    .querySelector('#retention-form')!
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  release();
+  const fetcher = await pending;
+  expect(
+    fetcher.mock.calls.filter(([url]) => url === '/api/settings'),
+  ).toHaveLength(0);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('60');
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(true);
+});
+
+test('a draft chosen while the Settings entry refresh is pending survives its response', async () => {
+  let pause = false,
+    release!: () => void;
+  const fetcher = await mount(undefined, async () => {
+    if (pause)
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+  });
+  pause = true;
+  fetcher.setSavedDays(14);
+  click('#nav-settings');
+  await tick();
+  select(7);
+  release();
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('7');
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(false);
+  select(14);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(true);
 });
 
 test('menu navigation keeps the draft until choice and Escape returns focus without dashboard shortcuts', async () => {
@@ -133,6 +284,9 @@ test('outside pointer and focus dismiss the menu without discarding the draft', 
   expect(
     document.querySelector<HTMLButtonElement>('#retention-days')!.value,
   ).toBe('7');
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(false);
   click('#retention-days');
   document.querySelector<HTMLButtonElement>('#retention-save')!.focus();
   expect(menu.hidden).toBe(true);
@@ -314,6 +468,9 @@ test('failed saves preserve policy and allow retry; loading blocks duplicate sav
   expect(document.querySelector('#retention-status')?.textContent).toBe(
     'Synthetic save failure',
   );
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(false);
   expect(document.querySelector('#retention-copy')?.textContent).toContain(
     '60 days',
   );
@@ -340,6 +497,9 @@ test('conflict shows exact deletion count, Cancel and Escape never acknowledge; 
   const dialog =
     document.querySelector<HTMLDialogElement>('#retention-confirm')!;
   expect(dialog.open).toBe(true);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(false);
   expect(dialog.textContent).toContain('6 files will be permanently deleted');
   expect(document.querySelector('#retention-title')?.textContent).toBe(
     'Change to 7 days?',
@@ -402,4 +562,43 @@ test('a larger count requires a fresh click and confirming sends the displayed d
   expect(
     document.querySelector<HTMLDialogElement>('#retention-confirm')!.open,
   ).toBe(false);
+});
+
+test('confirmation still sends the displayed days and count if a refresh now matches its policy', async () => {
+  const acknowledgements: number[] = [];
+  const fetcher = await mount(({ confirmDeletes, retentionDays }) => {
+    acknowledgements.push(confirmDeletes);
+    return confirmDeletes
+      ? Response.json({ retentionDays })
+      : Response.json(
+          { error: 'Confirmation needed.', deleteCount: 6 },
+          { status: 409 },
+        );
+  });
+  click('#nav-settings');
+  await tick();
+  select(7);
+  click('#retention-save');
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(false);
+  fetcher.setSavedDays(7);
+  click('#refresh');
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(true);
+  expect(
+    document.querySelector<HTMLDialogElement>('#retention-confirm')!.open,
+  ).toBe(true);
+  click('#retention-apply');
+  await tick();
+  expect(acknowledgements).toEqual([0, 6]);
+  expect(fetcher).toHaveBeenCalledWith(
+    '/api/settings',
+    expect.objectContaining({
+      body: JSON.stringify({ retentionDays: 7, confirmDeletes: 6 }),
+    }),
+  );
 });
