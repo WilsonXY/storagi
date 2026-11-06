@@ -2065,6 +2065,9 @@ body.selecting .toast {
   text-decoration-color: var(--control);
   text-underline-offset: 4px;
 }
+.text-card pre a:focus-visible {
+  outline-offset: -3px;
+}
 .text-card pre a:hover {
   text-decoration-color: var(--koi-ink);
 }
@@ -2131,6 +2134,16 @@ body.selecting .toast {
     padding-top: 82px;
   }
 }
+@media (max-width: 600px), (pointer: coarse) {
+  #text-send,
+  .text-card-actions .btn,
+  .text-card-actions .icon-btn {
+    min-height: 44px;
+  }
+  .text-card-actions .icon-btn {
+    width: 44px;
+  }
+}
 @media (max-width: 600px) {
   .text-pond-zone {
     padding-bottom: 52px;
@@ -2142,14 +2155,6 @@ body.selecting .toast {
     font-size: 16px;
     min-height: 58px;
   }
-  #text-send,
-  .text-card-actions .btn,
-  .text-card-actions .icon-btn {
-    min-height: 44px;
-  }
-  .text-card-actions .icon-btn {
-    width: 44px;
-  }
   .text-card-actions .btn {
     padding: 0 12px;
   }
@@ -2159,7 +2164,7 @@ body.selecting .toast {
 }
 
 /* Text reuses the Inbox swipe affordance without file selection. */
-#text-items {
+#text-items:has(.swiping) {
   overflow: hidden;
 }
 .app.gestures .text-card {

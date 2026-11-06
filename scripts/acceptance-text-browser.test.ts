@@ -123,6 +123,59 @@ test('text moves between two browser devices using the actual authenticated serv
         'Promise.all(document.getAnimations().filter(a => a.effect && a.effect.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})))',
       );
     };
+    const proveFocus = async (page: any, selector: string, shot: string) => {
+      const control = page.locator(selector).first();
+      await control.scrollIntoViewIfNeeded();
+      await page.keyboard.press('Tab');
+      await control.focus();
+      const result = await control.evaluate((el: HTMLElement) => {
+        const style = getComputedStyle(el);
+        const gap = Math.max(
+          0,
+          parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset),
+        );
+        const clipped: string[] = [];
+        for (const rect of el.getClientRects()) {
+          for (
+            let parent = el.parentElement;
+            parent;
+            parent = parent.parentElement
+          ) {
+            const ps = getComputedStyle(parent),
+              box = parent.getBoundingClientRect();
+            const left = box.left + parent.clientLeft,
+              top = box.top + parent.clientTop;
+            if (
+              /hidden|clip|auto|scroll/.test(ps.overflowX) &&
+              (rect.left - gap < left - 0.5 ||
+                rect.right + gap > left + parent.clientWidth + 0.5)
+            )
+              clipped.push(parent.id || parent.tagName);
+            if (
+              /hidden|clip|auto|scroll/.test(ps.overflowY) &&
+              (rect.top - gap < top - 0.5 ||
+                rect.bottom + gap > top + parent.clientHeight + 0.5)
+            )
+              clipped.push(parent.id || parent.tagName);
+          }
+        }
+        return {
+          visible: el.matches(':focus-visible'),
+          outline: style.outlineStyle,
+          clipped,
+        };
+      });
+      assert.ok(
+        result.visible && result.outline !== 'none',
+        `${selector} has a visible keyboard focus cue`,
+      );
+      assert.deepEqual(
+        result.clipped,
+        [],
+        `${selector} focus outline is not clipped by an ancestor`,
+      );
+      await page.screenshot({ path: path.join(artifacts, shot) });
+    };
     const sender = await desktop.newPage();
     const receiver = await phone.newPage();
     let releaseLoading!: () => void;
@@ -270,6 +323,27 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-phone-390.png'),
       fullPage: true,
     });
+    await receiver.setViewportSize({ width: 728, height: 900 });
+    assert.equal(
+      await receiver.evaluate(() => matchMedia('(pointer: coarse)').matches),
+      true,
+    );
+    const tabletCopy = await receiver.locator('[data-text-copy]').boundingBox();
+    assert.ok(
+      tabletCopy && tabletCopy.width >= 44 && tabletCopy.height >= 44,
+      'coarse-pointer tablet Copy target is at least 44px',
+    );
+    const tabletTrash = await receiver
+      .locator('[data-text-delete]')
+      .boundingBox();
+    assert.ok(
+      tabletTrash && tabletTrash.width >= 44 && tabletTrash.height >= 44,
+      'coarse-pointer tablet Delete target is at least 44px',
+    );
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-touch-tablet-728.png'),
+    });
+    await receiver.setViewportSize({ width: 390, height: 844 });
     // Open in a new tab; intercept only the external navigation, never contact that site.
     await phone.route('https://example.com/**', (route: any) =>
       route.fulfill({
@@ -422,6 +496,17 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-long-390.png'),
       fullPage: true,
     });
+    await proveFocus(receiver, '#text-items pre', 'text-keyboard-note-390.png');
+    await proveFocus(
+      receiver,
+      '[data-text-open]',
+      'text-keyboard-link-390.png',
+    );
+    await proveFocus(
+      receiver,
+      '[data-text-delete]',
+      'text-keyboard-trash-390.png',
+    );
     await sender
       .getByRole('searchbox', { name: 'Search text' })
       .fill('second line');
@@ -581,7 +666,7 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-trackpad-1440.png'),
       fullPage: true,
     });
-    await sender.locator('[data-text-undo]').focus();
+    await proveFocus(sender, '[data-text-undo]', 'text-keyboard-undo-1440.png');
     await sender.keyboard.press('Enter');
     assert.equal(
       await sender
@@ -685,6 +770,8 @@ test('text moves between two browser devices using the actual authenticated serv
             'desktop to phone automatic receipt',
             'native phone touch swipe on URL and note bodies, short/cancel/Undo/commit, preference and cross-device deletion',
             'desktop trackpad over wrapped note body and keyboard Undo focus',
+            'unclipped keyboard focus on note, URL, trash and Undo',
+            '44px coarse-pointer tablet actions',
             'neutral clipboard fallback and no touch Copy hover square',
             'safe external link opens',
             'exact clipboard copy',

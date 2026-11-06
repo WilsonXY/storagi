@@ -678,3 +678,18 @@ test('keyboard Undo restores Copy focus and deletion is announced once', async (
   await vi.advanceTimersByTimeAsync(1000);
   expect(document.querySelector('#text-sync')?.textContent).toBe(announcement);
 });
+
+test('Undo identifies the same note as Copy for assistive technology', async () => {
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  expect(
+    document
+      .querySelector('[data-text-undo]')
+      ?.getAttribute('aria-describedby'),
+  ).toBe(
+    document
+      .querySelector('[data-text-copy]')
+      ?.getAttribute('aria-describedby'),
+  );
+});
