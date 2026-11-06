@@ -738,7 +738,11 @@ test('a larger count requires a fresh click and confirming sends the displayed d
   );
   expect(document.activeElement?.id).toBe('retention-cancel');
   click('#retention-apply');
-  await tick();
+  await vi.waitFor(() =>
+    expect(
+      document.querySelector('#retention-save')!.getAttribute('aria-busy'),
+    ).toBe('false'),
+  );
   expect(acknowledgements).toEqual([0, 6, 8]);
   expect(
     document.querySelector('#retention-save')!.classList.contains('is-saved'),
