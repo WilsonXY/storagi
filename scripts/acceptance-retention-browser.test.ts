@@ -15,7 +15,7 @@ import { createApp } from '../server/src/app.js';
 import { identity } from '../server/test/helpers.js';
 import { DAY } from '../server/src/storage.js';
 
-test('retention Settings uses real atomic saves and native confirmation at desktop and phone widths', async () => {
+test('retention Settings uses a styled duration menu, real atomic saves and native confirmation at desktop and phone widths', async () => {
   const artifacts = path.resolve(
     process.env.STORAGI_ARTIFACT_DIR || 'artifacts/retention',
   );
@@ -105,6 +105,15 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
     }
     const before = app.storage.rows();
     const page = await context.newPage();
+    const chooseDays = async (days: number) => {
+      await page.locator('#retention-days').click();
+      await page
+        .getByRole('option', {
+          name: `${days} ${days === 1 ? 'day' : 'days'}`,
+          exact: true,
+        })
+        .click();
+    };
     page.on('pageerror', (e: Error) => errors.push(e.message));
     page.on('response', async (r: any) => {
       if (new URL(r.url()).pathname === '/api/settings')
@@ -118,10 +127,104 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
     await page.screenshot({
       path: path.join(artifacts, 'settings-desktop.png'),
       fullPage: true,
+      animations: 'disabled',
     });
-    await page.locator('#retention-days').selectOption('7');
+    const controls = await page.evaluate(() => {
+      const trigger = document
+        .querySelector('#retention-days')!
+        .getBoundingClientRect();
+      const save = document
+        .querySelector('#retention-save')!
+        .getBoundingClientRect();
+      return { trigger: trigger.height, save: save.height, width: save.width };
+    });
+    assert.deepEqual(controls, { trigger: 34, save: 34, width: 34 });
+    await page.locator('#retention-days').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(
+      await page.evaluate(
+        () => (document.activeElement as HTMLButtonElement)?.value,
+      ),
+      '30',
+    );
+    await page.keyboard.press('End');
+    await page.keyboard.press('Space');
+    assert.equal(
+      await page.locator('#retention-days').getAttribute('value'),
+      '90',
+    );
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Enter');
+    assert.equal(
+      await page.locator('#retention-days').getAttribute('value'),
+      '1',
+    );
+    assert.equal(saves.length, 0, 'choosing a duration never submits the form');
+    await chooseDays(30);
+    await page.locator('#retention-days').click();
+    for (const [width, height] of [
+      [1440, 1000],
+      [390, 844],
+    ]) {
+      await page.setViewportSize({ width, height });
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+        true,
+      );
+      if (width === 390)
+        assert.equal(
+          await page
+            .getByRole('option', { name: '1 day', exact: true })
+            .evaluate((el: HTMLElement) => el.getBoundingClientRect().height),
+          44,
+        );
+      await page.screenshot({
+        path: path.join(artifacts, `duration-menu-${width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      });
+    }
+    await page.keyboard.press('Escape');
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.id),
+      'retention-days',
+    );
+    await page.keyboard.press('Space');
+    await page.keyboard.press('Tab');
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.id),
+      'retention-save',
+    );
+    assert.equal(await page.locator('#retention-options').isVisible(), false);
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.locator('#retention-options').isVisible(), false);
+    assert.equal(
+      await page.evaluate(
+        () => document.activeElement?.closest('.retention-picker') === null,
+      ),
+      true,
+    );
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await chooseDays(7);
     await page.locator('#retention-save').click();
     await page.locator('#retention-confirm[open]').waitFor();
+    assert.deepEqual(
+      await page.evaluate(() =>
+        [
+          'retention-title',
+          'retention-note',
+          'retention-cancel',
+          'retention-apply',
+        ].map((id) => getComputedStyle(document.getElementById(id)!).fontSize),
+      ),
+      ['15px', '13px', '13px', '13px'],
+    );
+
     assert.match(
       await page.locator('#retention-note').innerText(),
       /2 files will be permanently deleted/,
@@ -147,6 +250,7 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
       await page.screenshot({
         path: path.join(artifacts, `confirmation-${width}.png`),
         fullPage: true,
+        animations: 'disabled',
       });
     }
     await page.keyboard.press('Escape');
@@ -161,7 +265,7 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
     await page.locator('#retention-confirm[open]').waitFor();
     await page.locator('#retention-cancel').click();
     assert.deepEqual(app.storage.rows(), before);
-    await page.locator('#retention-days').selectOption('14');
+    await chooseDays(14);
     await page.locator('#retention-save').click();
     await page.locator('#retention-confirm[open]').waitFor();
     assert.match(
@@ -173,7 +277,7 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
       confirmDeletes: 0,
     });
     await page.locator('#retention-cancel').click();
-    await page.locator('#retention-days').selectOption('7');
+    await chooseDays(7);
     await page.locator('#retention-save').click();
     await page.locator('#retention-confirm[open]').waitFor();
     now += 1;
@@ -191,6 +295,7 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
     await page.screenshot({
       path: path.join(artifacts, 'confirmation-increased-phone.png'),
       fullPage: true,
+      animations: 'disabled',
     });
     await page.locator('#retention-apply').click();
     await page
@@ -213,9 +318,10 @@ test('retention Settings uses real atomic saves and native confirmation at deskt
     await page.screenshot({
       path: path.join(artifacts, 'saved-phone.png'),
       fullPage: true,
+      animations: 'disabled',
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.locator('#retention-days').selectOption('60');
+    await chooseDays(60);
     await page.locator('#retention-save').click();
     await page.waitForFunction(() =>
       document

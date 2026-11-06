@@ -12,9 +12,8 @@ const tick = async () => {
 };
 const click = (id: string) => document.querySelector<HTMLElement>(id)!.click();
 const select = (days: number) => {
-  const field = document.querySelector<HTMLSelectElement>('#retention-days')!;
-  field.value = String(days);
-  field.dispatchEvent(new Event('change'));
+  click('#retention-days');
+  click(`#retention-options [value="${days}"]`);
 };
 async function mount(
   save?: (body: {
@@ -53,6 +52,152 @@ async function mount(
   return fetcher;
 }
 
+test('duration menu marks the shared choice and selecting only changes the draft', async () => {
+  const fetcher = await mount();
+  const trigger = document.querySelector<HTMLButtonElement>('#retention-days')!;
+  expect(trigger.tagName).toBe('BUTTON');
+  expect(trigger.getAttribute('aria-haspopup')).toBe('listbox');
+  click('#retention-days');
+  const menu = document.querySelector<HTMLElement>('#retention-options')!;
+  expect(menu.hidden).toBe(false);
+  expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  const selected = menu.querySelector<HTMLButtonElement>(
+    '[aria-selected="true"]',
+  )!;
+  expect(selected.value).toBe('60');
+  expect(document.activeElement).toBe(selected);
+  click('#retention-options [value="7"]');
+  expect(trigger.value).toBe('7');
+  expect(trigger.textContent).toContain('7 days');
+  expect(menu.hidden).toBe(true);
+  expect(document.activeElement).toBe(trigger);
+  expect(
+    fetcher.mock.calls.filter(([url]) => url === '/api/settings'),
+  ).toHaveLength(0);
+});
+
+test('menu navigation keeps the draft until choice and Escape returns focus without dashboard shortcuts', async () => {
+  await mount();
+  const trigger = document.querySelector<HTMLButtonElement>('#retention-days')!;
+  const menu = document.querySelector<HTMLElement>('#retention-options')!;
+  const key = (value: string) =>
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: value,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  trigger.focus();
+  key('ArrowDown');
+  expect(menu.hidden).toBe(false);
+  expect((document.activeElement as HTMLButtonElement).value).toBe('60');
+  key('ArrowDown');
+  expect((document.activeElement as HTMLButtonElement).value).toBe('90');
+  key('ArrowDown');
+  expect((document.activeElement as HTMLButtonElement).value).toBe('1');
+  key('End');
+  expect((document.activeElement as HTMLButtonElement).value).toBe('90');
+  key('Home');
+  expect((document.activeElement as HTMLButtonElement).value).toBe('1');
+  key('ArrowUp');
+  expect((document.activeElement as HTMLButtonElement).value).toBe('90');
+  key('/');
+  expect(menu.contains(document.activeElement)).toBe(true);
+  expect(trigger.value).toBe('60');
+  const escape = new KeyboardEvent('keydown', {
+    key: 'Escape',
+    bubbles: true,
+    cancelable: true,
+  });
+  const bubbled = vi.fn();
+  window.addEventListener('keydown', bubbled, { once: true });
+  document.activeElement!.dispatchEvent(escape);
+  window.removeEventListener('keydown', bubbled);
+  expect(bubbled).not.toHaveBeenCalled();
+  expect(escape.defaultPrevented).toBe(true);
+  expect(menu.hidden).toBe(true);
+  expect(document.activeElement).toBe(trigger);
+  expect(trigger.value).toBe('60');
+});
+
+test('outside pointer and focus dismiss the menu without discarding the draft', async () => {
+  await mount();
+  select(7);
+  click('#retention-days');
+  const menu = document.querySelector<HTMLElement>('#retention-options')!;
+  document
+    .querySelector('#retention-desc')!
+    .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+  expect(menu.hidden).toBe(true);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('7');
+  click('#retention-days');
+  document.querySelector<HTMLButtonElement>('#retention-save')!.focus();
+  expect(menu.hidden).toBe(true);
+  expect(document.activeElement?.id).toBe('retention-save');
+});
+
+test('Tab dismisses the menu from its trigger so native tab order can continue', async () => {
+  await mount();
+  const trigger = document.querySelector<HTMLButtonElement>('#retention-days')!;
+  const menu = document.querySelector<HTMLElement>('#retention-options')!;
+  for (const shiftKey of [false, true]) {
+    click('#retention-days');
+    const tab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.activeElement!.dispatchEvent(tab);
+    expect(menu.hidden).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+    expect(tab.defaultPrevented).toBe(false);
+  }
+});
+
+test('leaving Settings closes the menu', async () => {
+  await mount();
+  click('#nav-settings');
+  click('#retention-days');
+  click('.nav-item[data-tab="inbox"]');
+  expect(
+    document.querySelector<HTMLElement>('#retention-options')!.hidden,
+  ).toBe(true);
+  click('#nav-settings');
+  expect(
+    document.querySelector('#retention-days')!.getAttribute('aria-expanded'),
+  ).toBe('false');
+});
+
+test('the closed duration trigger keeps select-like isolation from dashboard shortcuts', async () => {
+  await mount();
+  const trigger = document.querySelector<HTMLButtonElement>('#retention-days')!;
+  const picker = vi.spyOn(
+    document.querySelector<HTMLInputElement>('#picker')!,
+    'click',
+  );
+  trigger.focus();
+  for (const [key, ctrlKey] of [
+    ['/', false],
+    ['u', false],
+    ['a', true],
+  ] as const) {
+    const event = new KeyboardEvent('keydown', {
+      key,
+      ctrlKey,
+      bubbles: true,
+      cancelable: true,
+    });
+    trigger.dispatchEvent(event);
+    expect(document.activeElement).toBe(trigger);
+    expect(event.defaultPrevented).toBe(false);
+  }
+  expect(picker).not.toHaveBeenCalled();
+});
+
 test('loads shared retention and saves a harmless change with CSRF, updating shelf copy', async () => {
   const fetcher = await mount();
   expect(
@@ -60,7 +205,7 @@ test('loads shared retention and saves a harmless change with CSRF, updating she
   ).toBe('Save retention');
   expect(document.querySelector('#retention-save svg')).not.toBeNull();
   expect(
-    document.querySelector<HTMLSelectElement>('#retention-days')?.value,
+    document.querySelector<HTMLButtonElement>('#retention-days')?.value,
   ).toBe('60');
   expect(document.querySelector('#retention-copy')?.textContent).toContain(
     '60 days',
@@ -97,13 +242,25 @@ test('failed saves preserve policy and allow retry; loading blocks duplicate sav
       }),
   );
   select(7);
+  click('#retention-days');
   click('#retention-save');
   click('#retention-save');
+  click('#retention-days');
+  expect(
+    document.querySelector<HTMLElement>('#retention-options')!.hidden,
+  ).toBe(true);
+  expect(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        '#retention-options button',
+      ),
+    ].every((option) => option.disabled),
+  ).toBe(true);
   expect(
     fetcher.mock.calls.filter(([url]) => url === '/api/settings'),
   ).toHaveLength(1);
   expect(
-    document.querySelector<HTMLSelectElement>('#retention-days')!.disabled,
+    document.querySelector<HTMLButtonElement>('#retention-days')!.disabled,
   ).toBe(true);
   expect(
     document.querySelector('#retention-save')?.getAttribute('aria-label'),
@@ -120,7 +277,7 @@ test('failed saves preserve policy and allow retry; loading blocks duplicate sav
     '60 days',
   );
   expect(
-    document.querySelector<HTMLSelectElement>('#retention-days')!.value,
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
   ).toBe('7');
   click('#retention-save');
   respond(Response.json({ error: 'Session expired' }, { status: 401 }));

@@ -1054,6 +1054,7 @@ export async function createDashboard(
   }
   function view(name: string) {
     hidePreview();
+    if (name !== 'settings') closeRetentionMenu();
     app.dataset.view = name;
     const settings = name === 'settings';
     $('#settings').hidden = !settings;
@@ -1075,9 +1076,14 @@ export async function createDashboard(
       });
   }
   let settingsPond: KoiPond | undefined;
-  const retentionDays = $<HTMLSelectElement>('#retention-days'),
+  const retentionDays = $<HTMLButtonElement>('#retention-days'),
+    retentionOptions = $('#retention-options'),
     retentionSave = $<HTMLButtonElement>('#retention-save'),
     retentionDialog = $<HTMLDialogElement>('#retention-confirm');
+  const retentionPicker = retentionDays.parentElement!;
+  const retentionChoices = Array.from(
+    retentionOptions.querySelectorAll<HTMLButtonElement>('button'),
+  );
   let retentionDirty = false,
     retentionSaving = false;
   let retentionProposal: { days: number; count: number } | undefined;
@@ -1091,6 +1097,16 @@ export async function createDashboard(
     $('#retention-copy').textContent =
       `Kept ${days} ${days === 1 ? 'day' : 'days'}. Originals stay on your devices.`;
     if (!retentionDirty) retentionDays.value = String(days);
+    $('#retention-value').textContent =
+      `${retentionDays.value} ${retentionDays.value === '1' ? 'day' : 'days'}`;
+    for (const option of retentionChoices) {
+      option.setAttribute(
+        'aria-selected',
+        String(option.value === retentionDays.value),
+      );
+      option.disabled = retentionSaving;
+    }
+    if (retentionSaving) closeRetentionMenu();
     retentionDays.disabled = retentionSaving;
     retentionSave.disabled = retentionSaving;
     retentionSave.setAttribute('aria-busy', String(retentionSaving));
@@ -1105,10 +1121,67 @@ export async function createDashboard(
       .querySelector('.spin')!
       .toggleAttribute('hidden', !retentionSaving);
   }
-  listen(retentionDays, 'change', () => {
-    if (retentionDialog.open) closeRetention();
-    retentionDirty = true;
-    $('#retention-status').textContent = '';
+  function closeRetentionMenu(focus = false) {
+    retentionOptions.hidden = true;
+    retentionDays.setAttribute('aria-expanded', 'false');
+    if (focus) retentionDays.focus();
+  }
+  function openRetentionMenu() {
+    if (retentionDays.disabled) return;
+    retentionOptions.hidden = false;
+    retentionDays.setAttribute('aria-expanded', 'true');
+    retentionChoices
+      .find((option) => option.value === retentionDays.value)!
+      .focus();
+  }
+  listen(retentionDays, 'click', () => {
+    if (!retentionOptions.hidden) return closeRetentionMenu();
+    openRetentionMenu();
+  });
+  listen(retentionPicker, 'keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && !retentionOptions.hidden) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeRetentionMenu(true);
+    } else if (e.key === 'Tab' && !retentionOptions.hidden) {
+      closeRetentionMenu(true);
+    } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+      e.preventDefault();
+      if (retentionOptions.hidden) return openRetentionMenu();
+      const current = retentionChoices.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      const index =
+        e.key === 'Home'
+          ? 0
+          : e.key === 'End'
+            ? retentionChoices.length - 1
+            : (current +
+                (e.key === 'ArrowDown' ? 1 : -1) +
+                retentionChoices.length) %
+              retentionChoices.length;
+      retentionChoices[index].focus();
+    }
+  });
+  for (const option of retentionChoices)
+    listen(option, 'click', () => {
+      if (retentionSaving) return;
+      if (option.value !== retentionDays.value) {
+        if (retentionDialog.open) closeRetention();
+        retentionProposal = undefined;
+        retentionDays.value = option.value;
+        retentionDirty = true;
+        $('#retention-status').textContent = '';
+        renderRetention();
+      }
+      closeRetentionMenu(true);
+    });
+  listen(document, 'pointerdown', (e: PointerEvent) => {
+    if (!retentionPicker.contains(e.target as Node)) closeRetentionMenu();
+  });
+  listen(retentionPicker, 'focusout', (e: FocusEvent) => {
+    if (!retentionPicker.contains(e.relatedTarget as Node | null))
+      closeRetentionMenu();
   });
   async function saveRetention(days: number, confirmDeletes = 0) {
     if (retentionSaving || retentionDays.disabled) return;
@@ -1294,12 +1367,14 @@ export async function createDashboard(
     if (
       !active ||
       $<HTMLDialogElement>('#paste-confirm').open ||
-      retentionDialog.open
+      retentionDialog.open ||
+      !retentionOptions.hidden
     )
       return;
     const typing =
       e.target instanceof Element &&
-      e.target.matches('input,textarea,select,[contenteditable]');
+      (e.target.matches('input,textarea,select,[contenteditable]') ||
+        retentionPicker.contains(e.target));
     if (e.key === '/' && !typing) {
       e.preventDefault();
       $('#search').focus();

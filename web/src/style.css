@@ -723,18 +723,70 @@ dialog.paste-confirm::backdrop {
   align-items: center;
   gap: 8px;
 }
-.retention-controls select {
-  font: inherit;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--control);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  padding: 7px 10px;
+.retention-picker {
+  position: relative;
 }
-.retention-controls option {
+.retention-trigger {
+  min-width: 116px;
+  justify-content: space-between;
+  background: var(--control);
   color: var(--text);
-  background: var(--raised);
+}
+.retention-trigger:hover,
+.retention-trigger[aria-expanded='true'] {
+  background: var(--active);
+}
+.retention-options {
+  top: calc(100% + 8px);
+  bottom: auto;
+  min-width: 100%;
+  max-height: min(300px, 50dvh);
+  overflow-y: auto;
+  padding: 4px;
+  transform-origin: top right;
+}
+.retention-options button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+}
+.retention-options button:hover,
+.retention-options button:focus-visible,
+.retention-options [aria-selected='true'] {
+  color: var(--text);
+  background: var(--active);
+}
+.retention-options [aria-selected='false'] .i {
+  visibility: hidden;
+}
+#retention-save {
+  width: var(--control-height);
+  padding: 0;
+}
+#retention-confirm {
+  padding: 20px;
+}
+#retention-confirm .cp-title {
+  padding: 0;
+  font-size: 15px;
+}
+#retention-confirm .cp-note {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+#retention-confirm .cp-actions {
+  margin-top: 18px;
+  gap: 8px;
 }
 .set-text p {
   margin-top: 4px;
@@ -1618,6 +1670,9 @@ body.painting * {
   }
 }
 @media (max-width: 640px) {
+  .retention-options button {
+    height: 44px;
+  }
   .pond-zone {
     padding: 100px 16px 40px;
     gap: 24px;

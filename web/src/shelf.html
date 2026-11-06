@@ -284,22 +284,102 @@
             ></p>
           </div>
           <div class="retention-controls">
-            <select
-              id="retention-days"
-              aria-labelledby="retention-label"
-              aria-describedby="retention-desc"
-              disabled
-            >
-              <option value="1">1 day</option>
-              <option value="7">7 days</option>
-              <option value="14">14 days</option>
-              <option value="30" selected>30 days</option>
-              <option value="60">60 days</option>
-              <option value="90">90 days</option>
-            </select>
+            <div class="retention-picker">
+              <button
+                type="button"
+                class="btn retention-trigger"
+                id="retention-days"
+                value="30"
+                aria-labelledby="retention-label retention-value"
+                aria-describedby="retention-desc"
+                aria-haspopup="listbox"
+                aria-controls="retention-options"
+                aria-expanded="false"
+                disabled
+              >
+                <span id="retention-value">30 days</span>
+                <svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="m5 6.5 3 3 3-3" />
+                </svg>
+              </button>
+              <div
+                class="confirm-pop retention-options"
+                id="retention-options"
+                role="listbox"
+                aria-labelledby="retention-label"
+                hidden
+              >
+                <button
+                  type="button"
+                  role="option"
+                  value="1"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  1 day<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="7"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  7 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="14"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  14 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="30"
+                  aria-selected="true"
+                  tabindex="-1"
+                >
+                  30 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="60"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  60 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="90"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  90 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
             <button
               type="submit"
-              class="btn btn-primary btn-sm"
+              class="btn btn-primary"
               id="retention-save"
               aria-label="Save retention"
               title="Save retention"
@@ -488,14 +568,10 @@
   <p class="cp-title" id="retention-title"></p>
   <p class="cp-note" id="retention-note" aria-live="polite"></p>
   <div class="cp-actions">
-    <button type="button" class="btn btn-ghost btn-sm" id="retention-cancel">
+    <button type="button" class="btn btn-ghost" id="retention-cancel">
       Cancel
     </button>
-    <button
-      type="button"
-      class="btn btn-danger-text btn-sm"
-      id="retention-apply"
-    >
+    <button type="button" class="btn btn-danger-text" id="retention-apply">
       Delete copies and save
     </button>
   </div>
