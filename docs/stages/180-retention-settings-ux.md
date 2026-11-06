@@ -1,6 +1,6 @@
 # 180: Retention saved-state and motion UX
 
-- Status: completed (implementation handoff; coordinator integration pending)
+- Status: completed (implementation and coordinator integration)
 - Started / last updated / completed: 2026-11-07, Asia/Kuala_Lumpur
 - Coordinator thread: adjustable-file-retention owner preview feedback
 - Agent/task: `/root/retention_saved_ux`, distinct native UI implementation agent; coordinator owns integration and proof
@@ -28,12 +28,12 @@ Remove motion for this duration control/menu only; retain unrelated app animatio
 
 All commands ran serially. Test-first vertical slices used the following suffixes after `npm test --prefix web -- --run tests/retention.test.ts`:
 
-| Suffix | Expected red observation | Green result |
-| --- | --- | --- |
-| `-t 'only a draft different'` | Unmodified 60-day saved policy left tick enabled. | Passed after equality/submit guards. |
-| `-t 'refresh preserves'` | Draft remained 7 after remote policy first matched 7 and then changed to 14. | Passed after removing sticky dirty state. |
-| `-t 'reopening Settings'` | Re-entry showed unsaved 7 instead of saved 60. | Passed after re-entry reset and listing refresh. |
-| `-t 'only a draft different'` (focus assertion added) | Completed save left focus on now-disabled tick. | Passed after enabled-control focus fallback. |
+| Suffix                                                | Expected red observation                                                     | Green result                                     |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------ |
+| `-t 'only a draft different'`                         | Unmodified 60-day saved policy left tick enabled.                            | Passed after equality/submit guards.             |
+| `-t 'refresh preserves'`                              | Draft remained 7 after remote policy first matched 7 and then changed to 14. | Passed after removing sticky dirty state.        |
+| `-t 'reopening Settings'`                             | Re-entry showed unsaved 7 instead of saved 60.                               | Passed after re-entry reset and listing refresh. |
+| `-t 'only a draft different'` (focus assertion added) | Completed save left focus on now-disabled tick.                              | Passed after enabled-control focus fallback.     |
 
 - `npm test --prefix web -- --run tests/retention.test.ts`: **17 passed** after final assertions and formatting.
 - `npm test --prefix web`: **13 files / 128 tests passed**. Existing media-preview cleanup coverage printed jsdom's unimplemented `HTMLMediaElement.pause/load` diagnostics; no tests failed.
@@ -62,3 +62,9 @@ The private preview was refreshed without changing its service, policy, files or
 Remaining repository checks ran serially. The server suite passed 42/43 but the unchanged `uploads deletion safely cancels a half-open PATCH` test exceeded its existing 6-second request deadline. The exact case passed when rerun alone (`tsx --test --test-concurrency=1 --test-name-pattern='uploads deletion safely' server/test/interruption.test.ts`), without modifying source, skipping any case from the original full run or changing thresholds. This is a full-run timing failure plus an isolated pass, not a clean one-shot full-suite result; clean CI remains required. **11 HTTP acceptance**, **154 deploy-script tests**, server TypeScript/build, full formatting and diff checks passed. Delegated **128 web tests** and web TypeScript/build remain valid; no source changed after them. Staged Gitleaks is run before the committed review snapshot.
 
 Independent Opus 5.5/high review uses stage 181. Actual reviewer session evidence, read-only invariance and cleanup are checked separately. No merge, release or production deployment.
+
+## Review follow-up
+
+Stage 181 independently returned PASS with three minor findings. The coordinator added two minimal guards to preserve the in-flight selection on Settings re-entry and during a stale GET response; each regression test failed before the fix. Disabled ticks also keep their background on hover. No backend or confirmation acknowledgement semantics changed. Reviewer model/effort, read-only invariance and cleanup are independently recorded in stage 181.
+
+Post-review verification: **130/130 web tests (13 files)**, web TypeScript/build, full repository formatting and diff checks passed. Both new pending-save/stale-response regressions were observed red before their guards and pass in the full suite. The actual-service Chromium proof was rerun after fixes and passed at desktop/phone widths; latest desktop and saved-phone captures were visually inspected. The private synthetic preview was refreshed and its non-mutating live check passed again. Backend source is unchanged; the earlier 42/43 full server run plus isolated cancellation-case pass, 11 HTTP acceptance and 154 deployment-script passes remain the accurately reported local results. Staged Gitleaks passed before the final commit. Required PR CI is checked separately after push; no local full-suite success is inferred from an isolated retry.

@@ -266,7 +266,7 @@ export async function createDashboard(
       shelf.retentionDays !== undefined &&
       Number(retentionDays.value) !== shelf.retentionDays;
     shelf = result;
-    if (!retentionChanged)
+    if (!retentionChanged && !retentionSaving)
       retentionDays.value = String(shelf.retentionDays ?? 30);
     renderRetention();
     for (const id of sel.ids)
@@ -1060,7 +1060,11 @@ export async function createDashboard(
   function view(name: string) {
     hidePreview();
     if (name !== 'settings') closeRetentionMenu();
-    if (name === 'settings' && app.dataset.view !== 'settings') {
+    if (
+      name === 'settings' &&
+      app.dataset.view !== 'settings' &&
+      !retentionSaving
+    ) {
       retentionDays.value = String(shelf.retentionDays ?? 30);
       retentionProposal = undefined;
       if (retentionDialog.open) retentionDialog.close();

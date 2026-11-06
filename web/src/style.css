@@ -786,6 +786,9 @@ dialog.paste-confirm::backdrop {
 #retention-save:disabled {
   cursor: default;
 }
+#retention-save:disabled:hover {
+  background: var(--primary);
+}
 #retention-save:disabled:not([aria-busy='true']) {
   opacity: 0.45;
 }

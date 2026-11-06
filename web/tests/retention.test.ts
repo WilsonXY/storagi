@@ -42,13 +42,14 @@ async function mount(
       days = JSON.parse(String(init?.body)).retentionDays;
       return Response.json({ retentionDays: days });
     }
+    const listedDays = days;
     await listing?.();
     return Response.json({
       files: [],
       usedBytes: 0,
       reservedBytes: 0,
       budgetBytes: 1000,
-      retentionDays: days,
+      retentionDays: listedDays,
     });
   });
   document.body.innerHTML = '<main id="app"></main>';
@@ -222,6 +223,72 @@ test('a draft chosen while the Settings entry refresh is pending survives its re
     document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
   ).toBe(false);
   select(14);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(true);
+});
+
+test('returning to Settings during a pending save preserves the choice for failure and retry', async () => {
+  let respond!: (response: Response) => void;
+  await mount(
+    () =>
+      new Promise<Response>((resolve) => {
+        respond = resolve;
+      }),
+  );
+  click('#nav-settings');
+  await tick();
+  select(7);
+  click('#retention-save');
+  click('.nav-item[data-tab="inbox"]');
+  click('#nav-settings');
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('7');
+  respond(Response.json({ error: 'Synthetic save failure' }, { status: 500 }));
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('7');
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(false);
+});
+
+test('a stale listing cannot replace the committed selection while its save refresh is pending', async () => {
+  let respond!: (response: Response) => void;
+  let pause = false;
+  const releases: (() => void)[] = [];
+  await mount(
+    () =>
+      new Promise<Response>((resolve) => {
+        respond = resolve;
+      }),
+    async () => {
+      if (pause)
+        await new Promise<void>((resolve) => {
+          releases.push(resolve);
+        });
+    },
+  );
+  pause = true;
+  click('#refresh');
+  await tick();
+  select(90);
+  click('#retention-save');
+  respond(Response.json({ retentionDays: 90 }));
+  await tick();
+  releases.shift()!();
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('90');
+  expect(releases).toHaveLength(1);
+  releases.shift()!();
+  await tick();
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('90');
   expect(
     document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
   ).toBe(true);
