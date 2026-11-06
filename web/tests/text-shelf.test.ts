@@ -709,3 +709,21 @@ test('long shelf retention displays days instead of hundreds of hours', async ()
   await tick();
   expect(document.querySelector('.text-expiry')?.textContent).toBe('30d left');
 });
+
+test('auto-grow includes the non-scrolling textarea insets and preserves its cap', () => {
+  mount();
+  Object.defineProperties(draft(), {
+    scrollHeight: {
+      configurable: true,
+      get: () => (draft().value === 'long' ? 600 : draft().value ? 120 : 62),
+    },
+    offsetHeight: { configurable: true, value: 240 },
+    clientHeight: { configurable: true, value: 154 },
+  });
+  type('a few lines');
+  expect(draft().style.height).toBe('206px');
+  type('long');
+  expect(draft().style.height).toBe('240px');
+  type('');
+  expect(draft().style.height).toBe('148px');
+});

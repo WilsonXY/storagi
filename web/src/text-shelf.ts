@@ -61,7 +61,7 @@ export function createTextShelf(
   };
   function updateDraft() {
     draft.style.height = 'auto';
-    draft.style.height = `${Math.min(draft.scrollHeight, 240)}px`;
+    draft.style.height = `${Math.min(draft.scrollHeight + draft.offsetHeight - draft.clientHeight, 240)}px`;
     const size = new TextEncoder().encode(draft.value).length;
     $('#text-count').textContent =
       `${(size / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })} / 64 KiB`;

@@ -553,6 +553,68 @@ test('text moves between two browser devices using the actual authenticated serv
       await receiver.evaluate(() => document.activeElement?.id),
       'page-title',
     );
+    const proveDraftFooter = async (
+      page: any,
+      state: string,
+      width: number,
+    ) => {
+      await settled(page);
+      let reference: Buffer | undefined;
+      for (const [position, fraction] of [
+        ['top', 0],
+        ['middle', 0.5],
+        ['end', 1],
+      ] as const) {
+        await page
+          .locator('#text-draft')
+          .evaluate((el: HTMLTextAreaElement, f: number) => {
+            el.scrollTop = Math.round((el.scrollHeight - el.clientHeight) * f);
+          }, fraction);
+        await page.evaluate(
+          () =>
+            new Promise<void>((resolve) =>
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => resolve()),
+              ),
+            ),
+        );
+        const viewportBottom = await page
+          .locator('#text-draft')
+          .evaluate(
+            (el: HTMLTextAreaElement) =>
+              el.getBoundingClientRect().top + el.clientTop + el.clientHeight,
+          );
+        const send = await page.locator('#text-send').boundingBox();
+        const count = await page.locator('#text-count').boundingBox();
+        if (width === 390 || position === 'middle')
+          await page.screenshot({
+            path: path.join(
+              artifacts,
+              `text-draft-${state}-${position}-${width}.png`,
+            ),
+          });
+        assert.ok(
+          viewportBottom <= Math.min(send.y, count.y) - 6,
+          `${width}px ${state} ${position}: actual native scrolling viewport ends above both controls`,
+        );
+        const form = await page.locator('#text-form').boundingBox();
+        const footer = await page.locator('.text-compose-foot').boundingBox();
+        const band = await page.screenshot({
+          clip: {
+            x: Math.ceil(form.x) + 2,
+            y: Math.ceil(footer.y),
+            width: Math.floor(form.width) - 4,
+            height: Math.floor(form.y + form.height) - Math.ceil(footer.y) - 1,
+          },
+        });
+        if (reference)
+          assert.ok(
+            band.equals(reference),
+            `${width}px ${state}: rendered footer pixels remain unchanged while the draft scrolls`,
+          );
+        else reference = band;
+      }
+    };
     await receiver.locator('#text-draft').fill('x'.repeat(60 * 1024));
     assert.equal(await receiver.locator('#text-count').isVisible(), true);
     const longEditor = await receiver
@@ -562,7 +624,6 @@ test('text moves between two browser devices using the actual authenticated serv
         formHeight: el.form!.getBoundingClientRect().height,
         scrollHeight: el.scrollHeight,
         clientHeight: el.clientHeight,
-        paddingBottom: parseFloat(getComputedStyle(el).paddingBottom),
       }));
     assert.ok(
       longEditor.height <= 240 &&
@@ -570,11 +631,7 @@ test('text moves between two browser devices using the actual authenticated serv
         longEditor.scrollHeight > longEditor.clientHeight,
       'long drafts scroll inside the bounded full-card editor',
     );
-    const sendBox = await receiver.locator('#text-send').boundingBox();
-    assert.ok(
-      longEditor.paddingBottom >= sendBox.height + 12,
-      'text has bottom space clear of the overlaid Send control',
-    );
+    await proveDraftFooter(receiver, 'enabled', 390);
     const counterBox = await receiver.locator('#text-count').boundingBox();
     assert.equal(
       await receiver.evaluate(
@@ -595,11 +652,17 @@ test('text moves between two browser devices using the actual authenticated serv
     });
     await receiver.locator('#text-draft').fill('x'.repeat(65 * 1024));
     assert.equal(await receiver.locator('#text-send').isDisabled(), true);
+    await proveDraftFooter(receiver, 'disabled', 390);
     await receiver.screenshot({
       path: path.join(artifacts, 'text-over-limit-390.png'),
       fullPage: true,
     });
     await receiver.locator('#text-draft').fill('');
+    await sender.locator('#text-draft').fill('x'.repeat(60 * 1024));
+    await proveDraftFooter(sender, 'enabled', 1440);
+    await sender.locator('#text-draft').fill('x'.repeat(65 * 1024));
+    await proveDraftFooter(sender, 'disabled', 1440);
+    await sender.locator('#text-draft').fill('');
     const exact =
       '  A note from the phone\nsecond line 🐟\n' +
       Array.from(
@@ -960,6 +1023,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'shared 30-day file/Text expiry and cleanup with authoritative existing deadlines',
             'Inbox composer surface and filename typography reused; no inner input focus frame',
             'no composer Kept sentences; native textarea full-card geometry and mouse/touch whitespace editing',
+            'native scrolling viewport and rendered footer pixels stay clear at top/middle/end, enabled/disabled, phone/desktop',
             'unauthenticated denial',
             'full-height desktop koi and viewport-sized long-list scrolling',
             'zero browser errors',

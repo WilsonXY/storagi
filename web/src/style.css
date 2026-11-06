@@ -1967,7 +1967,10 @@ body.selecting .toast {
 }
 .text-composer textarea {
   min-height: 138px;
-  padding: 16px 12px 70px 18px;
+  padding: 0;
+  /* Native borders keep the editing insets outside its scrolling viewport. */
+  border: solid transparent;
+  border-width: 16px 12px 70px 18px;
   border-radius: inherit;
 }
 .text-composer textarea:focus-visible {
@@ -2135,7 +2138,7 @@ body.selecting .toast {
 }
 @media (max-width: 600px), (pointer: coarse) {
   .text-composer textarea {
-    padding-bottom: 74px;
+    border-bottom-width: 74px;
   }
   #text-send,
   .text-card-actions .btn,
@@ -2152,7 +2155,7 @@ body.selecting .toast {
   }
   .text-composer textarea {
     min-height: 146px;
-    padding: 22px 12px 74px 16px;
+    border-width: 22px 12px 74px 16px;
     font-size: 16px;
   }
   .text-compose-foot {
