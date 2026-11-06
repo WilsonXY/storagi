@@ -1059,7 +1059,10 @@ export async function createDashboard(
   }
   function view(name: string) {
     hidePreview();
-    if (name !== 'settings') closeRetentionMenu();
+    if (name !== 'settings') {
+      closeRetentionMenu();
+      clearRetentionSaved();
+    }
     if (
       name === 'settings' &&
       app.dataset.view !== 'settings' &&
@@ -1102,6 +1105,13 @@ export async function createDashboard(
     retentionOptions.querySelectorAll<HTMLButtonElement>('button'),
   );
   let retentionSaving = false;
+  let retentionSavedTimer: ReturnType<typeof setTimeout> | undefined;
+  function clearRetentionSaved() {
+    clearTimeout(retentionSavedTimer);
+    retentionSavedTimer = undefined;
+    retentionSave.classList.remove('is-saved');
+  }
+  cleanups.push(clearRetentionSaved);
   let retentionProposal: { days: number; count: number } | undefined;
   function closeRetention() {
     retentionProposal = undefined;
@@ -1205,6 +1215,7 @@ export async function createDashboard(
     listen(option, 'click', () => {
       if (retentionSaving) return;
       if (option.value !== retentionDays.value) {
+        clearRetentionSaved();
         if (retentionDialog.open) closeRetention();
         retentionProposal = undefined;
         retentionDays.value = option.value;
@@ -1227,9 +1238,11 @@ export async function createDashboard(
       (!confirmDeletes && days === shelf.retentionDays)
     )
       return;
+    clearRetentionSaved();
     retentionSaving = true;
     renderRetention();
     $('#retention-status').textContent = '';
+    let saved = false;
     try {
       const result = await (
         await request('/api/settings', 'PUT', undefined, {
@@ -1241,6 +1254,7 @@ export async function createDashboard(
       shelf.retentionDays = result.retentionDays;
       retentionDays.value = String(result.retentionDays);
       await auto.now();
+      saved = true;
     } catch (error) {
       if (!active) return;
       const conflict = error as Error & {
@@ -1264,6 +1278,10 @@ export async function createDashboard(
       retentionSaving = false;
       if (active) {
         renderRetention();
+        if (saved && app.dataset.view === 'settings') {
+          retentionSave.classList.add('is-saved');
+          retentionSavedTimer = setTimeout(clearRetentionSaved, 900);
+        }
         if (
           !retentionDialog.open &&
           (document.activeElement === document.body ||

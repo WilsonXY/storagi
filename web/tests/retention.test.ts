@@ -6,6 +6,7 @@ afterEach(() => {
   dispose();
   document.body.replaceChildren();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 const tick = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
@@ -114,6 +115,63 @@ test('only a draft different from the saved duration enables saving, including d
   ).toBe('90');
   expect(save.disabled).toBe(true);
   expect(document.activeElement?.id).toBe('retention-days');
+});
+
+test('successful saves give a short replayable cue only after the refresh settles', async () => {
+  vi.useFakeTimers();
+  let pause = false,
+    release!: () => void;
+  const fetcher = await mount(undefined, async () => {
+    if (pause)
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+  });
+  click('#nav-settings');
+  await tick();
+  const save = document.querySelector<HTMLButtonElement>('#retention-save')!;
+  expect(save.classList.contains('is-saved')).toBe(false);
+  select(90);
+  expect(save.classList.contains('is-saved')).toBe(false);
+  pause = true;
+  click('#retention-save');
+  await tick();
+  expect(save.getAttribute('aria-busy')).toBe('true');
+  expect(save.classList.contains('is-saved')).toBe(false);
+  pause = false;
+  release();
+  await tick();
+  expect(save.disabled).toBe(true);
+  expect(save.getAttribute('aria-busy')).toBe('false');
+  expect(save.classList.contains('is-saved')).toBe(true);
+  expect(document.querySelector('#retention-status')!.textContent).toBe('');
+  vi.advanceTimersByTime(899);
+  expect(save.classList.contains('is-saved')).toBe(true);
+  vi.advanceTimersByTime(1);
+  expect(save.classList.contains('is-saved')).toBe(false);
+  select(30);
+  click('#retention-save');
+  await tick();
+  expect(save.classList.contains('is-saved')).toBe(true);
+  select(60);
+  expect(save.classList.contains('is-saved')).toBe(false);
+  click('#retention-save');
+  await tick();
+  expect(save.classList.contains('is-saved')).toBe(true);
+  click('.nav-item[data-tab="inbox"]');
+  expect(save.classList.contains('is-saved')).toBe(false);
+  click('#nav-settings');
+  await tick();
+  fetcher.setSavedDays(14);
+  click('#refresh');
+  await tick();
+  expect(save.classList.contains('is-saved')).toBe(false);
+  select(30);
+  click('#retention-save');
+  await tick();
+  expect(save.classList.contains('is-saved')).toBe(true);
+  dispose();
+  expect(save.classList.contains('is-saved')).toBe(false);
 });
 
 test('refresh preserves a different draft and follows new saved policy once they match', async () => {
@@ -501,6 +559,8 @@ test('failed saves preserve policy and allow retry; loading blocks duplicate sav
         respond = resolve;
       }),
   );
+  click('#nav-settings');
+  await tick();
   select(7);
   click('#retention-days');
   click('#retention-save');
@@ -528,11 +588,17 @@ test('failed saves preserve policy and allow retry; loading blocks duplicate sav
   expect(
     document.querySelector('#retention-save')?.getAttribute('aria-busy'),
   ).toBe('true');
+  expect(
+    document.querySelector('#retention-save')!.classList.contains('is-saved'),
+  ).toBe(false);
   respond(Response.json({ error: 'Synthetic save failure' }, { status: 500 }));
   await tick();
   expect(document.querySelector('#retention-status')?.textContent).toBe(
     'Synthetic save failure',
   );
+  expect(
+    document.querySelector('#retention-save')!.classList.contains('is-saved'),
+  ).toBe(false);
   expect(
     document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
   ).toBe(false);
@@ -608,12 +674,17 @@ test('a larger count requires a fresh click and confirming sends the displayed d
       );
     return Response.json({ retentionDays: 7 });
   });
+  click('#nav-settings');
+  await tick();
   select(7);
   click('#retention-save');
   await tick();
   click('#retention-apply');
   await tick();
   expect(acknowledgements).toEqual([0, 6]);
+  expect(
+    document.querySelector('#retention-save')!.classList.contains('is-saved'),
+  ).toBe(false);
   expect(
     document.querySelector<HTMLDialogElement>('#retention-confirm')!.open,
   ).toBe(true);
@@ -624,6 +695,9 @@ test('a larger count requires a fresh click and confirming sends the displayed d
   click('#retention-apply');
   await tick();
   expect(acknowledgements).toEqual([0, 6, 8]);
+  expect(
+    document.querySelector('#retention-save')!.classList.contains('is-saved'),
+  ).toBe(true);
   expect(
     document.querySelector<HTMLDialogElement>('#retention-confirm')!.open,
   ).toBe(false);

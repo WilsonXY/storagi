@@ -87,7 +87,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       sameSite: 'Lax',
     };
     await context.addCookies([cookie]);
-    await context.addInitScript(() =>
+    const markSyntheticProof = () =>
       document.addEventListener('DOMContentLoaded', () => {
         const banner = document.createElement('div');
         banner.textContent =
@@ -95,8 +95,8 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
         banner.style.cssText =
           'padding:6px 12px;background:#24584b;color:#fff;font:12px sans-serif;text-align:center';
         document.body.prepend(banner);
-      }),
-    );
+      });
+    await context.addInitScript(markSyntheticProof);
     app.storage.saveRetention(60);
     for (const [i, age] of [0, 7 * DAY - 1, 8 * DAY, 15 * DAY].entries()) {
       const file = randomUUID();
@@ -350,6 +350,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await chooseDays(7);
     await page.locator('#retention-save').click();
     await page.locator('#retention-confirm[open]').waitFor();
+    assert.equal(await page.locator('#retention-save.is-saved').count(), 0);
     assert.deepEqual(
       await page.evaluate(() =>
         [
@@ -438,6 +439,64 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page
       .locator('#retention-save[disabled][aria-busy="false"]')
       .waitFor();
+    const pulse = await page.locator('#retention-save').evaluate((el) => {
+      const animations = el
+        .getAnimations({ subtree: true })
+        .filter((a) => a instanceof CSSAnimation);
+      const duration = Math.max(
+        ...animations.map((a) => Number(a.effect!.getTiming().duration)),
+      );
+      const samples = [0, duration / 2, duration - 1].map((time) => {
+        for (const animation of animations) {
+          animation.pause();
+          animation.currentTime = time;
+        }
+        const rect = el.getBoundingClientRect();
+        return {
+          meshOpacity: Number(getComputedStyle(el, '::before').opacity),
+          transform: getComputedStyle(el).transform,
+          width: rect.width,
+          height: rect.height,
+        };
+      });
+      for (const animation of animations) animation.currentTime = duration / 2;
+      return {
+        saved: el.classList.contains('is-saved'),
+        count: animations.length,
+        duration,
+        mesh: getComputedStyle(el, '::before').backgroundImage,
+        samples,
+      };
+    });
+    assert.equal(pulse.saved, true);
+    assert.ok(pulse.count > 0);
+    assert.ok(pulse.duration >= 600 && pulse.duration <= 1200);
+    assert.ok((pulse.mesh.match(/radial-gradient/g) || []).length >= 2);
+    assert.ok(pulse.samples[0].meshOpacity < 0.1);
+    assert.ok(pulse.samples[1].meshOpacity > 0.5);
+    assert.ok(pulse.samples[2].meshOpacity < 0.1);
+    for (const sample of pulse.samples) {
+      assert.equal(sample.transform, 'none');
+      assert.equal(sample.width, pulse.samples[0].width);
+      assert.equal(sample.height, pulse.samples[0].height);
+    }
+    await page.screenshot({
+      path: path.join(artifacts, 'save-pulse-peak-phone.png'),
+      fullPage: true,
+      animations: 'allow',
+    });
+    await page.locator('#retention-save').evaluate((el) => {
+      for (const animation of el.getAnimations({ subtree: true }))
+        animation.play();
+    });
+    await page
+      .locator('#retention-save.is-saved')
+      .waitFor({ state: 'detached' });
+    assert.ok(
+      await page
+        .locator('#retention-save')
+        .evaluate((el) => Number(getComputedStyle(el).opacity) < 1),
+    );
     assert.equal(await page.locator('#retention-status').textContent(), '');
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
@@ -491,6 +550,67 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
         .querySelector('#retention-copy')
         ?.textContent?.includes('60 days'),
     );
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await chooseDays(90);
+    await page.locator('#retention-save').click();
+    await page.locator('#retention-save.is-saved').waitFor();
+    const reduced = await page.locator('#retention-save').evaluate((el) => ({
+      animations: el
+        .getAnimations({ subtree: true })
+        .filter((a) => a instanceof CSSAnimation).length,
+      meshOpacity: Number(getComputedStyle(el, '::before').opacity),
+      disabled: (el as HTMLButtonElement).disabled,
+      transform: getComputedStyle(el).transform,
+    }));
+    assert.equal(reduced.animations, 0);
+    assert.ok(reduced.meshOpacity > 0.5);
+    assert.equal(reduced.disabled, true);
+    assert.equal(reduced.transform, 'none');
+    await page.screenshot({
+      path: path.join(artifacts, 'save-feedback-reduced-motion.png'),
+      fullPage: true,
+      animations: 'allow',
+    });
+    await page
+      .locator('#retention-save.is-saved')
+      .waitFor({ state: 'detached' });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    // A separate, unaltered recording shows the real one-shot timing and replay.
+    const recording = await browser.newContext({
+      viewport: { width: 728, height: 640 },
+      recordVideo: {
+        dir: path.join(artifacts, 'video'),
+        size: { width: 728, height: 640 },
+      },
+    });
+    await recording.addCookies([cookie]);
+    await recording.addInitScript(markSyntheticProof);
+    const demo = await recording.newPage();
+    await demo.goto(origin);
+    await demo
+      .locator('#retention-days:not([disabled])')
+      .waitFor({ state: 'attached' });
+    if (await demo.locator('#menu-btn').isVisible())
+      await demo.locator('#menu-btn').click();
+    await demo.locator('#nav-settings').click();
+    await demo.waitForTimeout(1500);
+    for (const days of [60, 90]) {
+      await demo.locator('#retention-days').click();
+      await demo
+        .getByRole('option', { name: `${days} days`, exact: true })
+        .click();
+      await demo.waitForTimeout(900);
+      await demo.locator('#retention-save').click();
+      await demo.locator('#retention-save.is-saved').waitFor();
+      await demo
+        .locator('#retention-save.is-saved')
+        .waitFor({ state: 'detached' });
+      await demo.waitForTimeout(1800);
+    }
+    await recording.close();
+    await demo.video()!.saveAs(path.join(artifacts, 'save-pulse.webm'));
     assert.deepEqual(errors, []);
     await writeFile(
       path.join(artifacts, 'result.json'),
@@ -500,6 +620,8 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
           browser: browser.version(),
           widths: [1440, 728, 390],
           saves,
+          pulse,
+          reduced,
           errors,
           result: 'PASS',
         },

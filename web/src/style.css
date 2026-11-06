@@ -780,6 +780,8 @@ dialog.paste-confirm::backdrop {
   visibility: hidden;
 }
 #retention-save {
+  position: relative;
+  overflow: hidden;
   width: var(--control-height);
   padding: 0;
 }
@@ -789,8 +791,58 @@ dialog.paste-confirm::backdrop {
 #retention-save:disabled:hover {
   background: var(--primary);
 }
-#retention-save:disabled:not([aria-busy='true']) {
+#retention-save:disabled:not([aria-busy='true']):not(.is-saved) {
   opacity: 0.45;
+}
+#retention-save::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 15% 20%, #b5f6c6, transparent 60%),
+    radial-gradient(ellipse at 85% 15%, #34d399, transparent 55%),
+    radial-gradient(ellipse at 65% 95%, #119867, transparent 60%),
+    var(--positive);
+  opacity: 0;
+  pointer-events: none;
+}
+#retention-save .i,
+#retention-save .spin {
+  position: relative;
+}
+#retention-save.is-saved {
+  animation: retention-saved 900ms ease-in-out both;
+}
+#retention-save.is-saved::before {
+  animation: retention-saved-mesh 900ms ease-in-out both;
+}
+@keyframes retention-saved {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+@keyframes retention-saved-mesh {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #retention-save.is-saved,
+  #retention-save.is-saved::before {
+    animation: none;
+  }
+  #retention-save.is-saved::before {
+    opacity: 1;
+  }
 }
 #retention-confirm {
   padding: 20px;
