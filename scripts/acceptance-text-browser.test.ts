@@ -225,17 +225,59 @@ test('text moves between two browser devices using the actual authenticated serv
         0,
         'no redundant Text headings',
       );
-      assert.equal(
-        await page.locator('#text-hint').textContent(),
-        'Kept 30 days',
-        'Text hint follows file policy',
-      );
+      const formBox = await page.locator('#text-form').boundingBox();
+      const editorBox = await page.locator('#text-draft').boundingBox();
       assert.ok(
-        (await page.locator('#composer .composer-hint').textContent()).includes(
-          'Kept 30 days',
-        ),
-        'file hint follows same policy',
+        formBox &&
+          editorBox &&
+          Math.abs(formBox.x - editorBox.x) < 1 &&
+          Math.abs(formBox.y - editorBox.y) < 1 &&
+          Math.abs(formBox.width - editorBox.width) < 1 &&
+          Math.abs(formBox.height - editorBox.height) < 1,
+        'native textarea covers the entire composer form',
       );
+      assert.equal(
+        await page.locator('#text-hint,#composer .composer-hint').count(),
+        0,
+        'neither composer has a Kept sentence',
+      );
+      for (const [dx, dy] of [
+        [8, 8],
+        [formBox.width - 8, 8],
+        [8, formBox.height - 8],
+        [formBox.width / 2, formBox.height - 8],
+        [formBox.width / 2, formBox.height / 2],
+      ]) {
+        const x = formBox.x + dx,
+          y = formBox.y + dy;
+        assert.equal(
+          await page.evaluate(
+            ({ x, y }) => document.elementFromPoint(x, y)?.id,
+            { x, y },
+          ),
+          'text-draft',
+          'blank composer area hits the actual textarea',
+        );
+        await page.locator('#text-draft').fill('');
+        await page.locator('#page-title').focus();
+        if (page === receiver) await page.touchscreen.tap(x, y);
+        else await page.mouse.click(x, y);
+        assert.equal(
+          await page.evaluate(() => document.activeElement?.id),
+          'text-draft',
+          'clicking composer whitespace activates native editing',
+        );
+        await page.keyboard.type('Surface probe');
+        assert.equal(
+          await page.locator('#text-draft').inputValue(),
+          'Surface probe',
+        );
+      }
+      await page.locator('#text-draft').fill('');
+      await page.evaluate(() =>
+        (document.activeElement as HTMLElement)?.blur(),
+      );
+      await settled(page);
       const surfaces = await page.evaluate(() =>
         ['#composer', '#text-form'].map((selector) => {
           const style = getComputedStyle(document.querySelector(selector)!);
@@ -243,7 +285,6 @@ test('text moves between two browser devices using the actual authenticated serv
             background: style.backgroundColor,
             shadow: style.boxShadow,
             radius: style.borderRadius,
-            padding: style.padding,
           };
         }),
       );
@@ -325,6 +366,11 @@ test('text moves between two browser devices using the actual authenticated serv
         const s = getComputedStyle(el);
         return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight };
       });
+    assert.equal(
+      textFont.size,
+      '16px',
+      'received text has the requested larger reading size',
+    );
     assert.equal(
       textFont.family,
       await receiver
@@ -509,6 +555,39 @@ test('text moves between two browser devices using the actual authenticated serv
     );
     await receiver.locator('#text-draft').fill('x'.repeat(60 * 1024));
     assert.equal(await receiver.locator('#text-count').isVisible(), true);
+    const longEditor = await receiver
+      .locator('#text-draft')
+      .evaluate((el: HTMLTextAreaElement) => ({
+        height: el.getBoundingClientRect().height,
+        formHeight: el.form!.getBoundingClientRect().height,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        paddingBottom: parseFloat(getComputedStyle(el).paddingBottom),
+      }));
+    assert.ok(
+      longEditor.height <= 240 &&
+        Math.abs(longEditor.formHeight - longEditor.height) < 1 &&
+        longEditor.scrollHeight > longEditor.clientHeight,
+      'long drafts scroll inside the bounded full-card editor',
+    );
+    const sendBox = await receiver.locator('#text-send').boundingBox();
+    assert.ok(
+      longEditor.paddingBottom >= sendBox.height + 12,
+      'text has bottom space clear of the overlaid Send control',
+    );
+    const counterBox = await receiver.locator('#text-count').boundingBox();
+    assert.equal(
+      await receiver.evaluate(
+        ({ x, y }) => document.elementFromPoint(x, y)?.id,
+        {
+          x: counterBox.x + counterBox.width / 2,
+          y: counterBox.y + counterBox.height / 2,
+        },
+      ),
+      'text-draft',
+      'counter overlay lets editing clicks pass through',
+    );
+
     await settled(receiver);
     await receiver.screenshot({
       path: path.join(artifacts, 'text-near-limit-390.png'),
@@ -745,6 +824,18 @@ test('text moves between two browser devices using the actual authenticated serv
       .locator('#groups .row')
       .filter({ hasText: 'handoff-proof' })
       .waitFor();
+    const inboxCard = await sender.locator('#composer').boundingBox();
+    const chooseBox = await sender.locator('#choose').boundingBox();
+    assert.ok(
+      inboxCard &&
+        chooseBox &&
+        inboxCard.x + inboxCard.width - chooseBox.x - chooseBox.width <= 20,
+      'Choose files remains right-aligned after removing helper copy',
+    );
+    await sender.screenshot({
+      path: path.join(artifacts, 'inbox-no-retention-1440.png'),
+      fullPage: true,
+    });
     const fileFont = await sender
       .locator('#groups .name strong')
       .first()
@@ -752,10 +843,15 @@ test('text moves between two browser devices using the actual authenticated serv
         const s = getComputedStyle(el);
         return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight };
       });
-    assert.deepEqual(
-      textFont,
-      fileFont,
-      'received Text matches actual Inbox filename typography',
+    assert.equal(
+      textFont.family,
+      fileFont.family,
+      'received Text uses the actual Inbox filename font',
+    );
+    assert.equal(
+      textFont.weight,
+      fileFont.weight,
+      'received Text keeps Inbox filename weight',
     );
     const deadlines = await sender.evaluate(async () => {
       const files = await (await fetch('/api/files')).json();
@@ -863,6 +959,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'existing file upload',
             'shared 30-day file/Text expiry and cleanup with authoritative existing deadlines',
             'Inbox composer surface and filename typography reused; no inner input focus frame',
+            'no composer Kept sentences; native textarea full-card geometry and mouse/touch whitespace editing',
             'unauthenticated denial',
             'full-height desktop koi and viewport-sized long-list scrolling',
             'zero browser errors',

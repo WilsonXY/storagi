@@ -661,11 +661,7 @@ dialog.paste-confirm::backdrop {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.composer-hint {
-  font-size: 12px;
-  color: var(--faint);
-  margin-right: auto;
+  justify-content: flex-end;
 }
 
 .settings {
@@ -1583,9 +1579,6 @@ body.painting * {
     padding-bottom: 28px;
     font-size: 14px;
   }
-  .composer-hint {
-    display: none;
-  }
   .composer-row {
     justify-content: stretch;
   }
@@ -1952,6 +1945,7 @@ body.selecting .toast {
 }
 .text-composer {
   margin: 0 auto;
+  padding: 0;
 }
 .text-composer:focus-within {
   background: rgb(12 12 12 / 84%);
@@ -1972,7 +1966,9 @@ body.selecting .toast {
   overflow-wrap: anywhere;
 }
 .text-composer textarea {
-  padding: 0;
+  min-height: 138px;
+  padding: 16px 12px 70px 18px;
+  border-radius: inherit;
 }
 .text-composer textarea:focus-visible {
   outline: none;
@@ -1986,18 +1982,22 @@ body.selecting .toast {
   color: var(--faint);
 }
 .text-compose-foot {
-  margin-top: 10px;
-}
-.text-composer .composer-hint {
-  display: block;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 18px;
+  justify-content: flex-end;
+  pointer-events: none;
 }
 .text-composer .btn {
   flex: none;
 }
 #text-count {
+  margin-right: auto;
   font-size: 11px;
 }
 #text-send {
+  pointer-events: auto;
   min-height: 38px;
   padding: 0 14px;
 }
@@ -2032,7 +2032,7 @@ body.selecting .toast {
   padding-top: 0;
 }
 .text-card pre {
-  font: 400 14px/1.7 var(--font);
+  font: 400 16px/1.7 var(--font);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 12rem;
@@ -2134,6 +2134,9 @@ body.selecting .toast {
   }
 }
 @media (max-width: 600px), (pointer: coarse) {
+  .text-composer textarea {
+    padding-bottom: 74px;
+  }
   #text-send,
   .text-card-actions .btn,
   .text-card-actions .icon-btn {
@@ -2148,8 +2151,12 @@ body.selecting .toast {
     padding-bottom: 52px;
   }
   .text-composer textarea {
+    min-height: 146px;
+    padding: 22px 12px 74px 16px;
     font-size: 16px;
-    min-height: 58px;
+  }
+  .text-compose-foot {
+    left: 16px;
   }
   .text-card-actions .btn {
     padding: 0 12px;

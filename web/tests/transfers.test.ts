@@ -374,14 +374,16 @@ test('a paste right after Cancel starts a fresh list that survives the late clos
   expect(mocks.uploads.map((upload) => upload.file)).toEqual([b]);
 });
 
-test('file, Text and paste hints use the same server retention policy', async () => {
+test('composers omit retention sentences while paste confirmation keeps the server policy', async () => {
   await mount(45);
-  expect(
-    document.querySelector('#composer .composer-hint')?.textContent,
-  ).toContain('Kept 45 days');
-  expect(document.querySelector('#text-hint')?.textContent).toBe(
-    'Kept 45 days',
-  );
+  expect(document.querySelector('#composer .composer-hint')).toBeNull();
+  expect(document.querySelector('#text-hint')).toBeNull();
+  const describedBy = document
+    .querySelector('#text-draft')!
+    .getAttribute('aria-describedby')!
+    .split(/\s+/);
+  for (const id of describedBy)
+    expect(document.getElementById(id)).not.toBeNull();
   paste([new File(['x'], 'policy.txt'), { isDirectory: false }]);
   await tick();
   expect(document.querySelector('#paste-note')?.textContent).toContain(

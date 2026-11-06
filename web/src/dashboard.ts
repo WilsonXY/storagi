@@ -182,9 +182,6 @@ export async function createDashboard(
   const retentionHint = session.retentionDays
     ? `Kept ${session.retentionDays} ${session.retentionDays === 1 ? 'day' : 'days'}`
     : 'Temporary copies';
-  $('#composer .composer-hint').textContent =
-    `${retentionHint}. Originals stay on your devices.`;
-  $('#text-hint').textContent = retentionHint;
   $('#shelf-app').hidden = false;
   const avatar = $('#avatar');
   if (session.name) {
