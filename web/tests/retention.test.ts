@@ -490,9 +490,7 @@ test('loads shared retention and saves a harmless change with CSRF, updating she
   expect(document.querySelector('#retention-copy')?.textContent).toContain(
     '90 days',
   );
-  expect(document.querySelector('#retention-status')?.textContent).toContain(
-    'Saved',
-  );
+  expect(document.querySelector('#retention-status')?.textContent).toBe('');
 });
 
 test('failed saves preserve policy and allow retry; loading blocks duplicate saves', async () => {

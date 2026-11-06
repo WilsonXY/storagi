@@ -1240,7 +1240,6 @@ export async function createDashboard(
       if (!active) return;
       shelf.retentionDays = result.retentionDays;
       retentionDays.value = String(result.retentionDays);
-      $('#retention-status').textContent = 'Saved for all your devices.';
       await auto.now();
     } catch (error) {
       if (!active) return;

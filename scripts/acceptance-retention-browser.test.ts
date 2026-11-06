@@ -436,12 +436,9 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     });
     await page.locator('#retention-apply').click();
     await page
-      .locator('#retention-status')
-      .filter({ hasText: 'Saved' })
-      .waitFor();
-    await page
       .locator('#retention-save[disabled][aria-busy="false"]')
       .waitFor();
+    assert.equal(await page.locator('#retention-status').textContent(), '');
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
       'retention-days',
