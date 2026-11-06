@@ -163,6 +163,21 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     assert.equal(saves.length, 0, 'choosing a duration never submits the form');
     await chooseDays(30);
     await page.locator('#retention-days').click();
+    await page
+      .locator('#retention-options [value="30"]')
+      .evaluate((el) =>
+        el.dispatchEvent(
+          new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
+        ),
+      );
+    assert.equal(await page.locator('#retention-options').isVisible(), true);
+    await page.getByRole('option', { name: '7 days', exact: true }).click();
+    assert.equal(
+      await page.locator('#retention-days').getAttribute('value'),
+      '7',
+    );
+    await chooseDays(30);
+    await page.locator('#retention-days').click();
     for (const [width, height] of [
       [1440, 1000],
       [390, 844],
@@ -209,6 +224,41 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       ),
       true,
     );
+    for (const [width, height] of [
+      [844, 390],
+      [740, 360],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await page.locator('#retention-days').click();
+      await page.keyboard.press('End');
+      await page
+        .locator('#retention-options')
+        .evaluate((el) =>
+          Promise.all(
+            el.getAnimations().map((animation) => animation.finished),
+          ),
+        );
+      const bounds = await page.locator('#retention-options').evaluate((el) => {
+        const menu = el.getBoundingClientRect(),
+          option = document.activeElement!.getBoundingClientRect();
+        return {
+          top: menu.top,
+          bottom: menu.bottom,
+          optionBottom: option.bottom,
+        };
+      });
+      assert.ok(
+        bounds.top >= 0 &&
+          bounds.bottom <= height &&
+          bounds.optionBottom <= height,
+        `menu and last option fit ${width}×${height}`,
+      );
+      await page.screenshot({
+        path: path.join(artifacts, `duration-menu-${width}.png`),
+        animations: 'disabled',
+      });
+      await page.keyboard.press('Escape');
+    }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await chooseDays(7);
     await page.locator('#retention-save').click();

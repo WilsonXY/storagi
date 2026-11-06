@@ -1130,10 +1130,27 @@ export async function createDashboard(
     if (retentionDays.disabled) return;
     retentionOptions.hidden = false;
     retentionDays.setAttribute('aria-expanded', 'true');
+    positionRetentionMenu();
     retentionChoices
       .find((option) => option.value === retentionDays.value)!
       .focus();
   }
+  function positionRetentionMenu() {
+    const bounds = retentionDays.getBoundingClientRect(),
+      below = Math.max(0, innerHeight - bounds.bottom - 16),
+      above = Math.max(0, bounds.top - 16),
+      up =
+        below < Math.min(retentionOptions.scrollHeight, innerHeight / 2, 300) &&
+        above > below;
+    retentionOptions.classList.toggle('above', up);
+    retentionOptions.style.setProperty(
+      '--retention-room',
+      `${Math.max(1, up ? above : below)}px`,
+    );
+  }
+  listen(window, 'resize', () => {
+    if (!retentionOptions.hidden) positionRetentionMenu();
+  });
   listen(retentionDays, 'click', () => {
     if (!retentionOptions.hidden) return closeRetentionMenu();
     openRetentionMenu();
@@ -1180,7 +1197,7 @@ export async function createDashboard(
     if (!retentionPicker.contains(e.target as Node)) closeRetentionMenu();
   });
   listen(retentionPicker, 'focusout', (e: FocusEvent) => {
-    if (!retentionPicker.contains(e.relatedTarget as Node | null))
+    if (e.relatedTarget && !retentionPicker.contains(e.relatedTarget as Node))
       closeRetentionMenu();
   });
   async function saveRetention(days: number, confirmDeletes = 0) {

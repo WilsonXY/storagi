@@ -139,6 +139,24 @@ test('outside pointer and focus dismiss the menu without discarding the draft', 
   expect(document.activeElement?.id).toBe('retention-save');
 });
 
+test('an unknown focus destination during an option press does not discard its click', async () => {
+  const fetcher = await mount();
+  click('#retention-days');
+  document.activeElement!.dispatchEvent(
+    new FocusEvent('focusout', { bubbles: true, relatedTarget: null }),
+  );
+  expect(
+    document.querySelector<HTMLElement>('#retention-options')!.hidden,
+  ).toBe(false);
+  click('#retention-options [value="7"]');
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('7');
+  expect(
+    fetcher.mock.calls.filter(([url]) => url === '/api/settings'),
+  ).toHaveLength(0);
+});
+
 test('Tab dismisses the menu from its trigger so native tab order can continue', async () => {
   await mount();
   const trigger = document.querySelector<HTMLButtonElement>('#retention-days')!;
