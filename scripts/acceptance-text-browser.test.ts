@@ -225,6 +225,33 @@ test('text moves between two browser devices using the actual authenticated serv
         0,
         'no redundant Text headings',
       );
+      assert.equal(
+        await page.locator('#text-hint').textContent(),
+        'Kept 30 days',
+        'Text hint follows file policy',
+      );
+      assert.ok(
+        (await page.locator('#composer .composer-hint').textContent()).includes(
+          'Kept 30 days',
+        ),
+        'file hint follows same policy',
+      );
+      const surfaces = await page.evaluate(() =>
+        ['#composer', '#text-form'].map((selector) => {
+          const style = getComputedStyle(document.querySelector(selector)!);
+          return {
+            background: style.backgroundColor,
+            shadow: style.boxShadow,
+            radius: style.borderRadius,
+            padding: style.padding,
+          };
+        }),
+      );
+      assert.deepEqual(
+        surfaces[0],
+        surfaces[1],
+        'Text reuses Inbox composer card styling',
+      );
       await page.locator('#text-pond').waitFor({ state: 'visible' });
       assert.equal(
         await page
@@ -246,6 +273,15 @@ test('text moves between two browser devices using the actual authenticated serv
       fullPage: true,
     });
     await receiver.locator('#text-draft').fill('Keyboard probe');
+    assert.equal(
+      await receiver
+        .locator('#text-draft')
+        .evaluate((el: HTMLElement) => getComputedStyle(el).fontFamily),
+      await receiver
+        .locator('body')
+        .evaluate((el: HTMLElement) => getComputedStyle(el).fontFamily),
+      'composer uses Storagi interface font',
+    );
     await receiver.locator('#text-draft').focus();
     const focusStyle = await receiver
       .locator('#text-draft')
@@ -254,12 +290,10 @@ test('text moves between two browser devices using the actual authenticated serv
         return { outline: style.outlineStyle, shadow: style.boxShadow };
       });
     assert.equal(focusStyle.outline, 'none', 'no red or orange input outline');
-    const focusColor = focusStyle.shadow.match(/rgb\((\d+), (\d+), (\d+)\)/);
-    assert.ok(
-      focusColor &&
-        focusColor[1] === focusColor[2] &&
-        focusColor[2] === focusColor[3],
-      'input keeps a neutral visible focus cue',
+    assert.equal(
+      focusStyle.shadow,
+      'none',
+      'no inner input frame while typing',
     );
     await receiver.screenshot({
       path: path.join(artifacts, 'text-input-focus-390.png'),
@@ -284,6 +318,24 @@ test('text moves between two browser devices using the actual authenticated serv
       .locator('#text-items pre')
       .filter({ hasText: link })
       .waitFor();
+    const textFont = await receiver
+      .locator('#text-items pre')
+      .first()
+      .evaluate((el: HTMLElement) => {
+        const s = getComputedStyle(el);
+        return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight };
+      });
+    assert.equal(
+      textFont.family,
+      await receiver
+        .locator('body')
+        .evaluate((el: HTMLElement) => getComputedStyle(el).fontFamily),
+      'received notes use Storagi interface font',
+    );
+    assert.equal(
+      await receiver.locator('.text-expiry').textContent(),
+      '30d left',
+    );
     assert.equal(
       await receiver.locator('[data-text-open]').getAttribute('href'),
       link,
@@ -693,6 +745,29 @@ test('text moves between two browser devices using the actual authenticated serv
       .locator('#groups .row')
       .filter({ hasText: 'handoff-proof' })
       .waitFor();
+    const fileFont = await sender
+      .locator('#groups .name strong')
+      .first()
+      .evaluate((el: HTMLElement) => {
+        const s = getComputedStyle(el);
+        return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight };
+      });
+    assert.deepEqual(
+      textFont,
+      fileFont,
+      'received Text matches actual Inbox filename typography',
+    );
+    const deadlines = await sender.evaluate(async () => {
+      const files = await (await fetch('/api/files')).json();
+      const session = await (await fetch('/api/session')).json();
+      return { file: files.files[0], days: session.retentionDays };
+    });
+    assert.equal(deadlines.days, 30);
+    assert.equal(
+      Date.parse(deadlines.file.expiresAt) -
+        Date.parse(deadlines.file.uploadedAt),
+      30 * 86400000,
+    );
     await navigate(sender, 'text');
     await sender.locator('#text-draft').fill('Synthetic scroll proof');
     await sender.locator('#text-send').click();
@@ -752,7 +827,11 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-scrolled-1440.png'),
     });
     await sender.setViewportSize({ width: 1440, height: 1000 });
-    now += 86400001;
+    // Keep synthetic sessions alive to isolate shared content expiry beyond seven days.
+    app.storage.db
+      .prepare('UPDATE sessions SET expiresAt=?')
+      .run(now + 31 * 86400000);
+    now += 30 * 86400000 + 1;
     await app.cleanup();
     await sender.locator('#refresh').click();
     await sender.waitForFunction(
@@ -782,7 +861,8 @@ test('text moves between two browser devices using the actual authenticated serv
             'delete cancel/confirm and cross-device disappearance',
             'failed send preserves draft',
             'existing file upload',
-            'expiry cleanup',
+            'shared 30-day file/Text expiry and cleanup with authoritative existing deadlines',
+            'Inbox composer surface and filename typography reused; no inner input focus frame',
             'unauthenticated denial',
             'full-height desktop koi and viewport-sized long-list scrolling',
             'zero browser errors',

@@ -183,7 +183,7 @@
             </p>
             <div class="composer-row">
               <span class="composer-hint"
-                >Kept 30 days. Originals stay on your devices.</span
+                >Temporary copies. Originals stay on your devices.</span
               >
               <button
                 type="button"
@@ -217,7 +217,7 @@
         >
           <canvas class="pond" id="text-pond" aria-hidden="true"></canvas>
           <div class="text-pond-zone" id="text-pond-zone">
-            <form id="text-form" class="text-composer">
+            <form id="text-form" class="composer text-composer">
               <textarea
                 id="text-draft"
                 rows="2"
@@ -226,8 +226,8 @@
                 aria-describedby="text-hint text-count"
                 spellcheck="false"
               ></textarea>
-              <div class="text-compose-foot">
-                <p id="text-hint" class="muted">Kept 24 hours</p>
+              <div class="composer-row text-compose-foot">
+                <p id="text-hint" class="composer-hint">Temporary copies</p>
                 <span id="text-count" class="mono muted" hidden></span>
                 <button
                   type="submit"

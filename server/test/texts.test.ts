@@ -16,6 +16,56 @@ const list = async (f: Awaited<ReturnType<typeof fixture>>) => {
   return (await response.json()).texts;
 };
 
+// Keep the synthetic test session valid when isolating retention beyond its normal seven days.
+const advanceShelfClock = (
+  f: Awaited<ReturnType<typeof fixture>>,
+  at: number,
+) => {
+  f.app.storage.db.prepare('UPDATE sessions SET expiresAt=?').run(at + DAY);
+  f.setNow(at);
+};
+
+test('new Text and completed files share the same 30-day retention deadline', async () => {
+  const f = await fixture();
+  try {
+    const uploaded = await f.request('/api/uploads', {
+      method: 'POST',
+      headers: {
+        ...f.headers,
+        'upload-length': '0',
+        'upload-metadata': 'filename ZW1wdHk=',
+      },
+    });
+    assert.equal(uploaded.status, 201);
+    const files = await (
+      await f.request('/api/files', { headers: f.headers })
+    ).json();
+    const text = await (await post(f, 'same shelf lifetime')).json();
+    assert.equal(
+      files.files[0].expiresAt,
+      new Date(f.now() + 30 * DAY).toISOString(),
+    );
+    assert.equal(text.expiresAt, files.files[0].expiresAt);
+  } finally {
+    await f.close();
+  }
+});
+
+test('authenticated session describes the shared shelf retention policy', async () => {
+  const f = await fixture();
+  try {
+    const session = await (
+      await f.request('/api/session', { headers: f.headers })
+    ).json();
+    assert.equal(session.retentionDays, 30);
+    assert.equal(session.authenticated, true);
+    assert.ok(session.csrfToken);
+    assert.equal((await f.request('/api/session')).status, 401);
+  } finally {
+    await f.close();
+  }
+});
+
 test('texts preserve exact Unicode/whitespace, are newest first and survive restart without affecting file quota', async () => {
   const f = await fixture(0);
   try {
@@ -26,7 +76,7 @@ test('texts preserve exact Unicode/whitespace, are newest first and survive rest
     assert.match(first.id, /^[a-f0-9-]{36}$/);
     assert.equal(first.text, text);
     assert.equal(first.createdAt, new Date(f.now()).toISOString());
-    assert.equal(first.expiresAt, new Date(f.now() + DAY).toISOString());
+    assert.equal(first.expiresAt, new Date(f.now() + 30 * DAY).toISOString());
     f.setNow(f.now() + 1000);
     const second = await (await post(f, 'second')).json();
     assert.deepEqual(
@@ -213,7 +263,21 @@ test('expiry hides text immediately, cleanup removes rows, expired slots can be 
   const f = await fixture();
   try {
     const first = await (await post(f, 'expires')).json();
+    const deadline = f.now() + 30 * DAY;
     f.setNow(f.now() + DAY);
+    assert.equal(
+      (await list(f)).length,
+      1,
+      'Text survives its former 24-hour cutoff',
+    );
+    advanceShelfClock(f, deadline - 1);
+    await f.app.cleanup();
+    assert.equal(
+      (await list(f)).length,
+      1,
+      'Text remains live one millisecond before shared expiry',
+    );
+    advanceShelfClock(f, deadline);
     assert.deepEqual(await list(f), []);
     assert.equal(
       (
@@ -234,7 +298,7 @@ test('expiry hides text immediately, cleanup removes rows, expired slots can be 
       0,
     );
     await post(f, 'startup expiry');
-    f.setNow(f.now() + DAY);
+    advanceShelfClock(f, f.now() + 30 * DAY);
     await f.restart();
     assert.equal(
       (
@@ -249,7 +313,7 @@ test('expiry hides text immediately, cleanup removes rows, expired slots can be 
     assert.equal((await post(f, 'over cap')).status, 409);
     assert.equal((await list(f)).length, 100);
     assert.equal((await list(f))[0].text, '99');
-    f.setNow(f.now() + DAY);
+    advanceShelfClock(f, f.now() + 30 * DAY);
     assert.equal((await post(f, 'new day')).status, 201);
     assert.equal((await list(f)).length, 1);
     assert.equal(
@@ -308,10 +372,41 @@ test('file listing exposes only live text count and unchanged text polls return 
       ).status,
       200,
     );
-    f.setNow(f.now() + DAY);
+    advanceShelfClock(f, f.now() + 30 * DAY);
     assert.equal(
       (await (await f.request('/api/files', { headers: f.headers })).json())
         .textCount,
+      0,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('stored Text deadlines remain authoritative across restart and expired legacy content is never revived', async () => {
+  const f = await fixture();
+  try {
+    const first = await (await post(f, 'legacy deadline')).json();
+    const legacyDeadline = f.now() + DAY;
+    f.app.storage.db
+      .prepare('UPDATE texts SET expiresAt=? WHERE id=?')
+      .run(legacyDeadline, first.id);
+    await f.restart();
+    assert.equal(
+      (await list(f))[0].expiresAt,
+      new Date(legacyDeadline).toISOString(),
+    );
+    f.setNow(legacyDeadline - 1);
+    assert.equal((await list(f)).length, 1);
+    f.setNow(legacyDeadline);
+    await f.restart();
+    assert.deepEqual(await list(f), []);
+    assert.equal(
+      (
+        f.app.storage.db.prepare('SELECT COUNT(*) count FROM texts').get() as {
+          count: number;
+        }
+      ).count,
       0,
     );
   } finally {

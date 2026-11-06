@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, statfsSync, statSync } from 'node:fs';
 import path from 'node:path';
 export const DAY = 86400000;
+export const SHELF_RETENTION_DAYS = 30;
+const shelfExpiresAt = (at: number) => at + SHELF_RETENTION_DAYS * DAY;
 export const TEXT_LIMIT = 64 * 1024;
 export type TextRow = {
   id: string;
@@ -113,7 +115,7 @@ export class Storage {
           id: crypto.randomUUID(),
           text,
           createdAt: now,
-          expiresAt: now + DAY,
+          expiresAt: shelfExpiresAt(now),
         };
         this.db
           .prepare('INSERT INTO texts VALUES (?,?,?,?)')
@@ -205,7 +207,7 @@ export class Storage {
       .prepare(
         'UPDATE files SET uploadedAt=?,expiresAt=?,lastActivity=? WHERE id=? AND uploadedAt IS NULL',
       )
-      .run(at, at + 30 * DAY, at, id);
+      .run(at, shelfExpiresAt(at), at, id);
   }
   forget(id: string): void {
     this.db.transaction(() => {

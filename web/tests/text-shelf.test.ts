@@ -693,3 +693,19 @@ test('Undo identifies the same note as Copy for assistive technology', async () 
       ?.getAttribute('aria-describedby'),
   );
 });
+
+test('long shelf retention displays days instead of hundreds of hours', async () => {
+  const { shelf, setItems } = mount();
+  const now = Date.now();
+  setItems([
+    {
+      id: 'long',
+      text: 'A shelf note',
+      createdAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + 30 * 86400000).toISOString(),
+    },
+  ]);
+  shelf.activate(true);
+  await tick();
+  expect(document.querySelector('.text-expiry')?.textContent).toBe('30d left');
+});

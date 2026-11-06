@@ -33,7 +33,7 @@ vi.mock('tus-js-client', () => ({
 const tick = async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
-async function mount() {
+async function mount(retentionDays = 30) {
   document.body.innerHTML = '<main id="app"></main>';
   await createDashboard(document.querySelector('#app')!, {
     fetch: vi.fn(
@@ -41,7 +41,7 @@ async function mount() {
         new Response(
           JSON.stringify(
             String(url) === '/api/session'
-              ? { authenticated: true, csrfToken: 'test-csrf' }
+              ? { authenticated: true, csrfToken: 'test-csrf', retentionDays }
               : {
                   files: [],
                   usedBytes: 0,
@@ -164,7 +164,11 @@ test('refreshes reserved storage when the server creates a partial upload', asyn
         new Response(
           JSON.stringify(
             String(url) === '/api/session'
-              ? { authenticated: true, csrfToken: 'test-csrf' }
+              ? {
+                  authenticated: true,
+                  csrfToken: 'test-csrf',
+                  retentionDays: 30,
+                }
               : {
                   files: [],
                   usedBytes: 0,
@@ -368,4 +372,19 @@ test('a paste right after Cancel starts a fresh list that survives the late clos
   press('#paste-upload');
   await tick();
   expect(mocks.uploads.map((upload) => upload.file)).toEqual([b]);
+});
+
+test('file, Text and paste hints use the same server retention policy', async () => {
+  await mount(45);
+  expect(
+    document.querySelector('#composer .composer-hint')?.textContent,
+  ).toContain('Kept 45 days');
+  expect(document.querySelector('#text-hint')?.textContent).toBe(
+    'Kept 45 days',
+  );
+  paste([new File(['x'], 'policy.txt'), { isDirectory: false }]);
+  await tick();
+  expect(document.querySelector('#paste-note')?.textContent).toContain(
+    'Kept 45 days',
+  );
 });

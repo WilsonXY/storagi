@@ -134,7 +134,11 @@ export function createTextShelf(
         Math.ceil((Date.parse(item.expiresAt) - now) / 60000),
       );
       const remaining =
-        minutes >= 60 ? `${Math.ceil(minutes / 60)}h left` : `${minutes}m left`;
+        minutes >= 1440
+          ? `${Math.ceil(minutes / 1440)}d left`
+          : minutes >= 60
+            ? `${Math.ceil(minutes / 60)}h left`
+            : `${minutes}m left`;
       card.classList.toggle('text-pending', pending.has(item.id));
       const undo = card.querySelector<HTMLButtonElement>('[data-text-undo]')!;
       undo.hidden = !pending.has(item.id);

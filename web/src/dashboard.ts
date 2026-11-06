@@ -139,6 +139,7 @@ export async function createDashboard(
   let session: {
     authenticated: boolean;
     csrfToken: string;
+    retentionDays?: number;
     name?: string | null;
     picture?: string | null;
   };
@@ -178,6 +179,12 @@ export async function createDashboard(
   clear();
   root.innerHTML = shelfHTML;
   active = true;
+  const retentionHint = session.retentionDays
+    ? `Kept ${session.retentionDays} ${session.retentionDays === 1 ? 'day' : 'days'}`
+    : 'Temporary copies';
+  $('#composer .composer-hint').textContent =
+    `${retentionHint}. Originals stay on your devices.`;
+  $('#text-hint').textContent = retentionHint;
   $('#shelf-app').hidden = false;
   const avatar = $('#avatar');
   if (session.name) {
@@ -1361,6 +1368,7 @@ export async function createDashboard(
   });
   cleanups.push(
     setupTransfers(root, session.csrfToken, {
+      retentionHint,
       refresh: () => auto.now(),
       notice: (message) => toast(message),
       expired: () => locked(true),
