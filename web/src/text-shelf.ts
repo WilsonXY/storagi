@@ -297,7 +297,10 @@ export function createTextShelf(
         )!
         .focus();
     } else if (button.hasAttribute('data-text-undo')) {
+      const restoreFocus = document.activeElement === button;
       pending.get(item.id)?.op.undo();
+      if (active && restoreFocus)
+        card.querySelector<HTMLElement>('[data-text-copy]')!.focus();
     } else if (button.hasAttribute('data-text-confirm')) {
       void remove(item.id, true);
     }
@@ -351,6 +354,7 @@ export function createTextShelf(
           onUndo: () => {
             pending.delete(id);
             render();
+            sync('Deletion undone.');
           },
           onTick: (left) => {
             const state = pending.get(id);
@@ -362,6 +366,7 @@ export function createTextShelf(
         }),
         left: 4,
       });
+      sync('Text will be deleted in four seconds. Undo is available.');
       render();
     },
     render,

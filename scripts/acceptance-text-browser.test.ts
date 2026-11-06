@@ -305,6 +305,33 @@ test('text moves between two browser devices using the actual authenticated serv
       await receiver.locator('.text-copy-fallback').inputValue(),
       link,
     );
+    const fallbackFocus = await receiver
+      .locator('.text-copy-fallback')
+      .evaluate((el: HTMLElement) => ({
+        outline: getComputedStyle(el).outlineStyle,
+        shadow: getComputedStyle(el).boxShadow,
+      }));
+    assert.equal(
+      fallbackFocus.outline,
+      'none',
+      'clipboard recovery input has no orange outline',
+    );
+    const fallbackColor = fallbackFocus.shadow.match(
+      /rgb\((\d+), (\d+), (\d+)\)/,
+    );
+    assert.ok(
+      fallbackColor &&
+        fallbackColor[1] === fallbackColor[2] &&
+        fallbackColor[2] === fallbackColor[3],
+      'clipboard recovery keeps neutral inset focus',
+    );
+    assert.equal(
+      await receiver
+        .locator('[data-text-copy]')
+        .evaluate((el: HTMLElement) => getComputedStyle(el).backgroundColor),
+      'rgba(0, 0, 0, 0)',
+      'touch Copy leaves no sticky hover square',
+    );
     await sender.locator('#notice').waitFor({ state: 'detached' });
     await receiver.screenshot({
       path: path.join(artifacts, 'text-clipboard-fallback-390.png'),
@@ -445,12 +472,19 @@ test('text moves between two browser devices using the actual authenticated serv
     await receiver.reload();
     await receiver.locator('[data-text-copy]').waitFor();
     // A native phone touch swipe uses the same red reveal and Undo rhythm as Inbox.
+    const pagesBeforeSwipes = phone.pages().length;
     const cdp = await phone.newCDPSession(receiver);
-    const swipe = async (distance: number, cancel = false, capture = false) => {
+    const swipe = async (
+      distance: number,
+      cancel = false,
+      capture = false,
+      target = '.text-card-actions',
+    ) => {
       const row = receiver.locator('#text-items article').first();
       await row.scrollIntoViewIfNeeded();
-      const box = await row.locator('.text-card-actions').boundingBox();
-      const x = box.x + box.width * 0.65,
+      const box = await row.locator(target).boundingBox();
+      const x =
+          box.x + box.width * (target === '.text-card-actions' ? 0.65 : 0.8),
         y = box.y + box.height / 2;
       await cdp.send('Input.dispatchTouchEvent', {
         type: 'touchStart',
@@ -484,13 +518,18 @@ test('text moves between two browser devices using the actual authenticated serv
       false,
       'cancelled swipe keeps text',
     );
-    await swipe(220, false, true);
+    await swipe(220, false, true, '[data-text-open]');
     await receiver.locator('[data-text-undo]').waitFor();
     await receiver.screenshot({
       path: path.join(artifacts, 'text-swipe-undo-390.png'),
       fullPage: true,
     });
     await receiver.locator('[data-text-undo]').click();
+    assert.equal(
+      phone.pages().length,
+      pagesBeforeSwipes,
+      'swiping the URL does not open it',
+    );
     await receiver.locator('[data-text-copy]').waitFor();
     assert.equal(
       await receiver.locator('#text-items article').count(),
@@ -510,6 +549,48 @@ test('text moves between two browser devices using the actual authenticated serv
       localStorage.setItem('storagi.gestures', 'on'),
     );
     await swipe(220);
+    await receiver.locator('[data-text-undo]').waitFor();
+    await receiver
+      .locator('#text-items article')
+      .waitFor({ state: 'detached' });
+    await sender.locator('#text-items article').waitFor({ state: 'detached' });
+    // Swiping a plain note body and a desktop trackpad over wrapped text both work.
+    await receiver
+      .locator('#text-draft')
+      .fill('A plain note for native swipe proof.');
+    await receiver.locator('#text-send').click();
+    await receiver
+      .locator('#text-items pre')
+      .filter({ hasText: 'A plain note' })
+      .waitFor();
+    await swipe(220, false, false, 'pre');
+    await receiver.locator('[data-text-undo]').waitFor();
+    await receiver.locator('[data-text-undo]').click();
+    await sender
+      .locator('#text-items pre')
+      .filter({ hasText: 'A plain note' })
+      .waitFor();
+    const noteBox = await sender.locator('#text-items pre').boundingBox();
+    await sender.mouse.move(
+      noteBox.x + noteBox.width / 2,
+      noteBox.y + noteBox.height / 2,
+    );
+    await sender.mouse.wheel(220, 0);
+    await sender.locator('[data-text-undo]').waitFor();
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-trackpad-1440.png'),
+      fullPage: true,
+    });
+    await sender.locator('[data-text-undo]').focus();
+    await sender.keyboard.press('Enter');
+    assert.equal(
+      await sender
+        .locator('[data-text-copy]')
+        .evaluate((el: HTMLElement) => document.activeElement === el),
+      true,
+      'keyboard Undo restores Copy focus',
+    );
+    await swipe(220, false, false, 'pre');
     await receiver.locator('[data-text-undo]').waitFor();
     await receiver
       .locator('#text-items article')
@@ -602,7 +683,9 @@ test('text moves between two browser devices using the actual authenticated serv
           passed: true,
           checks: [
             'desktop to phone automatic receipt',
-            'native phone touch swipe short/cancel/Undo/commit and cross-device deletion',
+            'native phone touch swipe on URL and note bodies, short/cancel/Undo/commit, preference and cross-device deletion',
+            'desktop trackpad over wrapped note body and keyboard Undo focus',
+            'neutral clipboard fallback and no touch Copy hover square',
             'safe external link opens',
             'exact clipboard copy',
             'denied clipboard native selection',

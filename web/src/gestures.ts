@@ -152,7 +152,7 @@ export function rowGestures(
     if (!row || engaged(row.dataset.id!)) return;
     // Text keeps ordinary mouse dragging available for selecting its contents.
     if (!selection && e.pointerType === 'mouse') return;
-    if (!selection && (e.target as Element).closest('a,button,textarea,input'))
+    if (!selection && (e.target as Element).closest('button,textarea,input'))
       return;
     g = {
       id: row.dataset.id!,
@@ -223,10 +223,16 @@ export function rowGestures(
     groups,
     'contextmenu',
     (e: Event) => {
-      if (g?.touch) e.preventDefault();
+      if (!g?.touch) return;
+      if (!selection && g.mode === 'pending') end();
+      else e.preventDefault();
     },
     false,
   );
+  if (!selection)
+    on(document, 'selectionchange', () => {
+      if (g?.mode === 'pending' && window.getSelection()?.toString()) end();
+    });
   window.addEventListener(
     'click',
     (e) => {
@@ -252,11 +258,12 @@ export function rowGestures(
       if (!wheel) {
         const row = (e.target as Element).closest<HTMLElement>(rowSelector);
         if (!row || engaged(row.dataset.id!) || e.deltaX < 0) return;
-        if (
-          !selection &&
-          (e.target as Element).closest('a,button,textarea,input,pre')
-        )
-          return;
+        if (!selection) {
+          const target = e.target as Element;
+          if (target.closest('button,textarea,input')) return;
+          const content = target.closest('pre');
+          if (content && content.scrollWidth > content.clientWidth) return;
+        }
         wheel = { swipe: startSwipe(row), dx: 0 };
       }
       e.preventDefault();

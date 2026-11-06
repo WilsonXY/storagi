@@ -429,7 +429,7 @@ test('expiry precedes named icon-only Copy and Delete actions', async () => {
   expect(copy.querySelector('svg')).not.toBeNull();
 });
 
-function swipe(dx: number, dy = 0, cancel = false) {
+function swipe(dx: number, dy = 0, cancel = false, target?: Element) {
   const card = document.querySelector<HTMLElement>('.text-card')!;
   Object.defineProperty(card, 'offsetWidth', {
     configurable: true,
@@ -448,7 +448,7 @@ function swipe(dx: number, dy = 0, cancel = false) {
     });
     target.dispatchEvent(e);
   };
-  pointer(card, 'pointerdown', 300, 200);
+  pointer(target ?? card, 'pointerdown', 300, 200);
   pointer(window, 'pointermove', 300 + dx, 200 + dy);
   pointer(window, cancel ? 'pointercancel' : 'pointerup', 300 + dx, 200 + dy);
 }
@@ -498,7 +498,10 @@ test('gesture preference, native horizontal text scrolling and leaving cancel un
     target.dispatchEvent(
       new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 180 }),
     );
-  wheel(card.querySelector('pre')!);
+  const pre = card.querySelector('pre')!;
+  Object.defineProperty(pre, 'scrollWidth', { value: 400 });
+  Object.defineProperty(pre, 'clientWidth', { value: 200 });
+  wheel(pre);
   await vi.advanceTimersByTimeAsync(200);
   expect(card.classList.contains('text-pending')).toBe(false);
   wheel(card);
@@ -567,4 +570,111 @@ test('mouse text selection never starts a Text swipe', async () => {
   pointer(window, 'pointermove', 50);
   pointer(window, 'pointerup', 50);
   expect(card.classList.contains('text-pending')).toBe(false);
+});
+
+test('native touch long-press on Text keeps its context menu and cancels the pending swipe', async () => {
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const pre = document.querySelector('#text-items pre')!;
+  pre.dispatchEvent(
+    Object.assign(
+      new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 300 }),
+      { pointerId: 1, pointerType: 'touch' },
+    ),
+  );
+  const menu = new MouseEvent('contextmenu', {
+    bubbles: true,
+    cancelable: true,
+  });
+  pre.dispatchEvent(menu);
+  expect(menu.defaultPrevented).toBe(false);
+  window.dispatchEvent(
+    Object.assign(new MouseEvent('pointermove', { clientX: 50 }), {
+      pointerId: 1,
+      pointerType: 'touch',
+    }),
+  );
+  window.dispatchEvent(
+    Object.assign(new MouseEvent('pointerup'), {
+      pointerId: 1,
+      pointerType: 'touch',
+    }),
+  );
+  expect(document.querySelector('.text-pending')).toBeNull();
+});
+
+test('native text selection cancels a pending Text swipe before handles can move', async () => {
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const pre = document.querySelector('#text-items pre')!;
+  pre.dispatchEvent(
+    Object.assign(
+      new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 300 }),
+      { pointerId: 1, pointerType: 'touch' },
+    ),
+  );
+  const range = document.createRange();
+  range.selectNodeContents(pre);
+  window.getSelection()!.removeAllRanges();
+  window.getSelection()!.addRange(range);
+  expect(window.getSelection()!.toString()).toContain('example.com');
+  document.dispatchEvent(new Event('selectionchange'));
+  window.getSelection()!.removeAllRanges();
+  window.dispatchEvent(
+    Object.assign(new MouseEvent('pointermove', { clientX: 50 }), {
+      pointerId: 1,
+      pointerType: 'touch',
+    }),
+  );
+  window.dispatchEvent(
+    Object.assign(new MouseEvent('pointerup'), {
+      pointerId: 1,
+      pointerType: 'touch',
+    }),
+  );
+  expect(document.querySelector('.text-pending')).toBeNull();
+});
+
+test('touch swiping directly on a Text URL offers Undo without opening it', async () => {
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  swipe(-180, 0, false, document.querySelector('[data-text-open]')!);
+  expect(document.querySelector('.text-pending')).not.toBeNull();
+});
+
+test('a trackpad swipe over wrapped Text content offers Undo', async () => {
+  vi.useFakeTimers();
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const pre = document.querySelector('#text-items pre')!;
+  pre.dispatchEvent(
+    new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: 180 }),
+  );
+  await vi.advanceTimersByTimeAsync(200);
+  expect(document.querySelector('.text-pending')).not.toBeNull();
+});
+
+test('keyboard Undo restores Copy focus and deletion is announced once', async () => {
+  vi.useFakeTimers();
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  swipe(-180);
+  await vi.advanceTimersByTimeAsync(0);
+  const undo = document.querySelector<HTMLButtonElement>('[data-text-undo]')!;
+  undo.focus();
+  undo.click();
+  expect(document.activeElement).toBe(
+    document.querySelector('[data-text-copy]'),
+  );
+  expect(document.querySelector('#text-sync')?.textContent).toContain('undone');
+  swipe(-180);
+  const announcement = document.querySelector('#text-sync')?.textContent;
+  expect(announcement).toContain('Undo');
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(document.querySelector('#text-sync')?.textContent).toBe(announcement);
 });
