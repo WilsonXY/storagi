@@ -162,6 +162,18 @@ test('successful saves give a short replayable cue only after the refresh settle
   expect(save.classList.contains('is-saved')).toBe(false);
   click('#nav-settings');
   await tick();
+  select(90);
+  pause = true;
+  click('#retention-save');
+  await tick();
+  click('.nav-item[data-tab="inbox"]');
+  pause = false;
+  release();
+  await tick();
+  expect(save.classList.contains('is-saved')).toBe(false);
+  click('#nav-settings');
+  await tick();
+  expect(save.classList.contains('is-saved')).toBe(false);
   fetcher.setSavedDays(14);
   click('#refresh');
   await tick();
@@ -171,6 +183,39 @@ test('successful saves give a short replayable cue only after the refresh settle
   await tick();
   expect(save.classList.contains('is-saved')).toBe(true);
   dispose();
+  expect(save.classList.contains('is-saved')).toBe(false);
+});
+
+test('a concurrent policy change during the save refresh leaves its different draft ready without success feedback', async () => {
+  let pause = false;
+  const releases: (() => void)[] = [];
+  const fetcher = await mount(undefined, async () => {
+    if (pause)
+      await new Promise<void>((resolve) => {
+        releases.push(resolve);
+      });
+  });
+  click('#nav-settings');
+  await tick();
+  pause = true;
+  click('#refresh');
+  await tick();
+  select(90);
+  click('#retention-save');
+  await tick();
+  fetcher.setSavedDays(14);
+  releases.shift()!();
+  await tick();
+  releases.shift()!();
+  await tick();
+  const save = document.querySelector<HTMLButtonElement>('#retention-save')!;
+  expect(document.querySelector('#retention-copy')!.textContent).toContain(
+    '14 days',
+  );
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('90');
+  expect(save.disabled).toBe(false);
   expect(save.classList.contains('is-saved')).toBe(false);
 });
 

@@ -1278,7 +1278,11 @@ export async function createDashboard(
       retentionSaving = false;
       if (active) {
         renderRetention();
-        if (saved && app.dataset.view === 'settings') {
+        if (
+          saved &&
+          retentionSave.disabled &&
+          app.dataset.view === 'settings'
+        ) {
           retentionSave.classList.add('is-saved');
           retentionSavedTimer = setTimeout(clearRetentionSaved, 900);
         }
