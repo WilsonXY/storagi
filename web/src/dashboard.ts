@@ -1093,6 +1093,17 @@ export async function createDashboard(
     if (!retentionDirty) retentionDays.value = String(days);
     retentionDays.disabled = retentionSaving;
     retentionSave.disabled = retentionSaving;
+    retentionSave.setAttribute('aria-busy', String(retentionSaving));
+    retentionSave.setAttribute(
+      'aria-label',
+      retentionSaving ? 'Saving retention…' : 'Save retention',
+    );
+    retentionSave
+      .querySelector('.i')!
+      .toggleAttribute('hidden', retentionSaving);
+    retentionSave
+      .querySelector('.spin')!
+      .toggleAttribute('hidden', !retentionSaving);
   }
   listen(retentionDays, 'change', () => {
     if (retentionDialog.open) closeRetention();
@@ -1103,7 +1114,6 @@ export async function createDashboard(
     if (retentionSaving || retentionDays.disabled) return;
     retentionSaving = true;
     renderRetention();
-    retentionSave.textContent = 'Saving…';
     $('#retention-status').textContent = '';
     try {
       const result = await (
@@ -1139,7 +1149,6 @@ export async function createDashboard(
     } finally {
       retentionSaving = false;
       if (active) {
-        retentionSave.textContent = 'Save';
         renderRetention();
         if (!retentionDialog.open && document.activeElement === document.body)
           retentionSave.focus();

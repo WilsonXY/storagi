@@ -56,6 +56,10 @@ async function mount(
 test('loads shared retention and saves a harmless change with CSRF, updating shelf copy', async () => {
   const fetcher = await mount();
   expect(
+    document.querySelector('#retention-save')?.getAttribute('aria-label'),
+  ).toBe('Save retention');
+  expect(document.querySelector('#retention-save svg')).not.toBeNull();
+  expect(
     document.querySelector<HTMLSelectElement>('#retention-days')?.value,
   ).toBe('60');
   expect(document.querySelector('#retention-copy')?.textContent).toContain(
@@ -101,9 +105,12 @@ test('failed saves preserve policy and allow retry; loading blocks duplicate sav
   expect(
     document.querySelector<HTMLSelectElement>('#retention-days')!.disabled,
   ).toBe(true);
-  expect(document.querySelector('#retention-save')?.textContent).toBe(
-    'Saving…',
-  );
+  expect(
+    document.querySelector('#retention-save')?.getAttribute('aria-label'),
+  ).toBe('Saving retention…');
+  expect(
+    document.querySelector('#retention-save')?.getAttribute('aria-busy'),
+  ).toBe('true');
   respond(Response.json({ error: 'Synthetic save failure' }, { status: 500 }));
   await tick();
   expect(document.querySelector('#retention-status')?.textContent).toBe(

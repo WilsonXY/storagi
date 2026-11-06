@@ -732,6 +732,10 @@ dialog.paste-confirm::backdrop {
   border-radius: var(--radius-control);
   padding: 7px 10px;
 }
+.retention-controls option {
+  color: var(--text);
+  background: var(--raised);
+}
 .set-text p {
   margin-top: 4px;
   font-size: 13px;
