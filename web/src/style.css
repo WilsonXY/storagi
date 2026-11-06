@@ -1973,6 +1973,11 @@ body.selecting .toast {
   border-width: 16px 12px 70px 18px;
   border-radius: inherit;
 }
+@media (forced-colors: active) {
+  .text-composer textarea {
+    border-color: Canvas;
+  }
+}
 .text-composer textarea:focus-visible {
   outline: none;
   box-shadow: none;

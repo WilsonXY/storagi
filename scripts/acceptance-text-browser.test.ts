@@ -340,6 +340,48 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-input-focus-390.png'),
       fullPage: true,
     });
+    for (const page of [sender, receiver]) {
+      for (const colorScheme of ['dark', 'light'] as const) {
+        await page.emulateMedia({ forcedColors: 'active', colorScheme });
+        const contrast = await page.evaluate(() => {
+          const probe = document.createElement('span');
+          probe.style.backgroundColor = 'Canvas';
+          document.body.append(probe);
+          const canvas = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          const draft = document.querySelector('#text-draft')!;
+          const style = getComputedStyle(draft);
+          return {
+            canvas,
+            borders: [
+              style.borderTopColor,
+              style.borderRightColor,
+              style.borderBottomColor,
+              style.borderLeftColor,
+            ],
+            foreground: style.color,
+          };
+        });
+        assert.notEqual(
+          contrast.foreground,
+          contrast.canvas,
+          'forced-colour draft text remains distinct from Canvas',
+        );
+        assert.deepEqual(
+          contrast.borders,
+          Array(4).fill(contrast.canvas),
+          'native spacing borders blend into Canvas in contrast themes',
+        );
+        await page.screenshot({
+          path: path.join(
+            artifacts,
+            `text-contrast-${colorScheme}-${page === receiver ? 390 : 1440}.png`,
+          ),
+          fullPage: true,
+        });
+      }
+      await page.emulateMedia({ forcedColors: 'none', colorScheme: null });
+    }
     await receiver.keyboard.press('Tab');
     assert.equal(
       await receiver.evaluate(() => document.activeElement?.id),
@@ -1024,6 +1066,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'Inbox composer surface and filename typography reused; no inner input focus frame',
             'no composer Kept sentences; native textarea full-card geometry and mouse/touch whitespace editing',
             'native scrolling viewport and rendered footer pixels stay clear at top/middle/end, enabled/disabled, phone/desktop',
+            'forced-colours light/dark palettes preserve frameless native editing on phone/desktop',
             'unauthenticated denial',
             'full-height desktop koi and viewport-sized long-list scrolling',
             'zero browser errors',
