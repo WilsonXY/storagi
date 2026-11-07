@@ -1746,9 +1746,17 @@ body:has(.app[data-view='shelf'][data-tab='text']:not([hidden]))
   > .toast:not(:has(button)) {
   padding-right: 16px;
 }
+body:has(.app[data-view='shelf'][data-tab='text']:not([hidden]))
+  > .toast
+  > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 @media (min-width: 861px) {
   body:has(.app[data-view='shelf'][data-tab='text']:not([hidden])) > .toast {
     left: calc(50% + var(--side) / 2);
+    max-width: calc(100vw - var(--side) - 24px);
+    white-space: normal;
   }
 }
 body.selecting .toast {

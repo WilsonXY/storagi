@@ -562,14 +562,70 @@ test('text moves between two browser devices using the actual authenticated serv
           fullPage: true,
         });
     }
+    // Layout fixtures use the existing duplicate-transfer notice format, including an unbroken filename.
+    for (const width of [861, 1000, 1100, 1440, 390]) {
+      for (const name of [
+        'chapter '.repeat(12) + 'handoff.txt',
+        'x'.repeat(150) + '.txt',
+      ]) {
+        await sender.setViewportSize({ width, height: 1000 });
+        const previousNotice = await sender.locator('#notice').elementHandle();
+        await sender.locator('[data-text-copy]').click();
+        await sender.waitForFunction((old: HTMLElement | null) => {
+          const notice = document.querySelector('#notice');
+          return !!notice && notice !== old;
+        }, previousNotice);
+        await previousNotice?.dispose();
+        const message = `${name} is already in your transfer queue.`;
+        await sender
+          .locator('#notice > span')
+          .first()
+          .evaluate((el: HTMLElement, value: string) => {
+            el.textContent = value;
+          }, message);
+        await proveToastCenter(sender);
+        assert.equal(
+          await sender.locator('#notice > span').first().textContent(),
+          message,
+          'long-message fixture remains on the live notice during layout proof',
+        );
+        const bounds = await sender
+          .locator('#notice')
+          .evaluate((el: HTMLElement) => ({
+            scroll: el.scrollWidth,
+            client: el.clientWidth,
+          }));
+        assert.ok(
+          bounds.scroll <= bounds.client + 1,
+          'long filename text wraps inside the centered toast',
+        );
+        if (width === 861 || width === 390)
+          await sender.screenshot({
+            path: path.join(
+              artifacts,
+              `text-toast-long-${name.startsWith('x') ? 'unbroken' : 'spaced'}-${width}.png`,
+            ),
+            fullPage: true,
+          });
+      }
+    }
     // A visible toast follows resize without being recreated.
     await sender.setViewportSize({ width: 1440, height: 1000 });
     await sender.locator('[data-text-copy]').click();
     await proveToastCenter(sender);
+    const sameToast = await sender.locator('#notice').elementHandle();
     await sender.setViewportSize({ width: 728, height: 1000 });
     await proveToastCenter(sender);
     await sender.setViewportSize({ width: 1440, height: 1000 });
     await proveToastCenter(sender);
+    assert.equal(
+      await sameToast.evaluate(
+        (el: HTMLElement) => el === document.querySelector('#notice'),
+      ),
+      true,
+      'resize keeps the same live toast node',
+    );
+    await sameToast.dispose();
     // Other screens retain their existing viewport-centered notifications.
     await navigate(sender, 'inbox');
     await proveToastCenter(sender, false);
@@ -1360,6 +1416,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'unauthenticated denial',
             'full-height desktop koi and viewport-sized long-list scrolling',
             'Text copied/deleted notifications align with content across sidebar breakpoint/resize; Inbox/settings retain viewport centering',
+            'long duplicate-transfer and unbroken-filename notice text wraps within the content bounds; resize preserves toast identity',
             'zero browser errors',
             'sidebar/menu-only navigation including 1000px Transfers',
             'real koi canvas on desktop and phone',
