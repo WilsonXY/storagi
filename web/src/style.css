@@ -1742,6 +1742,15 @@ body.painting * {
     bottom 0.28s var(--ease);
   white-space: nowrap;
 }
+body:has(.app[data-view='shelf'][data-tab='text']:not([hidden]))
+  > .toast:not(:has(button)) {
+  padding-right: 16px;
+}
+@media (min-width: 861px) {
+  body:has(.app[data-view='shelf'][data-tab='text']:not([hidden])) > .toast {
+    left: calc(50% + var(--side) / 2);
+  }
+}
 body.selecting .toast {
   bottom: 82px;
 }

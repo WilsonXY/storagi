@@ -145,6 +145,39 @@ test('text moves between two browser devices using the actual authenticated serv
           return Object.fromEntries(props.map((key) => [key, style[key]]));
         });
       });
+    const proveToastCenter = async (page: any, content = true) => {
+      await page.locator('#notice').waitFor({ state: 'visible' });
+      await page.waitForFunction(
+        () => !document.querySelector('#notice')?.classList.contains('out'),
+      );
+      await settled(page);
+      const toast = await page.locator('#notice').boundingBox();
+      const form = content
+        ? await page.locator('#text-form').boundingBox()
+        : null;
+      const width = page.viewportSize().width;
+      const center = form ? form.x + form.width / 2 : width / 2;
+      assert.ok(
+        Math.abs(toast.x + toast.width / 2 - center) <= 1,
+        `toast shares ${content ? 'Text content' : 'viewport'} center at ${width}px`,
+      );
+      assert.ok(
+        toast.x >= 0 && toast.x + toast.width <= width,
+        'centered toast stays within viewport bounds',
+      );
+      if (content && !(await page.locator('#notice button').count())) {
+        const message = await page
+          .locator('#notice > span')
+          .first()
+          .boundingBox();
+        assert.ok(
+          Math.abs(
+            message.x + message.width / 2 - (toast.x + toast.width / 2),
+          ) <= 1,
+          'text-only notification message is centered inside its pill',
+        );
+      }
+    };
     const proveFocus = async (page: any, selector: string, shot: string) => {
       const control = page.locator(selector).first();
       await control.scrollIntoViewIfNeeded();
@@ -519,9 +552,34 @@ test('text moves between two browser devices using the actual authenticated serv
     await opened.waitForLoadState();
     assert.equal(opened.url(), link);
     await opened.close();
+    for (const width of [390, 728, 860, 861, 1000, 1440, 1920]) {
+      await sender.setViewportSize({ width, height: 1000 });
+      await sender.locator('[data-text-copy]').click();
+      await proveToastCenter(sender);
+      if ([390, 861, 1440, 1920].includes(width))
+        await sender.screenshot({
+          path: path.join(artifacts, `text-toast-copy-${width}.png`),
+          fullPage: true,
+        });
+    }
+    // A visible toast follows resize without being recreated.
+    await sender.setViewportSize({ width: 1440, height: 1000 });
     await sender.locator('[data-text-copy]').click();
-    await sender.locator('#notice').waitFor({ state: 'visible' });
-    await settled(sender);
+    await proveToastCenter(sender);
+    await sender.setViewportSize({ width: 728, height: 1000 });
+    await proveToastCenter(sender);
+    await sender.setViewportSize({ width: 1440, height: 1000 });
+    await proveToastCenter(sender);
+    // Other screens retain their existing viewport-centered notifications.
+    await navigate(sender, 'inbox');
+    await proveToastCenter(sender, false);
+    await navigate(sender, 'text');
+    await sender.locator('[data-text-copy]').click();
+    await navigate(sender, 'settings');
+    await proveToastCenter(sender, false);
+    await navigate(sender, 'text');
+    await sender.locator('[data-text-copy]').click();
+    await proveToastCenter(sender);
     await sender.screenshot({
       path: path.join(artifacts, 'text-copied-1440.png'),
       fullPage: true,
@@ -788,6 +846,15 @@ test('text moves between two browser devices using the actual authenticated serv
     await sender.locator('[data-text-confirm]').first().click();
     await sender.locator('#text-draft').fill('Typing while deletion finishes');
     await sender.locator('#text-draft').focus();
+    await sender
+      .locator('#notice')
+      .filter({ hasText: 'Text deleted.' })
+      .waitFor();
+    await proveToastCenter(sender);
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-toast-deleted-1440.png'),
+      fullPage: true,
+    });
     await receiver
       .locator('#text-items article')
       .nth(1)
@@ -1020,6 +1087,15 @@ test('text moves between two browser devices using the actual authenticated serv
     await receiver
       .locator('#text-items article')
       .waitFor({ state: 'detached' });
+    await receiver
+      .locator('#notice')
+      .filter({ hasText: 'Text deleted.' })
+      .waitFor();
+    await proveToastCenter(receiver);
+    await receiver.screenshot({
+      path: path.join(artifacts, 'text-toast-deleted-390.png'),
+      fullPage: true,
+    });
     await sender.locator('#text-items article').waitFor({ state: 'detached' });
     // Swiping a plain note body and a desktop trackpad over wrapped text both work.
     await receiver
@@ -1283,6 +1359,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'forced-colours light/dark palettes preserve frameless native editing on phone/desktop',
             'unauthenticated denial',
             'full-height desktop koi and viewport-sized long-list scrolling',
+            'Text copied/deleted notifications align with content across sidebar breakpoint/resize; Inbox/settings retain viewport centering',
             'zero browser errors',
             'sidebar/menu-only navigation including 1000px Transfers',
             'real koi canvas on desktop and phone',
