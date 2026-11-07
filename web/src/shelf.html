@@ -18,6 +18,11 @@
           /></svg
         ><span>Inbox</span><b class="mono" id="nav-files">0</b></a
       >
+      <a href="#text" class="nav-item" data-tab="text"
+        ><svg class="i" viewBox="0 0 16 16">
+          <path d="M3 3h10M8 3v10M5 13h6" /></svg
+        ><span>Text</span><b class="mono" id="nav-texts">—</b></a
+      >
       <a
         href="#"
         class="nav-item"
@@ -114,7 +119,7 @@
       <div class="crumb">
         <span class="muted">Shelf</span
         ><span class="faint" aria-hidden="true">/</span>
-        <h1 id="page-title">Inbox</h1>
+        <h1 id="page-title" tabindex="-1">Inbox</h1>
       </div>
       <label class="search"
         ><svg class="i" viewBox="0 0 16 16">
@@ -177,9 +182,6 @@
               Drop or paste files to put them on the shelf
             </p>
             <div class="composer-row">
-              <span class="composer-hint"
-                >Kept 30 days. Originals stay on your devices.</span
-              >
               <button
                 type="button"
                 class="btn btn-primary"
@@ -196,24 +198,6 @@
           </div>
         </div>
 
-        <div class="tabs" role="tablist" aria-label="Views">
-          <button
-            type="button"
-            role="tab"
-            aria-selected="true"
-            data-tab="inbox"
-          >
-            Inbox <b class="mono" id="tab-files">0</b>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected="false"
-            data-tab="transfers"
-          >
-            Transfers <b class="mono" id="tab-open">0</b>
-          </button>
-        </div>
         <button
           type="button"
           class="pulse-line"
@@ -221,6 +205,49 @@
           data-tab="transfers"
           hidden
         ></button>
+
+        <section
+          class="text-shelf"
+          id="text-shelf"
+          aria-label="Text shelf"
+          hidden
+        >
+          <canvas class="pond" id="text-pond" aria-hidden="true"></canvas>
+          <div class="text-pond-zone" id="text-pond-zone">
+            <form id="text-form" class="composer text-composer">
+              <textarea
+                id="text-draft"
+                rows="2"
+                placeholder="Paste text or a link…"
+                aria-label="Text to send"
+                aria-describedby="text-count"
+                spellcheck="false"
+              ></textarea>
+              <div class="composer-row text-compose-foot">
+                <span id="text-count" class="mono muted" hidden></span>
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  id="text-send"
+                  aria-label="Send text"
+                  title="Send text (Ctrl / ⌘ + Enter)"
+                  disabled
+                >
+                  <span id="text-send-label">Send</span
+                  ><svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M3 8h10M9 4l4 4-4 4" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+          </div>
+          <span id="text-sync" class="sr-only" role="status">Loading text</span>
+          <div id="text-error" class="text-error" role="alert" hidden></div>
+          <p class="text-empty muted" id="text-empty">
+            Text you send appears here on your other devices.
+          </p>
+          <div id="text-items"></div>
+        </section>
 
         <section class="inbox" id="inbox" aria-label="Inbox">
           <div class="list-head">

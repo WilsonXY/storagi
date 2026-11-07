@@ -604,7 +604,6 @@ dialog.paste-confirm::backdrop {
   padding: 0 var(--gut) 120px;
 }
 .center > .inbox,
-.center > .tabs,
 .center > .pulse-line {
   max-width: 820px;
   margin-left: auto;
@@ -662,36 +661,9 @@ dialog.paste-confirm::backdrop {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.composer-hint {
-  font-size: 12px;
-  color: var(--faint);
-  margin-right: auto;
+  justify-content: flex-end;
 }
 
-/* ---------- tabs (only when transfers fold into the main column) ---------- */
-.tabs {
-  display: none;
-  gap: 4px;
-  margin: 4px 0 12px;
-}
-.tabs button {
-  height: 36px;
-  padding: 0 14px;
-  border-radius: var(--radius-control);
-  color: var(--muted);
-  font-size: 14px;
-}
-.tabs button b {
-  font-weight: 400;
-  font-size: 12px;
-  color: var(--faint);
-  margin-left: 4px;
-}
-.tabs button[aria-selected='true'] {
-  background: var(--active);
-  color: var(--text);
-}
 .settings {
   padding: 28px var(--gut, 32px) 120px;
   max-width: 820px;
@@ -1056,7 +1028,8 @@ body.painting * {
   cursor: ns-resize !important;
 }
 /* swipe to delete: the row slides over a red strip, which lights once letting go will delete */
-.row.swiping {
+.row.swiping,
+.text-card.swiping {
   z-index: 1;
   background: var(--surface);
   transition: none;
@@ -1104,7 +1077,6 @@ body.painting * {
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  box-shadow: 0 0 0 1px var(--border);
 }
 .morph .m-ask {
   color: var(--text);
@@ -1211,11 +1183,13 @@ body.painting * {
   color: #fff;
 }
 /* the rest of the screen says it too, quietly */
-.app.is-offline #pond {
+.app.is-offline #pond,
+.app.is-offline #text-pond {
   filter: grayscale(1);
   opacity: 0.4;
 }
-#pond {
+#pond,
+#text-pond {
   transition:
     filter 0.6s ease,
     opacity 0.6s ease;
@@ -1505,9 +1479,6 @@ body.painting * {
   .body {
     grid-template-columns: minmax(0, 1fr);
   }
-  .tabs {
-    display: flex;
-  }
   .details {
     border-left: 0;
     padding: 0 var(--gut) 120px;
@@ -1530,9 +1501,6 @@ body.painting * {
   }
   .app[data-tab='inbox'] .pulse-line:not([hidden]) {
     display: flex;
-  }
-  .nav-item[data-tab='transfers'] {
-    display: none;
   }
 }
 
@@ -1611,9 +1579,6 @@ body.painting * {
     padding-bottom: 28px;
     font-size: 14px;
   }
-  .composer-hint {
-    display: none;
-  }
   .composer-row {
     justify-content: stretch;
   }
@@ -1621,10 +1586,6 @@ body.painting * {
     flex: 1;
     height: 44px;
     font-size: 14px;
-  }
-  .tabs button {
-    flex: 1;
-    height: 44px;
   }
   /* on a phone the header keeps select-all and sorting, as a row of 44px targets */
   .list-head {
@@ -1780,6 +1741,23 @@ body.painting * {
     opacity 0.2s,
     bottom 0.28s var(--ease);
   white-space: nowrap;
+}
+body:has(.app[data-view='shelf'][data-tab='text']:not([hidden]))
+  > .toast:not(:has(button)) {
+  padding-right: 16px;
+}
+body:has(.app[data-view='shelf'][data-tab='text']:not([hidden]))
+  > .toast
+  > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 861px) {
+  body:has(.app[data-view='shelf'][data-tab='text']:not([hidden])) > .toast {
+    left: calc(50% + var(--side) / 2);
+    max-width: calc(100vw - var(--side) - 24px);
+    white-space: normal;
+  }
 }
 body.selecting .toast {
   bottom: 82px;
@@ -1941,4 +1919,315 @@ body.selecting .toast {
   color: var(--muted);
   font: 11px/1.5 var(--mono);
   white-space: pre;
+}
+
+/* Text handoff shares the pond and quiet controls of the file shelf. */
+.app[data-tab='text'] .inbox,
+.app[data-tab='text'] .pond-zone,
+.app[data-tab='text'] .details,
+.app[data-tab='text'] .pulse-line,
+.app[data-tab='text'] .fresh-pill {
+  display: none !important;
+}
+.app[data-tab='text'] .center {
+  padding-bottom: 0;
+}
+.app[data-tab='text'] .body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.text-shelf {
+  position: relative;
+  margin: 0 calc(-1 * var(--gut));
+  min-height: calc(100svh - var(--top));
+}
+#text-pond {
+  position: sticky;
+  inset: auto;
+  top: var(--top);
+  display: block;
+  height: calc(100svh - var(--top));
+  margin-bottom: calc(var(--top) - 100svh);
+  pointer-events: none;
+}
+.text-pond-zone,
+#text-items,
+.text-empty,
+.text-error {
+  position: relative;
+}
+.text-pond-zone {
+  position: relative;
+  padding: 52px var(--gut) 60px;
+  overflow: hidden;
+}
+.text-composer {
+  margin: 0 auto;
+  padding: 0;
+}
+.text-composer:focus-within {
+  background: rgb(12 12 12 / 84%);
+}
+.text-composer textarea,
+.text-copy-fallback {
+  display: block;
+  width: 100%;
+  min-height: 62px;
+  max-height: 320px;
+  resize: none;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: 400 15px/1.6 var(--font);
+  padding: 4px;
+  overflow-wrap: anywhere;
+}
+.text-composer textarea {
+  min-height: 138px;
+  padding: 0;
+  /* Native borders keep the editing insets outside its scrolling viewport. */
+  border: solid transparent;
+  border-width: 16px 12px 70px 18px;
+  border-radius: inherit;
+}
+@media (forced-colors: active) {
+  .text-composer textarea {
+    border-color: Canvas;
+  }
+}
+.text-composer textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.text-copy-fallback:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+.text-composer textarea::placeholder {
+  color: var(--faint);
+}
+.text-compose-foot {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 18px;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.text-composer .btn {
+  flex: none;
+}
+#text-count {
+  margin-right: auto;
+  font-size: 11px;
+}
+#text-send {
+  pointer-events: auto;
+  min-height: 38px;
+  padding: 0 14px;
+}
+#text-send:disabled {
+  background: var(--active);
+  color: var(--faint);
+  opacity: 1;
+  cursor: default;
+}
+.text-shelf .btn {
+  border: 0;
+  box-shadow: none;
+}
+#text-items,
+.text-empty,
+.text-error {
+  width: calc(100% - 2 * var(--gut));
+  max-width: 820px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.text-empty {
+  padding: 12px 0 24px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.text-card {
+  position: relative;
+  padding: 18px 10px;
+  border-radius: var(--radius-control);
+}
+.text-card::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  border-bottom: 1px solid var(--rule);
+  pointer-events: none;
+}
+.text-card.swiping::after {
+  display: none;
+}
+.text-card pre {
+  font: 400 16px/1.7 var(--font);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 12rem;
+  overflow: auto;
+  margin: 0 0 12px;
+  tab-size: 4;
+}
+.text-card-actions {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.text-card-actions .btn {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.text-card-actions .text-copy {
+  color: var(--text);
+  background: transparent;
+}
+@media (hover: hover) {
+  .text-card-actions .text-copy:hover {
+    background: var(--raised);
+  }
+}
+.text-card pre a {
+  text-decoration: underline;
+  text-decoration-color: var(--control);
+  text-underline-offset: 4px;
+}
+.text-card pre a:focus-visible {
+  outline-offset: -3px;
+}
+.text-card pre a:hover {
+  text-decoration-color: var(--koi-ink);
+}
+.text-card pre a .i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 7px;
+  vertical-align: -1px;
+  color: var(--faint);
+}
+.text-expiry {
+  margin-right: auto;
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.text-remove {
+  flex: none;
+  margin-left: 4px;
+}
+.text-remove:hover {
+  color: var(--negative);
+}
+.text-error {
+  white-space: pre-line;
+  color: var(--negative);
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 0 0 18px;
+}
+.text-over-limit {
+  color: var(--negative);
+}
+.text-copy-fallback {
+  background: var(--surface);
+  margin-top: 8px;
+}
+.text-copy-hint {
+  font-size: 12px;
+  margin-top: 12px;
+}
+@media (max-width: 1179px) {
+  .app[data-tab='transfers'] .center {
+    display: none;
+  }
+  .app[data-tab='transfers'] .details {
+    padding-top: 24px;
+  }
+}
+@media (max-width: 860px) {
+  .text-pond-zone {
+    padding-top: 100px;
+  }
+  .app[data-tab='transfers'] .details {
+    padding-top: 82px;
+  }
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .text-composer textarea {
+    border-bottom-width: 74px;
+  }
+  #text-send,
+  .text-card-actions .btn,
+  .text-card-actions .icon-btn {
+    min-height: 44px;
+  }
+  .text-card-actions .icon-btn {
+    width: 44px;
+  }
+}
+@media (max-width: 600px) {
+  .text-pond-zone {
+    padding-bottom: 52px;
+  }
+  .text-composer textarea {
+    min-height: 146px;
+    border-width: 22px 12px 74px 16px;
+    font-size: 16px;
+  }
+  .text-compose-foot {
+    left: 16px;
+  }
+  .text-card-actions .btn {
+    padding: 0 12px;
+  }
+  .text-card {
+    padding: 16px 10px;
+  }
+}
+
+/* Text reuses the Inbox swipe affordance without file selection. */
+#text-items:has(.swiping) {
+  overflow: hidden;
+}
+.app.gestures .text-card {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.app.gestures .text-card pre {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.app.gestures .text-card pre a {
+  cursor: pointer;
+}
+.text-card.text-pending pre {
+  color: var(--faint);
+  text-decoration: line-through;
+  text-decoration-color: rgb(255 255 255 / 25%);
+}
+.text-card .morph button:focus-visible {
+  outline-offset: -3px;
+}
+@media (max-width: 640px) {
+  .text-card .morph {
+    height: 40px;
+  }
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+  .text-card-actions {
+    min-height: 44px;
+  }
 }

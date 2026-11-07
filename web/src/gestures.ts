@@ -15,12 +15,13 @@ type Gesture = {
 };
 export function rowGestures(
   groups: HTMLElement,
-  selection: Selection,
+  selection: Selection | null,
   order: () => string[],
   engaged: (id: string) => boolean,
   remove: (id: string) => void,
   render: () => void,
   signal: AbortSignal,
+  rowSelector = '.row',
 ) {
   let g: Gesture | undefined,
     wheel:
@@ -88,13 +89,13 @@ export function rowGestures(
   }
   function paint() {
     if (!g || g.mode !== 'paint') return;
-    const rows = [...groups.querySelectorAll<HTMLElement>('.row')];
+    const rows = [...groups.querySelectorAll<HTMLElement>(rowSelector)];
     let row =
       rows.find((r) => r.getBoundingClientRect().bottom >= g!.at) ??
       rows.at(-1);
     if (row && rows.indexOf(row) > 0 && row.getBoundingClientRect().top > g.at)
       row = rows[rows.indexOf(row) - 1];
-    if (row) selection.dragTo(row.dataset.id!);
+    if (row) selection?.dragTo(row.dataset.id!);
   }
   function scrollEdge() {
     if (!g || g.mode !== 'paint') return;
@@ -115,7 +116,7 @@ export function rowGestures(
     frame = requestAnimationFrame(scrollEdge);
   }
   function startPaint() {
-    if (!g) return;
+    if (!g || !selection) return;
     g.mode = 'paint';
     selection.beginDrag(g.id, order());
     document.body.classList.add('painting');
@@ -139,7 +140,7 @@ export function rowGestures(
       }, 0);
     }
     if (old.mode === 'paint') {
-      selection.endDrag();
+      selection?.endDrag();
       render();
     }
     if (old.swipe) finishSwipe(old.swipe, commit);
@@ -147,8 +148,26 @@ export function rowGestures(
   on(groups, 'pointerdown', (e: PointerEvent) => {
     if (gesturePref() !== 'on' || e.button !== 0 || g || wheel || settling)
       return;
-    const row = (e.target as Element).closest<HTMLElement>('.row');
-    if (!row || engaged(row.dataset.id!)) return;
+    const target = e.target as Element;
+    const row = target.closest<HTMLElement>(rowSelector);
+    if (!row) return;
+    // Blank chrome is non-selectable, so the browser does not clear an old range for us.
+    if (
+      !selection &&
+      e.pointerType === 'mouse' &&
+      !target.closest('pre,a,button,textarea,input')
+    )
+      window.getSelection()?.removeAllRanges();
+    if (engaged(row.dataset.id!)) return;
+    // Text contents keep native selection; its blank row area supports mouse swipes.
+    if (
+      !selection &&
+      e.pointerType === 'mouse' &&
+      (e.target as Element).closest('pre,a')
+    )
+      return;
+    if (!selection && (e.target as Element).closest('button,textarea,input'))
+      return;
     g = {
       id: row.dataset.id!,
       pid: e.pointerId,
@@ -161,7 +180,13 @@ export function rowGestures(
       mode: 'pending',
     };
     // Touch: tap a row, then touch it again and drag (like a touchpad's tap-and-drag) to select.
-    if (g.touch && g.body && tap?.id === g.id && Date.now() - tap.at < 350) {
+    if (
+      selection &&
+      g.touch &&
+      g.body &&
+      tap?.id === g.id &&
+      Date.now() - tap.at < 350
+    ) {
       startPaint();
       navigator.vibrate?.(8);
     }
@@ -175,11 +200,11 @@ export function rowGestures(
       const sideways = Math.abs(dx) > Math.abs(dy) * 1.2;
       if (!g.lead && sideways && dx < 0) {
         g.mode = 'swipe';
-        const row = [...groups.querySelectorAll<HTMLElement>('.row')].find(
+        const row = [...groups.querySelectorAll<HTMLElement>(rowSelector)].find(
           (r) => r.dataset.id === g!.id,
         )!;
         g.swipe = startSwipe(row);
-      } else if (g.lead || (!g.touch && !sideways)) startPaint();
+      } else if (selection && (g.lead || (!g.touch && !sideways))) startPaint();
       else return end();
     }
     if (!g) return;
@@ -212,10 +237,16 @@ export function rowGestures(
     groups,
     'contextmenu',
     (e: Event) => {
-      if (g?.touch) e.preventDefault();
+      if (!g?.touch) return;
+      if (!selection && g.mode === 'pending') end();
+      else e.preventDefault();
     },
     false,
   );
+  if (!selection)
+    on(document, 'selectionchange', () => {
+      if (g?.mode === 'pending' && window.getSelection()?.toString()) end();
+    });
   window.addEventListener(
     'click',
     (e) => {
@@ -239,8 +270,14 @@ export function rowGestures(
       )
         return;
       if (!wheel) {
-        const row = (e.target as Element).closest<HTMLElement>('.row');
+        const row = (e.target as Element).closest<HTMLElement>(rowSelector);
         if (!row || engaged(row.dataset.id!) || e.deltaX < 0) return;
+        if (!selection) {
+          const target = e.target as Element;
+          if (target.closest('button,textarea,input')) return;
+          const content = target.closest('pre');
+          if (content && content.scrollWidth > content.clientWidth) return;
+        }
         wheel = { swipe: startSwipe(row), dx: 0 };
       }
       e.preventDefault();
