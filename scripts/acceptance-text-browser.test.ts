@@ -274,6 +274,7 @@ test('text moves between two browser devices using the actual authenticated serv
     for (const page of [sender, receiver]) {
       page.setDefaultTimeout(15000);
       page.on('pageerror', (e: Error) => errors.push(e.message));
+      await page.clock.install();
       await page.goto(origin + '/#text');
       await page.locator('#text-shelf').waitFor({ state: 'visible' });
       if (page === sender) {
@@ -477,7 +478,8 @@ test('text moves between two browser devices using the actual authenticated serv
     await sender.locator('#text-draft').fill(link);
     await sender.locator('#text-send').click();
     await sender.locator('#text-items pre').filter({ hasText: link }).waitFor();
-    // The receiving page needs no manual refresh. Allow its five-second poll.
+    // Advance the shared 60-second scheduler without a minute of wall time.
+    await receiver.clock.fastForward(60_000);
     await receiver
       .locator('#text-items pre')
       .filter({ hasText: link })
@@ -876,6 +878,11 @@ test('text moves between two browser devices using the actual authenticated serv
 
     await receiver.locator('#text-draft').fill(exact);
     await receiver.locator('#text-send').click();
+    await receiver
+      .locator('#text-items pre')
+      .filter({ hasText: 'A note from the phone' })
+      .waitFor();
+    await sender.locator('#refresh').click();
     await sender
       .locator('#text-items pre')
       .filter({ hasText: 'A note from the phone' })
@@ -936,6 +943,7 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-toast-deleted-1440.png'),
       fullPage: true,
     });
+    await receiver.locator('#refresh').click();
     await receiver
       .locator('#text-items article')
       .nth(1)
@@ -1177,6 +1185,7 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-toast-deleted-390.png'),
       fullPage: true,
     });
+    await sender.locator('#refresh').click();
     await sender.locator('#text-items article').waitFor({ state: 'detached' });
     // Swiping a plain note body and a desktop trackpad over wrapped text both work.
     await receiver
@@ -1190,6 +1199,7 @@ test('text moves between two browser devices using the actual authenticated serv
     await swipe(220, false, false, 'pre');
     await receiver.locator('[data-text-undo]').waitFor();
     await receiver.locator('[data-text-undo]').click();
+    await sender.locator('#refresh').click();
     await sender
       .locator('#text-items pre')
       .filter({ hasText: 'A plain note' })
@@ -1256,6 +1266,7 @@ test('text moves between two browser devices using the actual authenticated serv
     await receiver
       .locator('#text-items article')
       .waitFor({ state: 'detached' });
+    await sender.locator('#refresh').click();
     await sender.locator('#text-items article').waitFor({ state: 'detached' });
     await cdp.detach();
     // The existing file shelf still uploads and lists files.
@@ -1430,6 +1441,86 @@ test('text moves between two browser devices using the actual authenticated serv
       path: path.join(artifacts, 'text-scrolled-1440.png'),
     });
     await sender.setViewportSize({ width: 1440, height: 1000 });
+    // Exercise the shared scheduler against real authenticated endpoints in both views.
+    // Fake browser time keeps cadence/recovery proof independent of wall-clock minutes.
+    for (const view of ['inbox', 'text']) {
+      await navigate(sender, view);
+      const paths =
+        view === 'text' ? ['/api/files', '/api/texts'] : ['/api/files'];
+      const refreshed = () =>
+        Promise.all(
+          paths.map((pathname) =>
+            sender.waitForResponse(
+              (response: any) =>
+                new URL(response.url()).pathname === pathname &&
+                response.request().method() === 'GET' &&
+                (response.ok() || response.status() === 304),
+            ),
+          ),
+        );
+      await sender.clock.pauseAt(await sender.evaluate(() => Date.now() + 100));
+      await Promise.all([refreshed(), sender.locator('#refresh').click()]);
+      await sender.locator('#fresh.busy').waitFor({ state: 'detached' });
+      let gets = 0;
+      const count = (request: any) => {
+        if (
+          request.method() === 'GET' &&
+          paths.includes(new URL(request.url()).pathname)
+        )
+          gets++;
+      };
+      sender.on('request', count);
+      await sender.clock.fastForward(59_000);
+      assert.equal(gets, 0, `${view} does not poll before 60 seconds`);
+      // AutoRefresh checks its deadline on a one-second ticker.
+      await Promise.all([refreshed(), sender.clock.fastForward(2000)]);
+      await sender.locator('#fresh.busy').waitFor({ state: 'detached' });
+      assert.ok(
+        gets >= paths.length,
+        `${view} uses the shared 60-second cadence`,
+      );
+
+      await sender.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', {
+          configurable: true,
+          value: 'hidden',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      const beforeHidden = gets;
+      await sender.clock.fastForward(60_000);
+      assert.equal(gets, beforeHidden, `${view} suspends polling while hidden`);
+      await Promise.all([
+        refreshed(),
+        sender.evaluate(() => {
+          Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+          });
+          document.dispatchEvent(new Event('visibilitychange'));
+        }),
+      ]);
+      await sender.locator('#fresh.busy').waitFor({ state: 'detached' });
+      await sender.evaluate(() => {
+        delete (document as any).visibilityState;
+      });
+
+      await desktop.setOffline(true);
+      await sender.locator('#refresh').click();
+      await sender.locator('#offline').waitFor({ state: 'visible' });
+      await sender.locator('#fresh.busy').waitFor({ state: 'detached' });
+      await desktop.setOffline(false);
+      await Promise.all([refreshed(), sender.clock.fastForward(10_000)]);
+      await sender.locator('#offline').waitFor({ state: 'hidden' });
+      await sender.clock.resume();
+      sender.off('request', count);
+      await Promise.all([refreshed(), sender.locator('#refresh').click()]);
+    }
+    await navigate(sender, 'text');
+    await sender.screenshot({
+      path: path.join(artifacts, 'shared-refresh-recovered-1440.png'),
+      fullPage: true,
+    });
     // Keep synthetic sessions alive to isolate shared content expiry beyond seven days.
     app.storage.db
       .prepare('UPDATE sessions SET expiresAt=?')
@@ -1449,7 +1540,7 @@ test('text moves between two browser devices using the actual authenticated serv
           kind: 'actual dashboard + service; synthetic signed owner identity; two isolated browser contexts',
           passed: true,
           checks: [
-            'desktop to phone automatic receipt',
+            'desktop to phone automatic receipt through shared 60-second cadence (browser fake time); explicit refresh for subsequent cross-device gesture checks',
             'native phone touch swipe on URL and note bodies, short/cancel/Undo/commit, preference and cross-device deletion',
             'desktop mouse drag from row chrome plus trackpad over wrapped notes and keyboard Undo focus',
             'actual Inbox/Text Deleted-Undo-countdown style parity on desktop and phone; rounded aligned phone drag surface',
@@ -1475,6 +1566,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'full-height desktop koi and viewport-sized long-list scrolling',
             'Text copied/deleted notifications align with content across sidebar breakpoint/resize; Inbox/settings retain viewport centering',
             'long duplicate-transfer and unbroken-filename notice text wraps within the content bounds; resize preserves toast identity',
+            'both views: shared 60-second cadence, hidden-tab suspension/return and existing 10-second offline recovery against actual service',
             'zero browser errors',
             'sidebar/menu shelf navigation and toolbar Transfers including 1000px',
             'real koi canvas on desktop and phone',

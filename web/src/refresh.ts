@@ -3,9 +3,11 @@ export class AutoRefresh extends EventTarget {
   busy = false;
   error: unknown = null;
   private next = Date.now() + 60_000;
-  private hiddenAt: number | null =
+  // When the page was last hidden or lost focus; null while in use.
+  private awayAt: number | null =
     document.visibilityState === 'visible' ? null : Date.now();
   private pending?: Promise<void>;
+  private started = false;
   private again?: Promise<void>;
   private dead = false;
   private readonly timer = setInterval(() => {
@@ -17,21 +19,27 @@ export class AutoRefresh extends EventTarget {
   constructor(private readonly fetcher: () => Promise<unknown>) {
     super();
     document.addEventListener('visibilitychange', this.onVisibility);
+    window.addEventListener('blur', this.away);
+    window.addEventListener('focus', this.back);
   }
-  private onVisibility = () => {
-    if (document.visibilityState !== 'visible') {
-      this.hiddenAt = Date.now();
-      return;
-    }
-    const away = this.hiddenAt === null ? 0 : Date.now() - this.hiddenAt;
-    this.hiddenAt = null;
+  private away = () => {
+    this.awayAt ??= Date.now();
+  };
+  private back = () => {
+    if (document.visibilityState !== 'visible') return;
+    const away = this.awayAt === null ? 0 : Date.now() - this.awayAt;
+    this.awayAt = null;
     if (away > 10_000) void this.now();
   };
+  private onVisibility = () =>
+    document.visibilityState === 'visible' ? this.back() : this.away();
   get remaining() {
     return Math.max(0, Math.ceil((this.next - Date.now()) / 1000));
   }
   now(): Promise<void> {
     // A call during a fetch gets one fresh fetch after it, never the in-flight (possibly stale) answer; extra calls share it.
+    // A fetch that has not started yet will see the caller's changes, so it is shared.
+    if (this.pending && !this.started) return this.pending;
     if (this.pending)
       return (this.again ??= this.pending.then(() => {
         this.again = undefined;
@@ -44,6 +52,7 @@ export class AutoRefresh extends EventTarget {
       try {
         await Promise.resolve();
         if (this.dead) return;
+        this.started = true;
         await this.fetcher();
         if (!this.dead) {
           this.last = Date.now();
@@ -54,6 +63,7 @@ export class AutoRefresh extends EventTarget {
       } finally {
         this.busy = false;
         this.pending = undefined;
+        this.started = false;
         this.next = Date.now() + 60_000;
         this.emit();
       }
@@ -65,6 +75,8 @@ export class AutoRefresh extends EventTarget {
     this.dead = true;
     clearInterval(this.timer);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('blur', this.away);
+    window.removeEventListener('focus', this.back);
   }
   private emit() {
     if (!this.dead) this.dispatchEvent(new Event('change'));

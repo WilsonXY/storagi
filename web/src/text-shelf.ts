@@ -30,6 +30,8 @@ export function createTextShelf(
   root: HTMLElement,
   request: Request,
   toast: (message: string) => void,
+  // The dashboard's shared AutoRefresh: it schedules, deduplicates and retries; this module only fetches.
+  scheduled: () => Promise<void>,
 ) {
   const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
     root.querySelector<T>(selector)!;
@@ -43,8 +45,7 @@ export function createTextShelf(
     sending = false,
     loaded = false,
     query = '',
-    items: TextItem[] = [],
-    loading: Promise<void> | undefined;
+    items: TextItem[] = [];
   let revision = 0,
     refreshError = false;
   let etag: string | null = null;
@@ -170,32 +171,30 @@ export function createTextShelf(
   async function refresh() {
     if (!alive || !active) return;
     render();
-    if (loading) return loading;
     const startedRevision = revision;
-    loading = (async () => {
-      try {
-        const response = etag
-          ? await request('/api/texts', 'GET', undefined, {
-              'If-None-Match': etag,
-            })
-          : await request('/api/texts');
-        const result =
-          response.status === 304
-            ? null
-            : ((await response.json()) as { texts: TextItem[] });
-        if (!alive || revision !== startedRevision) return;
-        if (refreshError) error();
-        if (result) {
-          items = result.texts;
-          etag = response.headers.get('ETag');
-        }
-        loaded = true;
-        sync('Up to date · refreshes every 5s');
-        render();
-        // Send/delete errors remain visible until the user acts again.
-      } catch (e) {
-        if (!alive) return;
-        sync('Could not refresh · retrying every 5s');
+    try {
+      const response = etag
+        ? await request('/api/texts', 'GET', undefined, {
+            'If-None-Match': etag,
+          })
+        : await request('/api/texts');
+      const result =
+        response.status === 304
+          ? null
+          : ((await response.json()) as { texts: TextItem[] });
+      if (!alive || revision !== startedRevision) return;
+      if (refreshError) error();
+      if (result) {
+        items = result.texts;
+        etag = response.headers.get('ETag');
+      }
+      loaded = true;
+      sync('Up to date · refreshes every 60s');
+      render();
+      // Send/delete errors remain visible until the user acts again.
+    } catch (e) {
+      if (alive) {
+        sync('Could not refresh · retrying within 60s');
         error(
           `${(e as Error).message} Your text shelf may be out of date. Use Refresh to retry.`,
           true,
@@ -203,11 +202,9 @@ export function createTextShelf(
         $('#text-empty').textContent = loaded
           ? 'Your text shelf may be out of date.'
           : 'Could not load your text shelf. Use Refresh to retry.';
-      } finally {
-        loading = undefined;
       }
-    })();
-    return loading;
+      throw e;
+    }
   }
   function sync(message: string) {
     if ($('#text-sync').textContent !== message)
@@ -243,6 +240,7 @@ export function createTextShelf(
       if (active && !window.matchMedia?.('(pointer: coarse)').matches)
         draft.focus();
       else if (document.activeElement === draft) draft.blur();
+      void scheduled();
     } catch (e) {
       const failure = e as Error & { status?: number };
       error(
@@ -359,6 +357,7 @@ export function createTextShelf(
           root.querySelector<HTMLElement>('[data-text-copy]') ??
           $('#page-title')
         ).focus();
+      void scheduled();
     } catch (e) {
       pending.delete(id);
       render();
@@ -418,12 +417,6 @@ export function createTextShelf(
   listen(window, 'pagehide', () => {
     gestures.cancel();
   });
-  const receive = () => {
-    if (document.visibilityState === 'visible') void refresh();
-  };
-  listen(window, 'focus', receive);
-  listen(document, 'visibilitychange', receive);
-  const timer = setInterval(receive, 5000);
   updateDraft();
   return {
     flush() {
@@ -435,11 +428,12 @@ export function createTextShelf(
       $('#nav-texts').textContent = String(count);
     },
     activate(on: boolean) {
+      const opened = on && !active;
       active = on;
       if (!on) gestures.cancel();
-      if (on) {
+      if (opened) {
         updateDraft();
-        void refresh();
+        void scheduled();
       }
     },
     refresh,
@@ -450,7 +444,6 @@ export function createTextShelf(
     destroy() {
       alive = false;
       active = false;
-      clearInterval(timer);
       gestures.destroy();
       for (const { op } of pending.values()) op.destroy();
       pending.clear();

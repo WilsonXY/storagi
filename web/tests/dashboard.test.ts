@@ -1961,7 +1961,8 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
 test('Text navigation filters notes by search, sends authenticated JSON and refreshes on demand without changing the file shelf', async () => {
   // Frozen clock: any new Text GET below comes from the button, never a poll.
   vi.useFakeTimers();
-  vi.setSystemTime(new Date('2026-11-08T00:00:00Z'));
+  const frozen = new Date('2026-11-08T00:00:00Z');
+  vi.setSystemTime(frozen);
   const api = service();
   const note = (id: string, text: string) => ({
     id,
@@ -1997,10 +1998,12 @@ test('Text navigation filters notes by search, sends authenticated JSON and refr
     false,
   );
   click('.nav-item[data-tab="text"]');
-  await tick();
+  // Yield for response bodies without advancing the frozen polling clock.
+  await expect
+    .poll(shown, { interval: 0 })
+    .toEqual(['alpha note', 'beta note']);
   expect(document.querySelector('#page-title')?.textContent).toBe('Text');
   expect(textGets()).toBe(1);
-  expect(shown()).toEqual(['alpha note', 'beta note']);
   const search = document.querySelector<HTMLInputElement>('#search')!;
   expect(search.placeholder).toBe('Search text');
   search.value = 'BETA';
@@ -2012,7 +2015,15 @@ test('Text navigation filters notes by search, sends authenticated JSON and refr
   document
     .querySelector('#text-form')!
     .dispatchEvent(new Event('submit', { cancelable: true }));
-  await tick();
+  // Finish the send-triggered refresh before measuring the later manual click.
+  await expect
+    .poll(
+      () =>
+        draft.value === '' &&
+        !document.querySelector('#fresh')!.classList.contains('busy'),
+      { interval: 0 },
+    )
+    .toBe(true);
   expect(fetcher).toHaveBeenCalledWith(
     '/api/texts',
     expect.objectContaining({
@@ -2029,9 +2040,11 @@ test('Text navigation filters notes by search, sends authenticated JSON and refr
   expect(shown()).not.toContain('fresh from another device');
   const before = textGets();
   click('#refresh');
+  await expect
+    .poll(shown, { interval: 0 })
+    .toEqual(['fresh from another device']);
   expect(textGets()).toBe(before + 1);
-  await tick();
-  expect(shown()).toEqual(['fresh from another device']);
+  expect(Date.now()).toBe(frozen.getTime());
   click('.nav-item[data-tab="inbox"]');
   expect(rows()).toHaveLength(2);
   expect(document.querySelector('#page-title')?.textContent).toBe('Inbox');
@@ -2298,3 +2311,290 @@ test('shelf navigation exists only in the sidebar and phone menu, with Text koi 
     document.querySelector('#nav-transfers')?.getAttribute('aria-expanded'),
   ).toBe('true');
 });
+
+test('Inbox and Text share one 60 s refresh, hidden-tab pause, return refresh, manual Refresh and offline retry', async () => {
+  vi.useFakeTimers();
+  history.replaceState(null, '', '#text');
+  let visible = true,
+    down = false;
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => (visible ? 'visible' : 'hidden'),
+  });
+  const api = service();
+  const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+    if (down && String(url) !== '/api/session')
+      throw new TypeError('Failed to fetch');
+    return String(url) === '/api/texts'
+      ? Response.json({ texts: [] })
+      : api.fetcher(url);
+  });
+  const calls = () => {
+    const paths = fetcher.mock.calls.map((c) => String(c[0]));
+    fetcher.mockClear();
+    return paths.sort();
+  };
+  try {
+    await mount(fetcher);
+    await tick();
+    expect(calls()).toEqual(['/api/files', '/api/session', '/api/texts']);
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect(calls()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(calls()).toEqual(['/api/files', '/api/texts']);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(calls()).toEqual([]);
+    expect(document.querySelector('#text-sync')?.textContent).toBe(
+      'Up to date · refreshes every 60s',
+    );
+    expect(document.querySelector('#refresh')?.getAttribute('aria-label')).toBe(
+      'Refresh now (auto-refresh in 55 seconds)',
+    );
+    visible = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(calls()).toEqual([]);
+    visible = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await tick();
+    expect(calls()).toEqual(['/api/files', '/api/texts']);
+    click('#refresh');
+    await tick();
+    expect(calls()).toEqual(['/api/files', '/api/texts']);
+    down = true;
+    click('#refresh');
+    await tick();
+    expect(document.querySelector<HTMLElement>('#offline')!.hidden).toBe(false);
+    expect(document.querySelector<HTMLElement>('#text-error')!.hidden).toBe(
+      false,
+    );
+    calls();
+    // Offline recovery remains explicit work, even while automatic polling is hidden.
+    visible = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    down = false;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(calls()).toEqual(['/api/files', '/api/texts']);
+    expect(document.querySelector<HTMLElement>('#offline')!.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>('#text-error')!.hidden).toBe(
+      true,
+    );
+    visible = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    click('.nav-item[data-tab="inbox"]');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(calls()).toEqual(['/api/files']);
+    click('.nav-item[data-tab="text"]');
+    await tick();
+    expect(calls()).toEqual(['/api/files', '/api/texts']);
+  } finally {
+    delete (document as { visibilityState?: unknown }).visibilityState;
+  }
+});
+
+test.each(['network', 'server', 'body'])(
+  'a Text %s failure keeps the shared 10 s retry even when Inbox succeeds later',
+  async (failure) => {
+    vi.useFakeTimers();
+    history.replaceState(null, '', '#text');
+    let down = false;
+    const api = service();
+    const fetcher = vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url) === '/api/texts') {
+        if (down) {
+          if (failure === 'network') throw new TypeError('Failed to fetch');
+          if (failure === 'body') return new Response('{');
+          return Response.json({ error: 'Host unavailable' }, { status: 503 });
+        }
+        return Response.json({ texts: [] });
+      }
+      // Let the Text failure happen before the successful Inbox response.
+      if (String(url) === '/api/files') await tick();
+      return api.fetcher(url);
+    });
+    await mount(fetcher);
+    down = true;
+    click('#refresh');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(document.querySelector<HTMLElement>('#offline')!.hidden).toBe(false);
+    expect(document.querySelector<HTMLElement>('#text-error')!.hidden).toBe(
+      false,
+    );
+    fetcher.mockClear();
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(fetcher).not.toHaveBeenCalled();
+    down = false;
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetcher.mock.calls.map(([url]) => String(url)).sort()).toEqual([
+      '/api/files',
+      '/api/texts',
+    ]);
+    expect(document.querySelector<HTMLElement>('#offline')!.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>('#text-error')!.hidden).toBe(
+      true,
+    );
+  },
+);
+
+test.each(['send', 'delete'])(
+  'Text %s during a pending shared fetch queues one fresh pair without overlapping',
+  async (mutation) => {
+    vi.useFakeTimers();
+    history.replaceState(null, '', '#text');
+    const note = (id: string) => ({
+      id,
+      text: id,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    });
+    let items = [note('original')];
+    let pause = false;
+    let release!: () => void;
+    const api = service();
+    const fetcher = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).startsWith('/api/texts/')) {
+          items = [];
+          return new Response(null, { status: 204 });
+        }
+        if (String(url) === '/api/texts') {
+          if (init?.method === 'POST') {
+            const item = note(JSON.parse(String(init.body)).text);
+            items = [item, ...items];
+            return Response.json(item);
+          }
+          const snapshot = [...items];
+          if (pause) {
+            pause = false;
+            await new Promise<void>((resolve) => {
+              release = resolve;
+            });
+          }
+          return Response.json(
+            { texts: snapshot },
+            { headers: { ETag: '"version"' } },
+          );
+        }
+        return api.fetcher(url);
+      },
+    );
+    await mount(fetcher);
+    fetcher.mockClear();
+    pause = true;
+    click('#refresh');
+    await tick();
+    if (mutation === 'send') {
+      for (const text of ['first', 'second']) {
+        const draft =
+          document.querySelector<HTMLTextAreaElement>('#text-draft')!;
+        draft.value = text;
+        draft.dispatchEvent(new Event('input'));
+        document
+          .querySelector('#text-form')!
+          .dispatchEvent(new Event('submit', { cancelable: true }));
+        await tick();
+      }
+    } else {
+      click('[data-text-delete]');
+      click('[data-text-confirm]');
+      await vi.advanceTimersByTimeAsync(4000);
+    }
+    const gets = () =>
+      fetcher.mock.calls.filter(
+        ([url, init]) => String(url) === '/api/texts' && init?.method === 'GET',
+      );
+    expect(gets()).toHaveLength(1);
+    expect(gets()[0][1]?.headers).toEqual({ 'If-None-Match': '"version"' });
+    items = [note('from another device'), ...items];
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(gets()).toHaveLength(2);
+    expect(gets()[1][1]?.headers).toEqual({});
+    expect(
+      fetcher.mock.calls.filter(([url]) => String(url) === '/api/files'),
+    ).toHaveLength(2);
+    expect(
+      [...document.querySelectorAll('#text-items pre')].map(
+        (el) => el.textContent,
+      ),
+    ).toEqual(items.map((item) => item.text));
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect(gets()).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(gets()).toHaveLength(3);
+  },
+);
+
+test.each(['inbox', 'text'])(
+  '%s uses shared focus recovery once after a long blur and ignores a brief blur',
+  async (tab) => {
+    vi.useFakeTimers();
+    let visible = true;
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => (visible ? 'visible' : 'hidden'),
+    });
+    if (tab === 'text') history.replaceState(null, '', '#text');
+    const api = service();
+    const fetcher = vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? Response.json({ texts: [] })
+        : api.fetcher(url),
+    );
+    try {
+      await mount(fetcher);
+      fetcher.mockClear();
+      window.dispatchEvent(new Event('blur'));
+      await vi.advanceTimersByTimeAsync(10_000);
+      window.dispatchEvent(new Event('focus'));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetcher).not.toHaveBeenCalled();
+      window.dispatchEvent(new Event('blur'));
+      await vi.advanceTimersByTimeAsync(6000);
+      visible = false;
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(5000);
+      visible = true;
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetcher.mock.calls.map(([url]) => String(url)).sort()).toEqual(
+        tab === 'text' ? ['/api/files', '/api/texts'] : ['/api/files'],
+      );
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+    }
+  },
+);
+
+test.each([401, 403])(
+  'Text refresh status %s locks both shelves and stops shared scheduling',
+  async (status) => {
+    vi.useFakeTimers();
+    history.replaceState(null, '', '#text');
+    let expired = false;
+    const api = service();
+    const fetcher = vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? expired
+          ? new Response(null, { status })
+          : Response.json({ texts: [] })
+        : api.fetcher(url),
+    );
+    await mount(fetcher);
+    document.querySelector<HTMLTextAreaElement>('#text-draft')!.value =
+      'private draft';
+    expired = true;
+    click('#refresh');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(document.querySelector('#locked')).not.toBeNull();
+    expect(document.querySelector('#text-draft')).toBeNull();
+    expect(document.querySelector('#groups')).toBeNull();
+    expect(document.body.textContent).not.toContain('private draft');
+    fetcher.mockClear();
+    await vi.advanceTimersByTimeAsync(120_000);
+    window.dispatchEvent(new Event('focus'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetcher).not.toHaveBeenCalled();
+  },
+);

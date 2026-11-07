@@ -308,7 +308,28 @@ export async function createDashboard(
     )
       textPond.paintStill();
   });
+  // One scheduler for both shelves: Inbox data (also behind the sidebar and Settings) always, plus Text while it is open.
   const auto = new AutoRefresh(async () => {
+    const results = await Promise.allSettled([
+      inbox(),
+      isTextView() && texts.refresh(),
+    ]);
+    const failures = results.filter((result) => result.status === 'rejected');
+    if (failures.length) {
+      // A successful sibling response cannot cancel recovery for the failed shelf.
+      if (
+        failures.some(
+          ({ reason }) =>
+            reason?.name !== 'AbortError' &&
+            (!reason?.status || reason.status >= 500),
+        )
+      )
+        setOffline(true);
+      throw failures[0].reason;
+    }
+    setOffline(false);
+  });
+  async function inbox() {
     const result: Shelf = await (
       await request('/api/files')
     )
@@ -336,7 +357,7 @@ export async function createDashboard(
     if (hadFiles)
       for (const row of root.querySelectorAll<HTMLElement>('#groups .row'))
         if (!known.has(row.dataset.id!)) row.classList.add('arrived');
-  });
+  }
   const retry = new OfflineRetry(async () => {
     await auto.now();
     if (auto.error) throw auto.error;
@@ -390,7 +411,6 @@ export async function createDashboard(
       throw new Error('Your session expired. Sign in again.');
     }
     if (response.status === 304 && path === '/api/texts' && method === 'GET') {
-      setOffline(false);
       return response;
     }
     if (!response.ok) {
@@ -408,7 +428,9 @@ export async function createDashboard(
         { status: response.status, deleteCount: body.deleteCount },
       );
     }
-    setOffline(false);
+    // Listings recover together, after their bodies have also been read.
+    if (method !== 'GET' || (path !== '/api/files' && path !== '/api/texts'))
+      setOffline(false);
     return response;
   }
   const texts = createTextShelf(
@@ -416,6 +438,7 @@ export async function createDashboard(
     (path, method, body, headers) =>
       request(path, method, undefined, body, headers),
     toast,
+    () => auto.now(),
   );
   cleanups.push(texts.destroy);
   function renderFresh() {
@@ -434,9 +457,7 @@ export async function createDashboard(
       : `retrying in ${retry.remaining}s`;
     $('#refresh').setAttribute(
       'aria-label',
-      isTextView()
-        ? 'Refresh text now (refreshes every 5 seconds while visible)'
-        : `Refresh now (auto-refresh in ${auto.remaining} seconds)`,
+      `Refresh now (auto-refresh in ${auto.remaining} seconds)`,
     );
   }
   listen(auto, 'change', renderFresh);
@@ -1039,11 +1060,7 @@ export async function createDashboard(
       ? texts.search($<HTMLInputElement>('#search').value)
       : renderInbox(),
   );
-  listen(
-    $('#refresh'),
-    'click',
-    () => void (isTextView() ? texts.refresh() : auto.now()),
-  );
+  listen($('#refresh'), 'click', () => void auto.now());
   listen($('#retry'), 'click', () => void retry.now());
   listen($('#sel-clear'), 'click', () => sel.clear());
   listen($('#sel-delete'), 'click', () => {
