@@ -35,6 +35,7 @@ export type ShelfFile = {
   expiresAt: string;
 };
 type Shelf = {
+  retentionDays?: number;
   files: ShelfFile[];
   textCount?: number;
   usedBytes: number;
@@ -179,9 +180,6 @@ export async function createDashboard(
   clear();
   root.innerHTML = shelfHTML;
   active = true;
-  const retentionHint = session.retentionDays
-    ? `Kept ${session.retentionDays} ${session.retentionDays === 1 ? 'day' : 'days'}`
-    : 'Temporary copies';
   $('#shelf-app').hidden = false;
   const avatar = $('#avatar');
   if (session.name) {
@@ -198,6 +196,8 @@ export async function createDashboard(
   const app = $('#shelf-app'),
     sel = new Selection(),
     hidden = new Set<string>();
+  const isTextView = () =>
+    app.dataset.view !== 'settings' && app.dataset.tab === 'text';
   let shelf: Shelf = {
       files: [],
       usedBytes: 0,
@@ -316,7 +316,13 @@ export async function createDashboard(
     if (!active) return;
     const known = new Set(shelf.files.map((f) => f.id));
     const hadFiles = shelf.files.length > 0;
+    const retentionChanged =
+      shelf.retentionDays !== undefined &&
+      Number(retentionDays.value) !== shelf.retentionDays;
     shelf = result;
+    if (!retentionChanged && !retentionSaving)
+      retentionDays.value = String(shelf.retentionDays ?? 30);
+    renderRetention();
     texts.setCount(result.textCount);
     for (const id of sel.ids)
       if (!shelf.files.some((f) => f.id === id)) sel.ids.delete(id);
@@ -395,7 +401,7 @@ export async function createDashboard(
             : body.error ||
                 'The host could not complete that request. Please try again.',
         ),
-        { status: response.status },
+        { status: response.status, deleteCount: body.deleteCount },
       );
     }
     setOffline(false);
@@ -424,7 +430,7 @@ export async function createDashboard(
       : `retrying in ${retry.remaining}s`;
     $('#refresh').setAttribute(
       'aria-label',
-      app.dataset.tab === 'text'
+      isTextView()
         ? 'Refresh text now (refreshes every 5 seconds while visible)'
         : `Refresh now (auto-refresh in ${auto.remaining} seconds)`,
     );
@@ -1026,7 +1032,7 @@ export async function createDashboard(
   listen(
     $('#refresh'),
     'click',
-    () => void (app.dataset.tab === 'text' ? texts.refresh() : auto.now()),
+    () => void (isTextView() ? texts.refresh() : auto.now()),
   );
   listen($('#retry'), 'click', () => void retry.now());
   listen($('#sel-clear'), 'click', () => sel.clear());
@@ -1135,6 +1141,22 @@ export async function createDashboard(
   }
   function view(name: string) {
     hidePreview();
+    if (name !== 'settings') {
+      closeRetentionMenu();
+      clearRetentionSaved();
+    }
+    if (
+      name === 'settings' &&
+      app.dataset.view !== 'settings' &&
+      !retentionSaving
+    ) {
+      retentionDays.value = String(shelf.retentionDays ?? 30);
+      retentionProposal = undefined;
+      if (retentionDialog.open) retentionDialog.close();
+      $('#retention-status').textContent = '';
+      renderRetention();
+      void auto.now();
+    }
     app.dataset.view = name;
     const settings = name === 'settings';
     texts.activate(!settings && app.dataset.tab === 'text');
@@ -1161,6 +1183,7 @@ export async function createDashboard(
           ? 'Transfers'
           : 'Inbox';
     panel(!app.classList.contains('panel-closed'));
+    renderFresh();
     stillPond();
     if (settings && !settingsPond)
       settingsPond = pond('#set-pond', {
@@ -1173,6 +1196,218 @@ export async function createDashboard(
       });
   }
   let settingsPond: KoiPond | undefined;
+  const retentionDays = $<HTMLButtonElement>('#retention-days'),
+    retentionOptions = $('#retention-options'),
+    retentionSave = $<HTMLButtonElement>('#retention-save'),
+    retentionDialog = $<HTMLDialogElement>('#retention-confirm');
+  const retentionPicker = retentionDays.parentElement!;
+  const retentionChoices = Array.from(
+    retentionOptions.querySelectorAll<HTMLButtonElement>('button'),
+  );
+  let retentionSaving = false;
+  let retentionSavedTimer: ReturnType<typeof setTimeout> | undefined;
+  function clearRetentionSaved() {
+    clearTimeout(retentionSavedTimer);
+    retentionSavedTimer = undefined;
+    retentionSave.classList.remove('is-saved');
+  }
+  cleanups.push(clearRetentionSaved);
+  let retentionProposal: { days: number; count: number } | undefined;
+  function closeRetention() {
+    retentionProposal = undefined;
+    if (retentionDialog.open) retentionDialog.close();
+    (retentionSave.disabled ? retentionDays : retentionSave).focus();
+  }
+  function renderRetention() {
+    $('#retention-value').textContent =
+      `${retentionDays.value} ${retentionDays.value === '1' ? 'day' : 'days'}`;
+    for (const option of retentionChoices) {
+      option.setAttribute(
+        'aria-selected',
+        String(option.value === retentionDays.value),
+      );
+      option.disabled = retentionSaving;
+    }
+    if (retentionSaving) closeRetentionMenu();
+    retentionDays.disabled =
+      retentionSaving || shelf.retentionDays === undefined;
+    retentionSave.disabled =
+      retentionDays.disabled ||
+      Number(retentionDays.value) === shelf.retentionDays;
+    retentionSave.setAttribute('aria-busy', String(retentionSaving));
+    retentionSave.setAttribute(
+      'aria-label',
+      retentionSaving ? 'Saving retention…' : 'Save retention',
+    );
+    retentionSave
+      .querySelector('.i')!
+      .toggleAttribute('hidden', retentionSaving);
+    retentionSave
+      .querySelector('.spin')!
+      .toggleAttribute('hidden', !retentionSaving);
+  }
+  function closeRetentionMenu(focus = false) {
+    retentionOptions.hidden = true;
+    retentionDays.setAttribute('aria-expanded', 'false');
+    if (focus) retentionDays.focus();
+  }
+  function openRetentionMenu() {
+    if (retentionDays.disabled) return;
+    retentionOptions.hidden = false;
+    retentionDays.setAttribute('aria-expanded', 'true');
+    positionRetentionMenu();
+    retentionChoices
+      .find((option) => option.value === retentionDays.value)!
+      .focus();
+  }
+  function positionRetentionMenu() {
+    const bounds = retentionDays.getBoundingClientRect(),
+      below = Math.max(0, innerHeight - bounds.bottom - 16),
+      above = Math.max(0, bounds.top - 16),
+      up =
+        below < Math.min(retentionOptions.scrollHeight, innerHeight / 2, 300) &&
+        above > below;
+    retentionOptions.classList.toggle('above', up);
+    retentionOptions.style.setProperty(
+      '--retention-room',
+      `${Math.max(1, up ? above : below)}px`,
+    );
+  }
+  listen(window, 'resize', () => {
+    if (!retentionOptions.hidden) positionRetentionMenu();
+  });
+  listen(window, 'scroll', () => {
+    if (!retentionOptions.hidden) positionRetentionMenu();
+  });
+  listen(retentionDays, 'click', () => {
+    if (!retentionOptions.hidden) return closeRetentionMenu();
+    openRetentionMenu();
+  });
+  listen(retentionPicker, 'keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && !retentionOptions.hidden) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeRetentionMenu(true);
+    } else if (e.key === 'Tab' && !retentionOptions.hidden) {
+      closeRetentionMenu(true);
+    } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+      e.preventDefault();
+      if (retentionOptions.hidden) return openRetentionMenu();
+      const current = retentionChoices.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      const index =
+        e.key === 'Home'
+          ? 0
+          : e.key === 'End'
+            ? retentionChoices.length - 1
+            : (current +
+                (e.key === 'ArrowDown' ? 1 : -1) +
+                retentionChoices.length) %
+              retentionChoices.length;
+      retentionChoices[index].focus();
+    }
+  });
+  for (const option of retentionChoices)
+    listen(option, 'click', () => {
+      if (retentionSaving) return;
+      if (option.value !== retentionDays.value) {
+        clearRetentionSaved();
+        if (retentionDialog.open) closeRetention();
+        retentionProposal = undefined;
+        retentionDays.value = option.value;
+        $('#retention-status').textContent = '';
+        renderRetention();
+      }
+      closeRetentionMenu(true);
+    });
+  listen(document, 'pointerdown', (e: PointerEvent) => {
+    if (!retentionPicker.contains(e.target as Node)) closeRetentionMenu();
+  });
+  listen(retentionPicker, 'focusout', (e: FocusEvent) => {
+    if (e.relatedTarget && !retentionPicker.contains(e.relatedTarget as Node))
+      closeRetentionMenu();
+  });
+  async function saveRetention(days: number, confirmDeletes = 0) {
+    if (
+      retentionSaving ||
+      retentionDays.disabled ||
+      (!confirmDeletes && days === shelf.retentionDays)
+    )
+      return;
+    clearRetentionSaved();
+    retentionSaving = true;
+    renderRetention();
+    $('#retention-status').textContent = '';
+    let saved = false;
+    try {
+      const result = await (
+        await request('/api/settings', 'PUT', undefined, {
+          retentionDays: days,
+          confirmDeletes,
+        })
+      ).json();
+      if (!active) return;
+      shelf.retentionDays = result.retentionDays;
+      retentionDays.value = String(result.retentionDays);
+      await auto.now();
+      saved = true;
+    } catch (error) {
+      if (!active) return;
+      const conflict = error as Error & {
+        status?: number;
+        deleteCount?: number;
+      };
+      if (
+        conflict.status === 409 &&
+        Number.isSafeInteger(conflict.deleteCount) &&
+        conflict.deleteCount! > 0
+      ) {
+        retentionProposal = { days, count: conflict.deleteCount! };
+        $('#retention-title').textContent =
+          `Change to ${days} ${days === 1 ? 'day' : 'days'}?`;
+        $('#retention-note').textContent =
+          `${conflict.deleteCount} ${conflict.deleteCount === 1 ? 'item will' : 'items will'} be permanently deleted. Files on your devices are unchanged.`;
+        retentionDialog.showModal();
+        $('#retention-cancel').focus();
+      } else $('#retention-status').textContent = conflict.message;
+    } finally {
+      retentionSaving = false;
+      if (active) {
+        renderRetention();
+        if (
+          saved &&
+          retentionSave.disabled &&
+          app.dataset.view === 'settings'
+        ) {
+          retentionSave.classList.add('is-saved');
+          retentionSavedTimer = setTimeout(clearRetentionSaved, 900);
+        }
+        if (
+          !retentionDialog.open &&
+          (document.activeElement === document.body ||
+            (document.activeElement === retentionSave &&
+              retentionSave.disabled))
+        )
+          (retentionSave.disabled ? retentionDays : retentionSave).focus();
+      }
+    }
+  }
+  listen($('#retention-form'), 'submit', (e: SubmitEvent) => {
+    e.preventDefault();
+    void saveRetention(Number(retentionDays.value));
+  });
+  listen($('#retention-cancel'), 'click', closeRetention);
+  listen(retentionDialog, 'cancel', (e: Event) => {
+    e.preventDefault();
+    closeRetention();
+  });
+  listen($('#retention-apply'), 'click', () => {
+    if (!retentionDialog.open || !retentionProposal) return;
+    const { days, count } = retentionProposal;
+    closeRetention();
+    void saveRetention(days, count);
+  });
   function panel(open: boolean) {
     app.classList.toggle('panel-closed', !open);
     const visible =
@@ -1209,7 +1444,6 @@ export async function createDashboard(
     if (name === 'text') texts.search(search.value);
     else renderInbox();
     view('shelf');
-    renderFresh();
   }
   function openTransfers() {
     if (innerWidth >= 1180) {
@@ -1331,10 +1565,23 @@ export async function createDashboard(
   });
   listen(window, 'keydown', (e: KeyboardEvent) => {
     // The paste confirmation owns the keyboard while it is open.
-    if (!active || $<HTMLDialogElement>('#paste-confirm').open) return;
+    if (
+      !active ||
+      $<HTMLDialogElement>('#paste-confirm').open ||
+      retentionDialog.open
+    )
+      return;
+    if (!retentionOptions.hidden) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeRetentionMenu(true);
+      }
+      return;
+    }
     const typing =
       e.target instanceof Element &&
-      e.target.matches('input,textarea,[contenteditable]');
+      (e.target.matches('input,textarea,select,[contenteditable]') ||
+        retentionPicker.contains(e.target));
     if (e.key === '/' && !typing) {
       e.preventDefault();
       $('#search').focus();
@@ -1372,8 +1619,8 @@ export async function createDashboard(
   });
   cleanups.push(
     setupTransfers(root, session.csrfToken, {
-      retentionHint,
       refresh: () => auto.now(),
+      retentionDays: () => shelf.retentionDays ?? session.retentionDays ?? 30,
       notice: (message) => toast(message),
       expired: () => locked(true),
       offline: () => setOffline(true),
