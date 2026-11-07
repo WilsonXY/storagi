@@ -23,7 +23,7 @@ A fresh fetch shows owner-merged application fixes #43 (backend revocation) and 
 - `npm run format:check`: PASS. Gitleaks 8.30.1 `npm run secrets:history`: PASS, 468 commits scanned, no leaks. Staged secret scan before original commit: PASS.
 - Final rebased actual-service retention acceptance: PASS, 41.69 seconds. Text initially failed at a pre-existing optional-toast prerequisite (see below); the corrected complete Text rerun passed in 77.67 seconds. Actual-service transfer acceptance: PASS, 29.65 seconds. All use pinned Playwright 1.64.1 / Chromium 1248, signed synthetic identities, disposable storage and loopback. Logs: ignored `browser.log`, `browser-text-rerun.log`, `transfer.log` in `artifacts/test-cleanup-integration/`.
 - The final harness-only correction does not enter `npm run check`; its changed script was formatted and exercised through the complete actual-service Text scenario after correction. No unrelated broad-suite rerun was needed.
-- Browser and mutation details from delegated stages remain in [251](251-unit-test-cleanup.md) and [252](252-browser-test-cleanup.md). Independent review and candidate CI pending.
+- Browser and mutation details from delegated stages remain in [251](251-unit-test-cleanup.md) and [252](252-browser-test-cleanup.md). Independent review completed PASS; candidate CI pending.
 
 ## Findings and limitations
 
@@ -41,4 +41,6 @@ The coordinator acknowledged the companion's all-remote-ref hold before its inde
 
 ## Handoff
 
-In progress. No PR yet.
+Reviewed test candidate: `ff99ed95b231a485358005af7b7a1d79ceb66030`. Fresh Astra/high review PASS with no findings, own-session settings verified by the coordinator; exact parent HEAD/status/all-origin-head invariance and reviewer clean candidate status passed. Failed Opus task canceled, both generated reviewer checkouts/branches cleaned; cooperative push hold explicitly released and acknowledged. Full evidence is in [253](253-test-cleanup-review.md).
+
+Final coordinator-only review records are ready to commit, then push/open/link the test-cleanup PR and watch candidate CI. No shared-refresh source imported. PR #45 remains separate and needs owner-authorized integration plus combined checks later; its existing geometry failure is the original assertion this cleanup corrects.
