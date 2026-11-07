@@ -198,6 +198,10 @@ export async function createDashboard(
     hidden = new Set<string>();
   const isTextView = () =>
     app.dataset.view !== 'settings' && app.dataset.tab === 'text';
+  const isInboxView = () =>
+    app.dataset.view === 'shelf' &&
+    (app.dataset.tab === 'inbox' ||
+      (app.dataset.tab === 'transfers' && innerWidth >= 1180));
   let shelf: Shelf = {
       files: [],
       usedBytes: 0,
@@ -591,6 +595,7 @@ export async function createDashboard(
       shelf.usedBytes + shelf.reservedBytes < shelf.budgetBytes;
   }
   function deleteFiles(ids: string[], bulk = false) {
+    if (!isInboxView()) return;
     // A row already counting down keeps its own Undo; earlier bulk batches fold into this one, with one fresh grace.
     ids = ids.filter((id) => !counting(id));
     if (!ids.length) {
@@ -695,11 +700,16 @@ export async function createDashboard(
   cleanups.push(gestures.destroy);
   // Whatever changed the selection (a drag replaying its starting state, too), a row being deleted never stays in it.
   listen(sel, 'change', () => {
+    if (!isInboxView()) sel.ids.clear();
     for (const id of sel.ids) if (counting(id)) sel.ids.delete(id);
     syncRows();
     renderSelection();
   });
   listen($('#groups'), 'click', (e: MouseEvent) => {
+    if (!isInboxView()) {
+      e.preventDefault();
+      return;
+    }
     const t = e.target as HTMLElement,
       row = t.closest<HTMLElement>('.row');
     if (!row) return;
@@ -1041,6 +1051,7 @@ export async function createDashboard(
     sel.clear();
   });
   listen($('#sel-download'), 'click', () => {
+    if (!isInboxView()) return;
     for (const f of shelf.files.filter(
       (f) => sel.ids.has(f.id) && +new Date(f.expiresAt) > Date.now(),
     ))
@@ -1158,6 +1169,7 @@ export async function createDashboard(
       void auto.now();
     }
     app.dataset.view = name;
+    if (!isInboxView()) sel.clear();
     const settings = name === 'settings';
     texts.activate(!settings && app.dataset.tab === 'text');
     $('#settings').hidden = !settings;
@@ -1608,7 +1620,7 @@ export async function createDashboard(
         texts.search($<HTMLInputElement>('#search').value);
       else renderInbox();
     } else if (
-      app.dataset.tab !== 'text' &&
+      isInboxView() &&
       (e.ctrlKey || e.metaKey) &&
       e.key.toLowerCase() === 'a' &&
       !typing

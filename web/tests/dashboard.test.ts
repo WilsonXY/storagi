@@ -2010,6 +2010,119 @@ test('Text navigation uses authenticated JSON mutations, search and manual refre
   expect(document.querySelector('#page-title')?.textContent).toBe('Inbox');
 });
 
+test.each([
+  ['Text', '.nav-item[data-tab="text"]'],
+  ['Settings', '#nav-settings'],
+  ['mobile Transfers', '#nav-transfers'],
+])(
+  'leaving Inbox for %s prevents stale file actions',
+  async (_name, destination) => {
+    vi.useFakeTimers();
+    vi.stubGlobal('innerWidth', 390);
+    const api = service();
+    const fetcher = vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? Response.json({
+            texts: [
+              {
+                id: 'note',
+                text: 'Keep this text',
+                createdAt: new Date().toISOString(),
+                expiresAt: '2099-11-17T00:00:00Z',
+              },
+            ],
+          })
+        : api.fetcher(url),
+    );
+    await mount(fetcher);
+    click('[data-del="old-id"]');
+    click('[data-id="new-id"] .check');
+    expect(document.querySelector('#sel-count')?.textContent).toBe('1');
+    const staleDelete = document.querySelector<HTMLElement>('#sel-delete')!;
+    const staleDownload = document.querySelector<HTMLElement>('#sel-download')!;
+    click(destination);
+    await tick();
+    staleDelete.click();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(deletes(fetcher)).toEqual([]);
+    expect(
+      document.querySelector('#select-bar')!.classList.contains('out'),
+    ).toBe(true);
+
+    const staleConfirm = document.querySelector<HTMLElement>(
+      '[data-confirm="old-id"]',
+    )!;
+    expect(staleConfirm.isConnected).toBe(true);
+    staleConfirm.click();
+    const rowDownload = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+    });
+    document.querySelector('[data-dl="new-id"]')!.dispatchEvent(rowDownload);
+    expect(rowDownload.defaultPrevented).toBe(true);
+    // Hidden controls and a select-all shortcut must not recreate file selection.
+    click('[data-id="new-id"] .check');
+    click('#select-all');
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }),
+    );
+    const downloads = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    staleDownload.dispatchEvent(new MouseEvent('click'));
+    const downloadCount = downloads.mock.calls.length;
+    downloads.mockRestore();
+    staleDelete.click();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(deletes(fetcher)).toEqual([]);
+    expect(downloadCount).toBe(0);
+    expect(
+      document.querySelector('#select-bar')!.classList.contains('out'),
+    ).toBe(true);
+    if (destination.includes('text'))
+      expect(document.querySelector('#text-shelf')!.textContent).toContain(
+        'Keep this text',
+      );
+
+    click('.nav-item[data-tab="inbox"]');
+    expect(rows()).toHaveLength(2);
+    expect(
+      document.querySelector<HTMLInputElement>('[data-id="new-id"] .check')!
+        .checked,
+    ).toBe(false);
+    click('[data-id="new-id"] .check');
+    click('#sel-delete');
+    expect(rows()).toHaveLength(1);
+    click('#notice button');
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(rows()).toHaveLength(2);
+    expect(deletes(fetcher)).toEqual([]);
+  },
+);
+
+test('selection stays usable with desktop Transfers and clears when resizing hides Inbox', async () => {
+  vi.stubGlobal('innerWidth', 1440);
+  await mount();
+  click('[data-id="new-id"] .check');
+  click('#nav-transfers');
+  expect(document.querySelector('#select-bar')!.classList.contains('out')).toBe(
+    false,
+  );
+  vi.stubGlobal('innerWidth', 390);
+  window.dispatchEvent(new Event('resize'));
+  expect(document.querySelector('#select-bar')!.classList.contains('out')).toBe(
+    true,
+  );
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }),
+  );
+  expect(document.querySelector('#sel-count')!.textContent).toBe('0');
+  vi.stubGlobal('innerWidth', 1440);
+  window.dispatchEvent(new Event('resize'));
+  click('[data-id="new-id"] .check');
+  expect(document.querySelector('#sel-count')!.textContent).toBe('1');
+});
+
 test('desktop Transfers navigation leaves Text so the transfer panel is visible', async () => {
   vi.stubGlobal('innerWidth', 1440);
   const api = service();
