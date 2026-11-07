@@ -2036,9 +2036,6 @@ test.each([
     );
     await mount(fetcher);
     click('[data-del="old-id"]');
-    const staleConfirm = document.querySelector<HTMLElement>(
-      '[data-confirm="old-id"]',
-    )!;
     click('[data-id="new-id"] .check');
     expect(document.querySelector('#sel-count')?.textContent).toBe('1');
     const staleDelete = document.querySelector<HTMLElement>('#sel-delete')!;
@@ -2052,7 +2049,17 @@ test.each([
       document.querySelector('#select-bar')!.classList.contains('out'),
     ).toBe(true);
 
+    const staleConfirm = document.querySelector<HTMLElement>(
+      '[data-confirm="old-id"]',
+    )!;
+    expect(staleConfirm.isConnected).toBe(true);
     staleConfirm.click();
+    const rowDownload = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+    });
+    document.querySelector('[data-dl="new-id"]')!.dispatchEvent(rowDownload);
+    expect(rowDownload.defaultPrevented).toBe(true);
     // Hidden controls and a select-all shortcut must not recreate file selection.
     click('[data-id="new-id"] .check');
     click('#select-all');
@@ -2092,6 +2099,29 @@ test.each([
     expect(deletes(fetcher)).toEqual([]);
   },
 );
+
+test('selection stays usable with desktop Transfers and clears when resizing hides Inbox', async () => {
+  vi.stubGlobal('innerWidth', 1440);
+  await mount();
+  click('[data-id="new-id"] .check');
+  click('#nav-transfers');
+  expect(document.querySelector('#select-bar')!.classList.contains('out')).toBe(
+    false,
+  );
+  vi.stubGlobal('innerWidth', 390);
+  window.dispatchEvent(new Event('resize'));
+  expect(document.querySelector('#select-bar')!.classList.contains('out')).toBe(
+    true,
+  );
+  window.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }),
+  );
+  expect(document.querySelector('#sel-count')!.textContent).toBe('0');
+  vi.stubGlobal('innerWidth', 1440);
+  window.dispatchEvent(new Event('resize'));
+  click('[data-id="new-id"] .check');
+  expect(document.querySelector('#sel-count')!.textContent).toBe('1');
+});
 
 test('desktop Transfers navigation leaves Text so the transfer panel is visible', async () => {
   vi.stubGlobal('innerWidth', 1440);
