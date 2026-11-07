@@ -1254,6 +1254,10 @@ test('text moves between two browser devices using the actual authenticated serv
       .locator('#groups .row')
       .filter({ hasText: 'handoff-proof' })
       .waitFor();
+    assert.ok(
+      await sender.locator('#choose').isVisible(),
+      'Choose files is visible',
+    );
     // Upload opens the transfer panel: sample both edges in the same layout frame.
     const chooseRightAligned = await sender.evaluate(() => {
       const card = document.querySelector('#composer')!.getBoundingClientRect();
