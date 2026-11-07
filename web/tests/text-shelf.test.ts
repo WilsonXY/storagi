@@ -42,12 +42,15 @@ function mount() {
     },
   );
   const toast = vi.fn();
-  const shelf = createTextShelf(document.body, request, toast);
+  // The dashboard passes its shared AutoRefresh here; standalone, activation fetches Text directly.
+  const scheduled = vi.fn(() => shelf.refresh().catch(() => {}));
+  const shelf = createTextShelf(document.body, request, toast, scheduled);
   dispose = shelf.destroy;
   return {
     shelf,
     request,
     toast,
+    scheduled,
     setItems: (value: typeof items) => {
       items = value;
     },
@@ -151,11 +154,22 @@ test('failed send keeps draft and exposes inline retryable error; whitespace and
   ).toBe(false);
 });
 
-test('receiving shelf refreshes every five seconds, on focus, filters expiry and never executes text', async () => {
+test('Text has no scheduler of its own: activation asks the shared one, which filters expiry and never executes text', async () => {
   vi.useFakeTimers();
-  const { shelf, request, setItems } = mount();
+  const { shelf, request, scheduled, setItems } = mount();
+  shelf.activate(true);
   shelf.activate(true);
   await tick();
+  expect(scheduled).toHaveBeenCalledOnce();
+  expect(request).toHaveBeenCalledOnce();
+  expect(document.querySelector('#text-sync')?.textContent).toBe(
+    'Up to date · refreshes every 60s',
+  );
+  // No timer, focus or visibility listener of its own remains.
+  window.dispatchEvent(new Event('focus'));
+  document.dispatchEvent(new Event('visibilitychange'));
+  await vi.advanceTimersByTimeAsync(120_000);
+  expect(request).toHaveBeenCalledOnce();
   setItems([
     {
       id: 'unsafe',
@@ -164,18 +178,54 @@ test('receiving shelf refreshes every five seconds, on focus, filters expiry and
       expiresAt: new Date(Date.now() + 4000).toISOString(),
     },
   ]);
-  window.dispatchEvent(new Event('focus'));
-  await tick();
+  await shelf.refresh();
   expect(document.querySelector('#text-items img')).toBeNull();
   expect(document.querySelector('#text-items pre')?.textContent).toContain(
     '<img',
   );
   await vi.advanceTimersByTimeAsync(5000);
+  await shelf.refresh();
   expect(document.querySelectorAll('#text-items article')).toHaveLength(0);
   shelf.activate(false);
   const calls = request.mock.calls.length;
-  await vi.advanceTimersByTimeAsync(15000);
+  await shelf.refresh();
   expect(request).toHaveBeenCalledTimes(calls);
+  shelf.activate(true);
+  expect(scheduled).toHaveBeenCalledTimes(2);
+});
+
+test('a failed Text refresh rejects for the shared retry and keeps inline guidance', async () => {
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  request.mockRejectedValueOnce(new Error('Host offline.'));
+  await expect(shelf.refresh()).rejects.toThrow('Host offline.');
+  expect(document.querySelector('#text-sync')?.textContent).toBe(
+    'Could not refresh · retrying within 60s',
+  );
+  expect(document.querySelector('#text-error')?.textContent).toContain(
+    'Your text shelf may be out of date. Use Refresh to retry.',
+  );
+  expect(document.querySelectorAll('#text-items article')).toHaveLength(1);
+  await shelf.refresh();
+  expect(document.querySelector<HTMLElement>('#text-error')!.hidden).toBe(true);
+});
+
+test('Text send and committed deletion immediately request the shared refresh', async () => {
+  vi.useFakeTimers();
+  const { shelf, scheduled } = mount();
+  shelf.activate(true);
+  await tick();
+  type('new note');
+  document
+    .querySelector('#text-form')!
+    .dispatchEvent(new Event('submit', { cancelable: true }));
+  await tick();
+  expect(scheduled).toHaveBeenCalledTimes(2);
+  click('[data-text-delete]');
+  click('[data-text-confirm]');
+  await vi.advanceTimersByTimeAsync(4000);
+  expect(scheduled).toHaveBeenCalledTimes(3);
 });
 
 test('changed deadlines refresh existing Text metadata without replacing selected content or focus', async () => {
@@ -288,7 +338,7 @@ test('an older refresh cannot resurrect a deleted text', async () => {
 
 test('delete already removed on the other device succeeds, Escape cancels confirmation, destroy clears private text', async () => {
   vi.useFakeTimers();
-  const { shelf, request } = mount();
+  const { shelf, request, setItems } = mount();
   shelf.activate(true);
   await tick();
   click('[data-text-delete]');
@@ -304,6 +354,8 @@ test('delete already removed on the other device succeeds, Escape cancels confir
   request.mockRejectedValueOnce(
     Object.assign(new Error('already gone'), { status: 404 }),
   );
+  // The post-delete shared fetch must see the same server-side absence.
+  setItems([]);
   click('[data-text-confirm]');
   await vi.advanceTimersByTimeAsync(4100);
   await tick();
@@ -929,14 +981,17 @@ test('desktop blank-area swipe clears an earlier selection without changing nati
 
 test('confirmed deletion never steals composer focus during grace or a delayed response', async () => {
   vi.useFakeTimers();
-  const { shelf, request } = mount();
+  const { shelf, request, setItems } = mount();
   shelf.activate(true);
   await tick();
   let finish!: () => void;
   request.mockImplementationOnce(
     () =>
       new Promise<Response>((resolve) => {
-        finish = () => resolve(new Response(null, { status: 204 }));
+        finish = () => {
+          setItems([]);
+          resolve(new Response(null, { status: 204 }));
+        };
       }),
   );
   click('[data-text-delete]');

@@ -69,12 +69,12 @@ test('return threshold measures time away, and a call during a fetch gets one fr
         release = r;
       }),
   );
-  const a = ar.now(),
-    b = ar.now(),
+  const a = ar.now();
+  await vi.advanceTimersByTimeAsync(0);
+  const b = ar.now(),
     c = ar.now();
   expect(b).toBe(c);
   expect(ar.busy).toBe(true);
-  await vi.advanceTimersByTimeAsync(0);
   release();
   await a;
   // A call made while a fetch is in flight gets one fresh fetch afterwards, so it never adopts a stale answer; extra calls share it.
@@ -165,4 +165,66 @@ test('destroy prevents a request queued for the next microtask from starting', a
   retry.destroy();
   await Promise.all([a, b]);
   expect(fetcher).not.toHaveBeenCalled();
+});
+test('calls made before a fetch starts share it, since it will already see their changes', async () => {
+  const fetcher = vi.fn().mockResolvedValue(undefined),
+    ar = new AutoRefresh(fetcher);
+  const a = ar.now();
+  expect(ar.now()).toBe(a);
+  await a;
+  expect(fetcher).toHaveBeenCalledOnce();
+  ar.destroy();
+});
+test('window focus after more than 10 s away refreshes once; a brief blur does not', async () => {
+  const fetcher = vi.fn().mockResolvedValue(undefined),
+    ar = new AutoRefresh(fetcher);
+  window.dispatchEvent(new Event('blur'));
+  await vi.advanceTimersByTimeAsync(10_000);
+  window.dispatchEvent(new Event('focus'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetcher).not.toHaveBeenCalled();
+  // Away time starts at blur, even if the tab is hidden later; returning fires visibility and focus but fetches once.
+  window.dispatchEvent(new Event('blur'));
+  await vi.advanceTimersByTimeAsync(6000);
+  visible = false;
+  visibility();
+  await vi.advanceTimersByTimeAsync(5000);
+  visible = true;
+  visibility();
+  window.dispatchEvent(new Event('focus'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  ar.destroy();
+  window.dispatchEvent(new Event('blur'));
+  await vi.advanceTimersByTimeAsync(20_000);
+  window.dispatchEvent(new Event('focus'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+test('timer and queued refresh failures are contained and leave the next refresh usable', async () => {
+  const error = new Error('offline');
+  let reject!: (error: Error) => void;
+  const fetcher = vi.fn(
+    () =>
+      new Promise<void>((_resolve, fail) => {
+        reject = fail;
+      }),
+  );
+  const ar = new AutoRefresh(fetcher);
+  await vi.advanceTimersByTimeAsync(60_000);
+  const queued = ar.now();
+  expect(ar.now()).toBe(queued);
+  reject(error);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  reject(error);
+  await expect(queued).resolves.toBeUndefined();
+  expect(ar.error).toBe(error);
+  expect(ar.busy).toBe(false);
+  fetcher.mockResolvedValue(undefined);
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(ar.error).toBeNull();
+  ar.destroy();
 });
