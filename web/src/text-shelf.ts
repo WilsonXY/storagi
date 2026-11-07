@@ -1,6 +1,6 @@
 import { esc } from './ui';
 import { rowGestures } from './gestures';
-import { deferredDelete } from './deferred-delete';
+import { deferredDelete, GRACE_SECONDS } from './deferred-delete';
 type TextItem = {
   id: string;
   text: string;
@@ -98,6 +98,7 @@ export function createTextShelf(
         card.className = 'text-card';
         card.dataset.textId = item.id;
         card.dataset.id = item.id;
+        card.title = 'Drag the blank area left to delete';
         const url = linkFor(item.text);
         const expiry = new Date(item.expiresAt).toLocaleString(undefined, {
           month: 'short',
@@ -111,7 +112,7 @@ export function createTextShelf(
           hour: 'numeric',
           minute: '2-digit',
         });
-        card.innerHTML = `<span class="sr-only" id="text-meta-${esc(item.id)}">${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}. Expires ${esc(expiry)}</span><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><time class="text-expiry mono" datetime="${esc(item.expiresAt)}" title="Automatically deleted ${esc(expiry)}"></time><button type="button" class="icon-btn text-copy" data-text-copy aria-label="Copy text" title="Copy text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="7.5" height="8" rx="1.5"/><path d="M10.5 5.5V3A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h2.5"/></svg></button><button type="button" class="icon-btn text-remove" data-text-delete aria-label="Delete text" title="Delete text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg></button><span class="text-delete-confirm" role="group" aria-label="Delete this text?" hidden><button type="button" class="btn btn-sm" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="btn btn-sm text-delete-now" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete</button></span><button type="button" class="btn btn-sm text-undo" data-text-undo aria-describedby="text-meta-${esc(item.id)}" title="Undo deletion (4 seconds)" hidden>Undo</button></div>`;
+        card.innerHTML = `<span class="sr-only" id="text-meta-${esc(item.id)}">${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}. Expires ${esc(expiry)}</span><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><time class="text-expiry mono" datetime="${esc(item.expiresAt)}" title="Automatically deleted ${esc(expiry)}"></time><button type="button" class="icon-btn text-copy" data-text-copy aria-label="Copy text" title="Copy text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="7.5" height="8" rx="1.5"/><path d="M10.5 5.5V3A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h2.5"/></svg></button><button type="button" class="icon-btn text-remove" data-text-delete aria-label="Delete text" title="Delete text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg></button><span class="morph text-delete-confirm" role="group" aria-label="Delete this text?" hidden><span class="m-ask">Delete text?</span><button type="button" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="m-confirm" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete</button></span><span class="morph text-deleted" hidden><span class="m-ok">✓ Deleted</span><button type="button" data-text-undo aria-describedby="text-meta-${esc(item.id)}" title="Undo deletion (4 seconds)" hidden>Undo</button><span class="m-clock" data-text-clock>4s</span></span><span class="morph text-deleting" hidden><span class="m-quiet"><i class="spin"></i>Deleting</span></span></div>`;
         const content = card.querySelector('pre')!;
         if (url) {
           content.tabIndex = -1;
@@ -139,17 +140,24 @@ export function createTextShelf(
           : minutes >= 60
             ? `${Math.ceil(minutes / 60)}h left`
             : `${minutes}m left`;
-      card.classList.toggle('text-pending', pending.has(item.id));
+      const queued = pending.has(item.id),
+        busy = deleting.has(item.id);
+      card.classList.toggle('text-pending', queued || busy);
+      const confirm = card.querySelector<HTMLElement>('.text-delete-confirm')!;
+      if (queued || busy) confirm.hidden = true;
+      card.querySelector<HTMLElement>('[data-text-copy]')!.hidden =
+        queued || busy || !confirm.hidden;
+      card.querySelector<HTMLElement>('[data-text-delete]')!.hidden =
+        queued || busy || !confirm.hidden;
+      card.querySelector<HTMLElement>('.text-deleted')!.hidden =
+        !queued || busy;
+      card.querySelector<HTMLElement>('.text-deleting')!.hidden = !busy;
       const undo = card.querySelector<HTMLButtonElement>('[data-text-undo]')!;
-      undo.hidden = !pending.has(item.id);
-      undo.disabled = deleting.has(item.id);
+      undo.hidden = !queued || busy;
+      const clock = card.querySelector<HTMLElement>('[data-text-clock]')!;
+      clock.textContent = `${pending.get(item.id)?.left ?? GRACE_SECONDS}s`;
       const time = card.querySelector('time')!;
-      const label = pending.has(item.id)
-        ? pending.get(item.id)!.left
-          ? `Deleting in ${pending.get(item.id)!.left}s`
-          : 'Deleting…'
-        : remaining;
-      if (time.textContent !== label) time.textContent = label;
+      if (time.textContent !== remaining) time.textContent = remaining;
       if (container.children[index] !== card)
         container.insertBefore(card, container.children[index] ?? null);
     });
@@ -263,6 +271,11 @@ export function createTextShelf(
       render();
       return;
     }
+    if (
+      deleting.has(item.id) ||
+      (pending.has(item.id) && !button.hasAttribute('data-text-undo'))
+    )
+      return;
     if (button.hasAttribute('data-text-copy')) {
       try {
         await navigator.clipboard.writeText(item.text);
@@ -295,6 +308,7 @@ export function createTextShelf(
       card.querySelector<HTMLElement>('.text-delete-confirm')!.hidden =
         !confirm;
       card.querySelector<HTMLElement>('[data-text-delete]')!.hidden = confirm;
+      card.querySelector<HTMLElement>('[data-text-copy]')!.hidden = confirm;
       card
         .querySelector<HTMLElement>(
           confirm ? '[data-text-cancel]' : '[data-text-delete]',
@@ -306,7 +320,8 @@ export function createTextShelf(
       if (active && restoreFocus)
         card.querySelector<HTMLElement>('[data-text-copy]')!.focus();
     } else if (button.hasAttribute('data-text-confirm')) {
-      void remove(item.id, true);
+      queueDelete(item.id, true);
+      card.querySelector<HTMLElement>('[data-text-undo]')!.focus();
     }
   });
   async function remove(id: string, focus: boolean) {
@@ -338,7 +353,30 @@ export function createTextShelf(
       error((e as Error).message);
     } finally {
       deleting.delete(id);
+      render();
     }
+  }
+  function queueDelete(id: string, focus = false) {
+    if (pending.has(id) || deleting.has(id)) return;
+    pending.set(id, {
+      op: deferredDelete(() => remove(id, focus), {
+        onUndo: () => {
+          pending.delete(id);
+          render();
+          sync('Deletion undone.');
+        },
+        onTick: (left) => {
+          const state = pending.get(id);
+          if (state) {
+            state.left = left;
+            render();
+          }
+        },
+      }),
+      left: GRACE_SECONDS,
+    });
+    sync('Text will be deleted in four seconds. Undo is available.');
+    render();
   }
   const gestures = rowGestures(
     $('#text-items'),
@@ -352,27 +390,7 @@ export function createTextShelf(
         .find((card) => card.dataset.textId === id)
         ?.querySelector('.text-delete-confirm:not([hidden])') ||
       !!window.getSelection()?.toString(),
-    (id) => {
-      pending.set(id, {
-        op: deferredDelete(() => remove(id, false), {
-          onUndo: () => {
-            pending.delete(id);
-            render();
-            sync('Deletion undone.');
-          },
-          onTick: (left) => {
-            const state = pending.get(id);
-            if (state) {
-              state.left = left;
-              render();
-            }
-          },
-        }),
-        left: 4,
-      });
-      sync('Text will be deleted in four seconds. Undo is available.');
-      render();
-    },
+    (id) => queueDelete(id),
     render,
     events.signal,
     '.text-card',

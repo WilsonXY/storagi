@@ -123,6 +123,28 @@ test('text moves between two browser devices using the actual authenticated serv
         'Promise.all(document.getAnimations().filter(a => a.effect && a.effect.getComputedTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})))',
       );
     };
+    const morphAppearance = (page: any, selector: string) =>
+      page.locator(selector).evaluate((el: HTMLElement) => {
+        const props = [
+          'fontFamily',
+          'fontSize',
+          'fontWeight',
+          'borderRadius',
+          'backgroundColor',
+          'boxShadow',
+          'color',
+          'height',
+        ] as const;
+        return [
+          el,
+          el.querySelector('.m-ok')!,
+          el.querySelector('button')!,
+          el.querySelector('.m-clock')!,
+        ].map((node) => {
+          const style = getComputedStyle(node);
+          return Object.fromEntries(props.map((key) => [key, style[key]]));
+        });
+      });
     const proveFocus = async (page: any, selector: string, shot: string) => {
       const control = page.locator(selector).first();
       await control.scrollIntoViewIfNeeded();
@@ -792,6 +814,64 @@ test('text moves between two browser devices using the actual authenticated serv
     // A fresh receiver page keeps gesture proof separate from clipboard recovery.
     await receiver.reload();
     await receiver.locator('[data-text-copy]').waitFor();
+    // Start gesture proof with a fresh page after separately proving failed-send preservation.
+    await sender.reload();
+    await sender.locator('[data-text-copy]').waitFor();
+    // Real mouse input from the same row chrome used by Inbox (not a synthetic wheel).
+    await sender.setViewportSize({ width: 1440, height: 1000 });
+    const mouseSwipe = async (distance: number, capture = false) => {
+      const row = sender.locator('#text-items article').first();
+      await row.scrollIntoViewIfNeeded();
+      const box = await row.locator('.text-card-actions').boundingBox();
+      const x = box.x + box.width * 0.65,
+        y = box.y + box.height / 2;
+      await sender.mouse.move(x, y);
+      await sender.mouse.down();
+      await sender.mouse.move(x - distance, y, { steps: 8 });
+      if (distance >= 180) {
+        assert.equal(
+          await row.evaluate((el: HTMLElement) =>
+            el.classList.contains('swiping'),
+          ),
+          true,
+          'desktop mouse left-drag starts the same delete gesture as Inbox',
+        );
+        if (capture)
+          await sender.screenshot({
+            path: path.join(artifacts, 'text-mouse-swipe-1440.png'),
+            fullPage: true,
+          });
+      }
+      await sender.mouse.up();
+      await settled(sender);
+    };
+    await mouseSwipe(35);
+    assert.equal(
+      await sender.locator('[data-text-undo]').isVisible(),
+      false,
+      'short desktop mouse drag snaps back without deletion',
+    );
+    await mouseSwipe(220, true);
+    await sender.locator('[data-text-undo]').waitFor();
+    assert.equal(
+      await sender.locator('.text-card .morph .m-ok').textContent(),
+      '✓ Deleted',
+      'Text uses Inbox Deleted/Undo/countdown morph',
+    );
+    assert.match(
+      await sender.locator('.text-card .morph .m-clock').textContent(),
+      /^[1-4]s$/,
+    );
+    const textDesktopMorph = await morphAppearance(
+      sender,
+      '.text-card .morph:visible',
+    );
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-mouse-undo-1440.png'),
+      fullPage: true,
+    });
+    await sender.locator('[data-text-undo]').click();
+    await sender.locator('[data-text-copy]').waitFor();
     // A native phone touch swipe uses the same red reveal and Undo rhythm as Inbox.
     const pagesBeforeSwipes = phone.pages().length;
     const cdp = await phone.newCDPSession(receiver);
@@ -816,6 +896,35 @@ test('text moves between two browser devices using the actual authenticated serv
           type: 'touchMove',
           touchPoints: [{ x: x - (distance * step) / 6, y }],
         });
+      if (capture) {
+        const shape = await row.evaluate((el: HTMLElement) => {
+          const style = getComputedStyle(el);
+          const under = el.previousElementSibling as HTMLElement;
+          const strip = under.getBoundingClientRect(),
+            box = el.getBoundingClientRect();
+          return {
+            radius: style.borderRadius,
+            stripRadius: getComputedStyle(under).borderRadius,
+            inset: parseFloat(style.paddingLeft),
+            topInset: parseFloat(style.paddingTop),
+            aligned:
+              Math.abs(strip.top - box.top) < 1 &&
+              Math.abs(strip.height - box.height) < 1,
+          };
+        });
+        assert.equal(
+          shape.radius,
+          shape.stripRadius,
+          'dragged row and Inbox delete reveal share rounded shape',
+        );
+        assert.ok(
+          parseFloat(shape.radius) > 0 &&
+            shape.inset > 0 &&
+            shape.topInset > 0 &&
+            shape.aligned,
+          'phone drag surface has consistent padding and aligned reveal bounds',
+        );
+      }
       if (capture)
         await receiver.screenshot({
           path: path.join(artifacts, 'text-swipe-390.png'),
@@ -841,6 +950,10 @@ test('text moves between two browser devices using the actual authenticated serv
     );
     await swipe(220, false, true, '[data-text-open]');
     await receiver.locator('[data-text-undo]').waitFor();
+    const textPhoneMorph = await morphAppearance(
+      receiver,
+      '.text-card .morph:visible',
+    );
     await receiver.screenshot({
       path: path.join(artifacts, 'text-swipe-undo-390.png'),
       fullPage: true,
@@ -911,6 +1024,31 @@ test('text moves between two browser devices using the actual authenticated serv
       true,
       'keyboard Undo restores Copy focus',
     );
+    const selectionPoints = await sender
+      .locator('#text-items pre')
+      .evaluate((el: HTMLElement) => {
+        const range = document.createRange();
+        range.setStart(el.firstChild!, 2);
+        range.setEnd(el.firstChild!, 14);
+        const rect = range.getBoundingClientRect();
+        return { x: rect.left, end: rect.right, y: rect.top + rect.height / 2 };
+      });
+    await sender.mouse.move(selectionPoints.x, selectionPoints.y);
+    await sender.mouse.down();
+    await sender.mouse.move(selectionPoints.end, selectionPoints.y, {
+      steps: 8,
+    });
+    await sender.mouse.up();
+    assert.ok(
+      await sender.evaluate(() => (getSelection()?.toString().length ?? 0) > 3),
+      'ordinary desktop dragging selects part of the actual note',
+    );
+    assert.equal(
+      await sender.locator('[data-text-undo]').isVisible(),
+      false,
+      'native text selection never schedules deletion',
+    );
+    await sender.evaluate(() => getSelection()?.removeAllRanges());
     await swipe(220, false, false, 'pre');
     await receiver.locator('[data-text-undo]').waitFor();
     await receiver
@@ -969,6 +1107,35 @@ test('text moves between two browser devices using the actual authenticated serv
         Date.parse(deadlines.file.uploadedAt),
       30 * 86400000,
     );
+    // Compare against the actual Inbox morph, not a separately restyled imitation.
+    await sender.locator('[data-del]').first().click();
+    await sender.locator('[data-confirm]').first().click();
+    assert.deepEqual(
+      await morphAppearance(sender, '#groups .morph'),
+      textDesktopMorph,
+      'desktop Text Deleted/Undo/countdown appearance exactly matches Inbox',
+    );
+    await sender.screenshot({
+      path: path.join(artifacts, 'inbox-delete-undo-1440.png'),
+      fullPage: true,
+    });
+    await sender.locator('[data-undo]').first().click();
+    await navigate(receiver, 'inbox');
+    await receiver.locator('#refresh').click();
+    await receiver.locator('#groups .row').waitFor();
+    await receiver.locator('[data-del]').first().click();
+    await receiver.locator('[data-confirm]').first().click();
+    assert.deepEqual(
+      await morphAppearance(receiver, '#groups .morph'),
+      textPhoneMorph,
+      'phone Text Deleted/Undo/countdown appearance exactly matches Inbox',
+    );
+    await receiver.screenshot({
+      path: path.join(artifacts, 'inbox-delete-undo-390.png'),
+      fullPage: true,
+    });
+    await receiver.locator('[data-undo]').first().click();
+    await navigate(receiver, 'text');
     await navigate(sender, 'text');
     await sender.locator('#text-draft').fill('Synthetic scroll proof');
     await sender.locator('#text-send').click();
@@ -1049,7 +1216,8 @@ test('text moves between two browser devices using the actual authenticated serv
           checks: [
             'desktop to phone automatic receipt',
             'native phone touch swipe on URL and note bodies, short/cancel/Undo/commit, preference and cross-device deletion',
-            'desktop trackpad over wrapped note body and keyboard Undo focus',
+            'desktop mouse drag from row chrome plus trackpad over wrapped notes and keyboard Undo focus',
+            'actual Inbox/Text Deleted-Undo-countdown style parity on desktop and phone; rounded aligned phone drag surface',
             'unclipped keyboard focus on note, URL, trash and Undo',
             '44px coarse-pointer tablet actions',
             'neutral clipboard fallback and no touch Copy hover square',

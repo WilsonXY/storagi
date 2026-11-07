@@ -1028,7 +1028,8 @@ body.painting * {
   cursor: ns-resize !important;
 }
 /* swipe to delete: the row slides over a red strip, which lights once letting go will delete */
-.row.swiping {
+.row.swiping,
+.text-card.swiping {
   z-index: 1;
   background: var(--surface);
   transition: none;
@@ -1076,7 +1077,6 @@ body.painting * {
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  box-shadow: 0 0 0 1px var(--border);
 }
 .morph .m-ask {
   color: var(--text);
@@ -2033,11 +2033,21 @@ body.selecting .toast {
   line-height: 1.7;
 }
 .text-card {
-  border-bottom: 1px solid var(--rule);
-  padding: 18px 0;
+  position: relative;
+  padding: 18px 10px;
+  border-radius: var(--radius-control);
 }
-.text-card:first-child {
-  padding-top: 0;
+.text-card::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  border-bottom: 1px solid var(--rule);
+  pointer-events: none;
+}
+.text-card.swiping::after {
+  display: none;
 }
 .text-card pre {
   font: 400 16px/1.7 var(--font);
@@ -2097,14 +2107,6 @@ body.selecting .toast {
   margin-left: 4px;
 }
 .text-remove:hover {
-  color: var(--negative);
-}
-.text-delete-confirm {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.text-delete-now {
   color: var(--negative);
 }
 .text-error {
@@ -2170,7 +2172,7 @@ body.selecting .toast {
     padding: 0 12px;
   }
   .text-card {
-    padding: 16px 0;
+    padding: 16px 10px;
   }
 }
 
@@ -2180,20 +2182,28 @@ body.selecting .toast {
 }
 .app.gestures .text-card {
   touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
 }
-.text-card.swiping {
-  position: relative;
-  z-index: 1;
-  background: var(--surface);
+.app.gestures .text-card pre {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.app.gestures .text-card pre a {
+  cursor: pointer;
 }
 .text-card.text-pending pre {
-  opacity: 0.35;
+  color: var(--faint);
+  text-decoration: line-through;
+  text-decoration-color: rgb(255 255 255 / 25%);
 }
-.text-card.text-pending .text-copy,
-.text-card.text-pending .text-remove {
-  visibility: hidden;
+.text-card .morph button:focus-visible {
+  outline-offset: -3px;
 }
-
-.text-undo {
-  color: var(--text);
+@media (max-width: 640px) {
+  .text-card .morph {
+    height: 40px;
+  }
 }

@@ -98,6 +98,7 @@ test('text shelf loads lazily, sends exact text and clears only the sent draft',
 });
 
 test('clipboard denial offers selectable full text and deletion requires confirmation', async () => {
+  vi.useFakeTimers();
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
@@ -117,6 +118,7 @@ test('clipboard denial offers selectable full text and deletion requires confirm
   click('[data-text-cancel]');
   click('[data-text-delete]');
   click('[data-text-confirm]');
+  await vi.advanceTimersByTimeAsync(4100);
   await tick();
   expect(request).toHaveBeenCalledWith('/api/texts/one', 'DELETE');
   expect(document.querySelectorAll('#text-items article')).toHaveLength(0);
@@ -209,6 +211,7 @@ test('search matches full text and a late response never overwrites a newer draf
 });
 
 test('an older refresh cannot resurrect a deleted text', async () => {
+  vi.useFakeTimers();
   const { shelf, request } = mount();
   shelf.activate(true);
   await tick();
@@ -222,6 +225,7 @@ test('an older refresh cannot resurrect a deleted text', async () => {
   const refresh = shelf.refresh();
   click('[data-text-delete]');
   click('[data-text-confirm]');
+  await vi.advanceTimersByTimeAsync(4100);
   await tick();
   finish(
     Response.json({
@@ -241,6 +245,7 @@ test('an older refresh cannot resurrect a deleted text', async () => {
 });
 
 test('delete already removed on the other device succeeds, Escape cancels confirmation, destroy clears private text', async () => {
+  vi.useFakeTimers();
   const { shelf, request } = mount();
   shelf.activate(true);
   await tick();
@@ -258,6 +263,7 @@ test('delete already removed on the other device succeeds, Escape cancels confir
     Object.assign(new Error('already gone'), { status: 404 }),
   );
   click('[data-text-confirm]');
+  await vi.advanceTimersByTimeAsync(4100);
   await tick();
   expect(document.querySelectorAll('#text-items article')).toHaveLength(0);
   expect(document.querySelector<HTMLElement>('#text-error')!.hidden).toBe(true);
@@ -404,6 +410,7 @@ test('draft auto-grows within a bound and shrinks after clearing', () => {
 });
 
 test('removing the last text restores header focus instead of opening the phone keyboard', async () => {
+  vi.useFakeTimers();
   vi.stubGlobal(
     'matchMedia',
     vi.fn(() => ({ matches: true }) as MediaQueryList),
@@ -413,6 +420,7 @@ test('removing the last text restores header focus instead of opening the phone 
   await tick();
   click('[data-text-delete]');
   click('[data-text-confirm]');
+  await vi.advanceTimersByTimeAsync(4100);
   await tick();
   expect(document.activeElement?.id).toBe('page-title');
 });
@@ -429,7 +437,13 @@ test('expiry precedes named icon-only Copy and Delete actions', async () => {
   expect(copy.querySelector('svg')).not.toBeNull();
 });
 
-function swipe(dx: number, dy = 0, cancel = false, target?: Element) {
+function swipe(
+  dx: number,
+  dy = 0,
+  cancel = false,
+  target?: Element,
+  pointerType = 'touch',
+) {
   const card = document.querySelector<HTMLElement>('.text-card')!;
   Object.defineProperty(card, 'offsetWidth', {
     configurable: true,
@@ -443,7 +457,7 @@ function swipe(dx: number, dy = 0, cancel = false, target?: Element) {
       button: 0,
     });
     Object.defineProperties(e, {
-      pointerType: { value: 'touch' },
+      pointerType: { value: pointerType },
       pointerId: { value: 1 },
     });
     target.dispatchEvent(e);
@@ -523,8 +537,8 @@ test('failed swipe deletion restores the row and teardown cancels pending deleti
   await tick();
   request.mockRejectedValueOnce(new Error('Try again'));
   swipe(-180);
-  expect(document.querySelector('.text-expiry')?.textContent).toBe(
-    'Deleting in 4s',
+  expect(document.querySelector('.text-deleted .m-clock')?.textContent).toBe(
+    '4s',
   );
   await vi.advanceTimersByTimeAsync(4100);
   expect(
@@ -726,4 +740,126 @@ test('auto-grow includes the non-scrolling textarea insets and preserves its cap
   expect(draft().style.height).toBe('240px');
   type('');
   expect(draft().style.height).toBe('148px');
+});
+
+test('desktop mouse swipes on Text row whitespace offer Undo while selectable content and controls stay native', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  const card = document.querySelector<HTMLElement>('.text-card')!;
+  for (const target of [
+    card,
+    card.querySelector('.text-card-actions')!,
+    card.querySelector('time')!,
+  ]) {
+    swipe(-180, 0, false, target, 'mouse');
+    expect(card.classList.contains('text-pending')).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    click('[data-text-undo]');
+    expect(card.classList.contains('text-pending')).toBe(false);
+  }
+  for (const target of [
+    card.querySelector('pre')!,
+    card.querySelector('a')!,
+    card.querySelector('[data-text-copy]')!,
+  ]) {
+    swipe(-180, 0, false, target, 'mouse');
+    expect(card.classList.contains('text-pending')).toBe(false);
+  }
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+});
+
+test('Text swipe uses the Inbox Deleted morph and separate countdown while retaining expiry', async () => {
+  vi.useFakeTimers();
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const expiry = document.querySelector('.text-expiry')!.textContent;
+  swipe(-180);
+  const undo = document.querySelector('[data-text-undo]')!;
+  expect(undo.closest('.morph')?.querySelector('.m-ok')?.textContent).toBe(
+    '✓ Deleted',
+  );
+  expect(undo.closest('.morph')?.querySelector('.m-clock')?.textContent).toBe(
+    '4s',
+  );
+  expect(document.querySelector('.text-expiry')?.textContent).toBe(expiry);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(undo.closest('.morph')?.querySelector('.m-clock')?.textContent).toBe(
+    '3s',
+  );
+  expect(document.querySelector('[data-text-undo]')).toBe(undo);
+});
+
+test('confirmed Text deletion uses the same four-second Undo grace as a swipe', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  click('[data-text-delete]');
+  expect(
+    document.querySelector('[data-text-confirm]')?.closest('.morph'),
+  ).not.toBeNull();
+  click('[data-text-confirm]');
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  const undo = document.querySelector<HTMLElement>('[data-text-undo]')!;
+  expect(document.activeElement).toBe(undo);
+  undo.click();
+  await vi.advanceTimersByTimeAsync(4100);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  click('[data-text-delete]');
+  click('[data-text-confirm]');
+  await vi.advanceTimersByTimeAsync(3999);
+  expect(request.mock.calls.some((x) => x[1] === 'DELETE')).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(request).toHaveBeenCalledWith('/api/texts/one', 'DELETE');
+});
+
+test('committing a Text deletion shows the shared spinner and a failed DELETE restores the actions', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  let fail!: (error: Error) => void;
+  request.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      }),
+  );
+  swipe(-180);
+  await vi.advanceTimersByTimeAsync(4000);
+  expect(document.querySelector<HTMLElement>('.text-deleting')!.hidden).toBe(
+    false,
+  );
+  expect(document.querySelector('.text-deleting .spin')).not.toBeNull();
+  expect(document.querySelector<HTMLElement>('[data-text-undo]')!.hidden).toBe(
+    true,
+  );
+  fail(new Error('Try again'));
+  await tick();
+  expect(document.querySelector<HTMLElement>('.text-deleting')!.hidden).toBe(
+    true,
+  );
+  expect(document.querySelector<HTMLElement>('[data-text-copy]')!.hidden).toBe(
+    false,
+  );
+  expect(document.querySelector('#text-error')?.textContent).toBe('Try again');
+});
+
+test('stale Text actions cannot reopen confirmation while a row is counting down', async () => {
+  vi.useFakeTimers();
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  swipe(-180);
+  await vi.advanceTimersByTimeAsync(0);
+  click('[data-text-delete]');
+  expect(
+    document.querySelector<HTMLElement>('.text-delete-confirm')!.hidden,
+  ).toBe(true);
+  expect(document.querySelector<HTMLElement>('.text-deleted')!.hidden).toBe(
+    false,
+  );
 });

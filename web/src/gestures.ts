@@ -150,8 +150,13 @@ export function rowGestures(
       return;
     const row = (e.target as Element).closest<HTMLElement>(rowSelector);
     if (!row || engaged(row.dataset.id!)) return;
-    // Text keeps ordinary mouse dragging available for selecting its contents.
-    if (!selection && e.pointerType === 'mouse') return;
+    // Text contents keep native selection; its blank row area supports mouse swipes.
+    if (
+      !selection &&
+      e.pointerType === 'mouse' &&
+      (e.target as Element).closest('pre,a')
+    )
+      return;
     if (!selection && (e.target as Element).closest('button,textarea,input'))
       return;
     g = {
