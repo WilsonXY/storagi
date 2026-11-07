@@ -1961,7 +1961,8 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
 test('Text navigation filters notes by search, sends authenticated JSON and refreshes on demand without changing the file shelf', async () => {
   // Frozen clock: any new Text GET below comes from the button, never a poll.
   vi.useFakeTimers();
-  vi.setSystemTime(new Date('2026-11-08T00:00:00Z'));
+  const frozen = new Date('2026-11-08T00:00:00Z');
+  vi.setSystemTime(frozen);
   const api = service();
   const note = (id: string, text: string) => ({
     id,
@@ -1997,10 +1998,12 @@ test('Text navigation filters notes by search, sends authenticated JSON and refr
     false,
   );
   click('.nav-item[data-tab="text"]');
-  await tick();
+  // Yield for response bodies without advancing the frozen polling clock.
+  await expect
+    .poll(shown, { interval: 0 })
+    .toEqual(['alpha note', 'beta note']);
   expect(document.querySelector('#page-title')?.textContent).toBe('Text');
   expect(textGets()).toBe(1);
-  expect(shown()).toEqual(['alpha note', 'beta note']);
   const search = document.querySelector<HTMLInputElement>('#search')!;
   expect(search.placeholder).toBe('Search text');
   search.value = 'BETA';
@@ -2012,7 +2015,15 @@ test('Text navigation filters notes by search, sends authenticated JSON and refr
   document
     .querySelector('#text-form')!
     .dispatchEvent(new Event('submit', { cancelable: true }));
-  await tick();
+  // Finish the send-triggered refresh before measuring the later manual click.
+  await expect
+    .poll(
+      () =>
+        draft.value === '' &&
+        !document.querySelector('#fresh')!.classList.contains('busy'),
+      { interval: 0 },
+    )
+    .toBe(true);
   expect(fetcher).toHaveBeenCalledWith(
     '/api/texts',
     expect.objectContaining({
@@ -2029,10 +2040,11 @@ test('Text navigation filters notes by search, sends authenticated JSON and refr
   expect(shown()).not.toContain('fresh from another device');
   const before = textGets();
   click('#refresh');
-  // The shared scheduler starts on a microtask; the frozen clock excludes polls.
-  await tick();
+  await expect
+    .poll(shown, { interval: 0 })
+    .toEqual(['fresh from another device']);
   expect(textGets()).toBe(before + 1);
-  expect(shown()).toEqual(['fresh from another device']);
+  expect(Date.now()).toBe(frozen.getTime());
   click('.nav-item[data-tab="inbox"]');
   expect(rows()).toHaveLength(2);
   expect(document.querySelector('#page-title')?.textContent).toBe('Inbox');
