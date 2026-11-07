@@ -2059,6 +2059,7 @@ body.selecting .toast {
   tab-size: 4;
 }
 .text-card-actions {
+  min-height: 32px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2205,5 +2206,11 @@ body.selecting .toast {
 @media (max-width: 640px) {
   .text-card .morph {
     height: 40px;
+  }
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+  .text-card-actions {
+    min-height: 44px;
   }
 }

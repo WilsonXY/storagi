@@ -863,3 +863,50 @@ test('stale Text actions cannot reopen confirmation while a row is counting down
     false,
   );
 });
+
+test('desktop blank-area swipe clears an earlier selection without changing native content selection', async () => {
+  vi.useFakeTimers();
+  const { shelf } = mount();
+  shelf.activate(true);
+  await tick();
+  const card = document.querySelector<HTMLElement>('.text-card')!;
+  const range = document.createRange();
+  range.setStart(card.querySelector('a')!.firstChild!, 0);
+  range.setEnd(card.querySelector('a')!.firstChild!, 5);
+  const selection = window.getSelection()!;
+  selection.removeAllRanges();
+  selection.addRange(range);
+  expect(selection.toString()).toBe('https');
+  swipe(-180, 0, false, card.querySelector('pre')!, 'mouse');
+  expect(selection.toString()).toBe('https');
+  expect(card.classList.contains('text-pending')).toBe(false);
+  swipe(-180, 0, false, card.querySelector('.text-card-actions')!, 'mouse');
+  expect(card.classList.contains('text-pending')).toBe(true);
+  expect(selection.toString()).toBe('');
+});
+
+test('confirmed deletion never steals composer focus during grace or a delayed response', async () => {
+  vi.useFakeTimers();
+  const { shelf, request } = mount();
+  shelf.activate(true);
+  await tick();
+  let finish!: () => void;
+  request.mockImplementationOnce(
+    () =>
+      new Promise<Response>((resolve) => {
+        finish = () => resolve(new Response(null, { status: 204 }));
+      }),
+  );
+  click('[data-text-delete]');
+  click('[data-text-confirm]');
+  draft().focus();
+  type('Keep typing during the grace');
+  await vi.advanceTimersByTimeAsync(4000);
+  expect(document.activeElement).toBe(draft());
+  type('Keep typing during the request');
+  finish();
+  await tick();
+  expect(document.querySelector('.text-card')).toBeNull();
+  expect(document.activeElement).toBe(draft());
+  expect(draft().value).toBe('Keep typing during the request');
+});

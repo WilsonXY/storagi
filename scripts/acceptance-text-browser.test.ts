@@ -786,11 +786,24 @@ test('text moves between two browser devices using the actual authenticated serv
     assert.equal(await sender.locator('#text-items article').count(), 2);
     await sender.locator('[data-text-delete]').first().click();
     await sender.locator('[data-text-confirm]').first().click();
+    await sender.locator('#text-draft').fill('Typing while deletion finishes');
+    await sender.locator('#text-draft').focus();
     await receiver
       .locator('#text-items article')
       .nth(1)
       .waitFor({ state: 'detached' });
     assert.equal(await receiver.locator('#text-items article').count(), 1);
+    assert.equal(
+      await sender
+        .locator('#text-draft')
+        .evaluate((el: HTMLElement) => document.activeElement === el),
+      true,
+      'confirmed deletion never steals focus from continued typing',
+    );
+    assert.equal(
+      await sender.locator('#text-draft').inputValue(),
+      'Typing while deletion finishes',
+    );
     await sender.locator('#notice').waitFor({ state: 'detached' });
     // An unavailable host retains a draft and exposes a useful error.
     await sender.route('**/api/texts', (route: any) =>
@@ -851,6 +864,9 @@ test('text moves between two browser devices using the actual authenticated serv
       false,
       'short desktop mouse drag snaps back without deletion',
     );
+    const desktopRowHeight = (
+      await sender.locator('#text-items article').first().boundingBox()
+    ).height;
     await mouseSwipe(220, true);
     await sender.locator('[data-text-undo]').waitFor();
     assert.equal(
@@ -861,6 +877,13 @@ test('text moves between two browser devices using the actual authenticated serv
     assert.match(
       await sender.locator('.text-card .morph .m-clock').textContent(),
       /^[1-4]s$/,
+    );
+    assert.ok(
+      Math.abs(
+        (await sender.locator('#text-items article').first().boundingBox())
+          .height - desktopRowHeight,
+      ) < 0.5,
+      'desktop row stays the same height during Undo',
     );
     const textDesktopMorph = await morphAppearance(
       sender,
@@ -948,8 +971,18 @@ test('text moves between two browser devices using the actual authenticated serv
       false,
       'cancelled swipe keeps text',
     );
+    const phoneRowHeight = (
+      await receiver.locator('#text-items article').first().boundingBox()
+    ).height;
     await swipe(220, false, true, '[data-text-open]');
     await receiver.locator('[data-text-undo]').waitFor();
+    assert.ok(
+      Math.abs(
+        (await receiver.locator('#text-items article').first().boundingBox())
+          .height - phoneRowHeight,
+      ) < 0.5,
+      'phone row stays the same height during Undo',
+    );
     const textPhoneMorph = await morphAppearance(
       receiver,
       '.text-card .morph:visible',
@@ -1048,7 +1081,19 @@ test('text moves between two browser devices using the actual authenticated serv
       false,
       'native text selection never schedules deletion',
     );
-    await sender.evaluate(() => getSelection()?.removeAllRanges());
+    // Keep the real selection: pressing non-selectable row chrome must clear it naturally.
+    await mouseSwipe(220);
+    await sender.locator('[data-text-undo]').waitFor();
+    assert.equal(
+      await sender.evaluate(() => getSelection()?.toString()),
+      '',
+      'starting a blank-area mouse swipe clears the stale selection',
+    );
+    await sender.screenshot({
+      path: path.join(artifacts, 'text-mouse-after-selection-1440.png'),
+      fullPage: true,
+    });
+    await sender.locator('[data-text-undo]').click();
     await swipe(220, false, false, 'pre');
     await receiver.locator('[data-text-undo]').waitFor();
     await receiver
@@ -1218,6 +1263,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'native phone touch swipe on URL and note bodies, short/cancel/Undo/commit, preference and cross-device deletion',
             'desktop mouse drag from row chrome plus trackpad over wrapped notes and keyboard Undo focus',
             'actual Inbox/Text Deleted-Undo-countdown style parity on desktop and phone; rounded aligned phone drag surface',
+            'mouse deletion after native note selection without test-clearing it; continued typing retains focus through confirmed deletion; stable row height',
             'unclipped keyboard focus on note, URL, trash and Undo',
             '44px coarse-pointer tablet actions',
             'neutral clipboard fallback and no touch Copy hover square',

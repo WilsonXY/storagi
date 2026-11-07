@@ -148,8 +148,17 @@ export function rowGestures(
   on(groups, 'pointerdown', (e: PointerEvent) => {
     if (gesturePref() !== 'on' || e.button !== 0 || g || wheel || settling)
       return;
-    const row = (e.target as Element).closest<HTMLElement>(rowSelector);
-    if (!row || engaged(row.dataset.id!)) return;
+    const target = e.target as Element;
+    const row = target.closest<HTMLElement>(rowSelector);
+    if (!row) return;
+    // Blank chrome is non-selectable, so the browser does not clear an old range for us.
+    if (
+      !selection &&
+      e.pointerType === 'mouse' &&
+      !target.closest('pre,a,button,textarea,input')
+    )
+      window.getSelection()?.removeAllRanges();
+    if (engaged(row.dataset.id!)) return;
     // Text contents keep native selection; its blank row area supports mouse swipes.
     if (
       !selection &&

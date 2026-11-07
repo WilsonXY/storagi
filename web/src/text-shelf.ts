@@ -98,7 +98,6 @@ export function createTextShelf(
         card.className = 'text-card';
         card.dataset.textId = item.id;
         card.dataset.id = item.id;
-        card.title = 'Drag the blank area left to delete';
         const url = linkFor(item.text);
         const expiry = new Date(item.expiresAt).toLocaleString(undefined, {
           month: 'short',
@@ -336,13 +335,20 @@ export function createTextShelf(
         },
       );
       if (!alive) return;
+      const card = [
+        ...$('#text-items').querySelectorAll<HTMLElement>('article'),
+      ].find((el) => el.dataset.textId === id);
+      const restoreFocus =
+        focus &&
+        (document.activeElement === document.body ||
+          !!card?.contains(document.activeElement));
       revision++;
       etag = null;
       items = items.filter((x) => x.id !== id);
       pending.delete(id);
       render();
       toast('Text deleted.');
-      if (active && focus)
+      if (active && restoreFocus)
         (
           root.querySelector<HTMLElement>('[data-text-copy]') ??
           $('#page-title')
