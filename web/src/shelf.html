@@ -294,6 +294,129 @@
       </section>
 
       <section class="settings" id="settings" aria-label="Settings" hidden>
+        <form class="set-row retention-row" id="retention-form">
+          <div class="set-text">
+            <h2 id="retention-label">Keep files and text</h2>
+            <p class="muted" id="retention-desc">
+              Applies to new and existing files and text, from upload completion
+              or sending. Saved on the host for all your devices.
+            </p>
+            <p
+              class="muted"
+              id="retention-status"
+              role="status"
+              aria-live="polite"
+            ></p>
+          </div>
+          <div class="retention-controls">
+            <div class="retention-picker">
+              <button
+                type="button"
+                class="btn retention-trigger"
+                id="retention-days"
+                value="30"
+                aria-labelledby="retention-label retention-value"
+                aria-describedby="retention-desc"
+                aria-haspopup="listbox"
+                aria-controls="retention-options"
+                aria-expanded="false"
+                disabled
+              >
+                <span id="retention-value">30 days</span>
+                <svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="m5 6.5 3 3 3-3" />
+                </svg>
+              </button>
+              <div
+                class="confirm-pop retention-options"
+                id="retention-options"
+                role="listbox"
+                aria-labelledby="retention-label"
+                hidden
+              >
+                <button
+                  type="button"
+                  role="option"
+                  value="1"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  1 day<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="7"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  7 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="14"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  14 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="30"
+                  aria-selected="true"
+                  tabindex="-1"
+                >
+                  30 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="60"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  60 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  value="90"
+                  aria-selected="false"
+                  tabindex="-1"
+                >
+                  90 days<svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="m3.5 8 3 3 6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              id="retention-save"
+              aria-label="Save retention"
+              title="Save retention"
+              disabled
+            >
+              <svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="m3.5 8 3 3 6-6" />
+              </svg>
+              <span class="spin" aria-hidden="true" hidden></span>
+            </button>
+          </div>
+        </form>
         <div class="set-row">
           <div class="set-text">
             <h2 id="koi-label">Swimming koi</h2>
@@ -461,6 +584,23 @@
   </button>
 </div>
 
+<dialog
+  class="confirm-pop paste-confirm"
+  id="retention-confirm"
+  aria-labelledby="retention-title"
+  aria-describedby="retention-note"
+>
+  <p class="cp-title" id="retention-title"></p>
+  <p class="cp-note" id="retention-note" aria-live="polite"></p>
+  <div class="cp-actions">
+    <button type="button" class="btn btn-ghost" id="retention-cancel">
+      Cancel
+    </button>
+    <button type="button" class="btn btn-danger-text" id="retention-apply">
+      Delete copies and save
+    </button>
+  </div>
+</dialog>
 <!-- A paste can be an accident, so pasted files wait here for a yes. -->
 <dialog
   class="confirm-pop paste-confirm"

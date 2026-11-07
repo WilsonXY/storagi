@@ -3,8 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, statfsSync, statSync } from 'node:fs';
 import path from 'node:path';
 export const DAY = 86400000;
-export const SHELF_RETENTION_DAYS = 30;
-const shelfExpiresAt = (at: number) => at + SHELF_RETENTION_DAYS * DAY;
+export const RETENTION_DAYS = [1, 7, 14, 30, 60, 90];
 export const TEXT_LIMIT = 64 * 1024;
 export type TextRow = {
   id: string;
@@ -58,6 +57,8 @@ export class Storage {
    CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY,csrf TEXT NOT NULL,expiresAt INTEGER NOT NULL,sub TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS secrets (name TEXT PRIMARY KEY,value BLOB NOT NULL);
    CREATE TABLE IF NOT EXISTS profile (sub TEXT PRIMARY KEY,name TEXT,picture TEXT);
+   CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY,value INTEGER NOT NULL);
+   INSERT OR IGNORE INTO settings VALUES ('retentionDays',30);
    CREATE TABLE IF NOT EXISTS flow_replays (hash TEXT PRIMARY KEY,expiresAt INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS texts (id TEXT PRIMARY KEY,text TEXT NOT NULL,createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL);
    DROP TABLE IF EXISTS flows;`);
@@ -74,14 +75,14 @@ export class Storage {
       .all(this.now()) as TextRow[];
   }
   textsEtag(): string {
-    const ids = this.db
+    const rows = this.db
       .prepare(
-        'SELECT id FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
+        'SELECT id,expiresAt FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
       )
-      .all(this.now()) as { id: string }[];
-    // Immutable bodies: ordered live IDs change on send, deletion and expiry.
+      .all(this.now()) as { id: string; expiresAt: number }[];
+    // Bodies are immutable; saved retention can also change live deadlines.
     return `W/"${createHash('sha256')
-      .update(ids.map((row) => row.id).join(','))
+      .update(rows.map((row) => `${row.id}:${row.expiresAt}`).join(','))
       .digest('base64url')}"`;
   }
   textCount(): number {
@@ -115,7 +116,7 @@ export class Storage {
           id: crypto.randomUUID(),
           text,
           createdAt: now,
-          expiresAt: shelfExpiresAt(now),
+          expiresAt: this.shelfExpiresAt(now),
         };
         this.db
           .prepare('INSERT INTO texts VALUES (?,?,?,?)')
@@ -207,7 +208,57 @@ export class Storage {
       .prepare(
         'UPDATE files SET uploadedAt=?,expiresAt=?,lastActivity=? WHERE id=? AND uploadedAt IS NULL',
       )
-      .run(at, shelfExpiresAt(at), at, id);
+      .run(at, this.shelfExpiresAt(at), at, id);
+  }
+  private shelfExpiresAt(at: number): number {
+    return at + this.retentionDays() * DAY;
+  }
+  retentionDays(): number {
+    return (
+      this.db
+        .prepare("SELECT value FROM settings WHERE name='retentionDays'")
+        .get() as { value: number }
+    ).value;
+  }
+  saveRetention(retentionDays: number, confirmDeletes = 0) {
+    if (
+      !Number.isSafeInteger(retentionDays) ||
+      !RETENTION_DAYS.includes(retentionDays) ||
+      !Number.isSafeInteger(confirmDeletes) ||
+      confirmDeletes < 0
+    )
+      throw new HttpError(
+        400,
+        'Valid retention days and nonnegative whole deletion count required',
+      );
+    return this.db
+      .transaction(() => {
+        const now = this.now(),
+          duration = retentionDays * DAY;
+        const { deleteCount } = this.db
+          .prepare(
+            `SELECT
+              (SELECT COUNT(*) FROM files WHERE uploadedAt IS NOT NULL AND expiresAt>? AND uploadedAt+?<=?) +
+              (SELECT COUNT(*) FROM texts WHERE expiresAt>? AND createdAt+?<=?) deleteCount`,
+          )
+          .get(now, duration, now, now, duration, now) as {
+          deleteCount: number;
+        };
+        if (deleteCount > confirmDeletes) return { deleteCount };
+        this.db
+          .prepare(
+            'UPDATE files SET expiresAt=uploadedAt+? WHERE uploadedAt IS NOT NULL AND expiresAt>?',
+          )
+          .run(duration, now);
+        this.db
+          .prepare('UPDATE texts SET expiresAt=createdAt+? WHERE expiresAt>?')
+          .run(duration, now);
+        this.db
+          .prepare("UPDATE settings SET value=? WHERE name='retentionDays'")
+          .run(retentionDays);
+        return { retentionDays };
+      })
+      .immediate();
   }
   forget(id: string): void {
     this.db.transaction(() => {

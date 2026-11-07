@@ -10,12 +10,7 @@ import { serveShell, defaultWebDir } from './static.js';
 import { timingSafeEqual } from 'node:crypto';
 import type * as oidc from 'openid-client';
 import type { Config } from './config.js';
-import {
-  Storage,
-  HttpError,
-  SHELF_RETENTION_DAYS,
-  type TextRow,
-} from './storage.js';
+import { Storage, HttpError, type TextRow } from './storage.js';
 import { Auth, googleConfig } from './auth.js';
 export type AppOptions = {
   oidc?: oidc.Configuration;
@@ -403,7 +398,7 @@ export async function createApp(config: Config, options: AppOptions = {}) {
         json(res, 200, {
           authenticated: true,
           csrfToken: session.csrf,
-          retentionDays: SHELF_RETENTION_DAYS,
+          retentionDays: storage.retentionDays(),
           ...auth.profile(),
         });
         return;
@@ -413,6 +408,33 @@ export async function createApp(config: Config, options: AppOptions = {}) {
         res.setHeader('Set-Cookie', cookie(SESSION, '', 0));
         res.writeHead(204);
         res.end();
+        return;
+      }
+      if (url.pathname === '/api/settings' && method === 'PUT') {
+        let text = '';
+        for await (const chunk of req) {
+          text += chunk.toString();
+          if (Buffer.byteLength(text) > 1024)
+            throw new HttpError(413, 'Settings body is too large');
+        }
+        let body;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          throw new HttpError(400, 'Invalid settings JSON');
+        }
+        if (!body || typeof body !== 'object' || Array.isArray(body))
+          throw new HttpError(400, 'Settings object required');
+        const result = storage.saveRetention(
+          body.retentionDays,
+          body.confirmDeletes,
+        );
+        if ('deleteCount' in result)
+          json(res, 409, {
+            error: 'Confirm permanent deletion before saving',
+            deleteCount: result.deleteCount,
+          });
+        else json(res, 200, result);
         return;
       }
       if (url.pathname === '/api/files' && method === 'GET') {
@@ -438,6 +460,7 @@ export async function createApp(config: Config, options: AppOptions = {}) {
         json(res, 200, {
           files,
           textCount: storage.textCount(),
+          retentionDays: storage.retentionDays(),
           ...storage.usage(),
         });
         return;

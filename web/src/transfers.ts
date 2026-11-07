@@ -14,13 +14,13 @@ export function setupTransfers(
   root: HTMLElement,
   csrfToken: string,
   hooks: {
-    retentionHint?: string;
     refresh: () => Promise<void>;
     notice: (message: string, error?: boolean) => void;
     expired: () => void;
     offline: () => void;
     view: ReturnType<typeof import('./transfer-view').createTransferView>;
     queued: (count: number) => void;
+    retentionDays: () => number;
   },
 ) {
   const items: Item[] = [];
@@ -208,8 +208,9 @@ export function setupTransfers(
         return li;
       }),
     );
+    const days = hooks.retentionDays();
     confirm.querySelector('#paste-note')!.textContent =
-      `${bytes(pasted.reduce((sum, file) => sum + file.size, 0))} in total.${hooks.retentionHint ? ` ${hooks.retentionHint}.` : ''}`;
+      `${bytes(pasted.reduce((sum, file) => sum + file.size, 0))} in total. Kept ${days} ${days === 1 ? 'day' : 'days'}.`;
     if (!confirm.open) {
       confirm.showModal();
       confirm.querySelector<HTMLButtonElement>('#paste-cancel')!.focus();
