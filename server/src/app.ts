@@ -10,7 +10,12 @@ import { serveShell, defaultWebDir } from './static.js';
 import { timingSafeEqual } from 'node:crypto';
 import type * as oidc from 'openid-client';
 import type { Config } from './config.js';
-import { Storage, HttpError } from './storage.js';
+import {
+  Storage,
+  HttpError,
+  SHELF_RETENTION_DAYS,
+  type TextRow,
+} from './storage.js';
 import { Auth, googleConfig } from './auth.js';
 export type AppOptions = {
   oidc?: oidc.Configuration;
@@ -34,6 +39,59 @@ function cookie(name: string, value: string, maxAge: number) {
 function json(res: http.ServerResponse, status: number, value: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(value));
+}
+function textJSON(row: TextRow) {
+  return {
+    ...row,
+    createdAt: new Date(row.createdAt).toISOString(),
+    expiresAt: new Date(row.expiresAt).toISOString(),
+  };
+}
+function readTextBody(req: http.IncomingMessage): Promise<unknown> {
+  if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] ?? ''))
+    throw new HttpError(415, 'Send text as application/json');
+  // JSON escaping uses up to six bytes per text byte; allow the full text limit even then.
+  const limit = 512 * 1024;
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let length = 0;
+    const clear = () => {
+      req.off('data', data);
+      req.off('end', end);
+      req.off('error', fail);
+      req.off('aborted', aborted);
+    };
+    const fail = (error: Error) => {
+      clear();
+      req.resume();
+      reject(error);
+    };
+    const aborted = () => fail(new HttpError(400, 'Text request interrupted'));
+    const data = (chunk: Buffer) => {
+      length += chunk.length;
+      if (length > limit)
+        return fail(new HttpError(413, 'Text request is too large'));
+      chunks.push(chunk);
+    };
+    const end = () => {
+      clear();
+      try {
+        resolve(
+          JSON.parse(
+            new TextDecoder('utf-8', { fatal: true }).decode(
+              Buffer.concat(chunks),
+            ),
+          ),
+        );
+      } catch {
+        reject(new HttpError(400, 'Invalid text JSON'));
+      }
+    };
+    req.on('data', data);
+    req.once('end', end);
+    req.once('error', fail);
+    req.once('aborted', aborted);
+  });
 }
 // Hover previews: ffmpeg re-encodes the stored file (passed as fd 3, so a file deleted meanwhile still reads) into a small copy.
 // Only local file input and these demuxers are allowed, so a stored playlist cannot make ffmpeg read anything else.
@@ -254,6 +312,7 @@ export async function createApp(config: Config, options: AppOptions = {}) {
     if (cleaning) return cleaning;
     cleaning = (async () => {
       auth.prune();
+      storage.pruneTexts();
       let failure: { error: unknown } | undefined;
       for (const row of storage.rows())
         if (row.expiresAt <= storage.now()) {
@@ -344,6 +403,7 @@ export async function createApp(config: Config, options: AppOptions = {}) {
         json(res, 200, {
           authenticated: true,
           csrfToken: session.csrf,
+          retentionDays: SHELF_RETENTION_DAYS,
           ...auth.profile(),
         });
         return;
@@ -404,9 +464,38 @@ export async function createApp(config: Config, options: AppOptions = {}) {
           }));
         json(res, 200, {
           files,
-          ...storage.usage(),
+          textCount: storage.textCount(),
           retentionDays: storage.retentionDays(),
+          ...storage.usage(),
         });
+        return;
+      }
+      if (url.pathname === '/api/texts') {
+        if (method === 'GET') {
+          const etag = storage.textsEtag();
+          res.setHeader('ETag', etag);
+          if (req.headers['if-none-match'] === etag) {
+            res.writeHead(304);
+            res.end();
+          } else json(res, 200, { texts: storage.texts().map(textJSON) });
+        } else if (method === 'POST') {
+          const body = await readTextBody(req);
+          if (!body || typeof body !== 'object' || Array.isArray(body))
+            throw new HttpError(400, 'Send an object containing text');
+          json(
+            res,
+            201,
+            textJSON(storage.addText((body as { text?: unknown }).text)),
+          );
+        } else throw new HttpError(405, 'Method not allowed');
+        return;
+      }
+      const textMatch = /^\/api\/texts\/([a-f0-9-]{36})$/.exec(url.pathname);
+      if (textMatch) {
+        if (method !== 'DELETE') throw new HttpError(405, 'Method not allowed');
+        storage.deleteText(textMatch[1]);
+        res.writeHead(204);
+        res.end();
         return;
       }
       const uploadMatch = /^\/api\/uploads(?:\/([a-f0-9-]{36}))?$/.exec(

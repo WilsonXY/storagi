@@ -25,6 +25,7 @@ import {
 } from './preferences';
 import { KoiPond, KoiMark, orbitLoader } from './koi';
 import { esc, blocks, blockCount, createToast } from './ui';
+import { createTextShelf } from './text-shelf';
 import { rowGestures } from './gestures';
 export type ShelfFile = {
   id: string;
@@ -36,6 +37,7 @@ export type ShelfFile = {
 type Shelf = {
   retentionDays?: number;
   files: ShelfFile[];
+  textCount?: number;
   usedBytes: number;
   reservedBytes: number;
   budgetBytes: number;
@@ -54,6 +56,13 @@ export async function createDashboard(
   dependencies = { fetch: globalThis.fetch.bind(globalThis) },
 ) {
   previous();
+  let initialTab = 'inbox';
+  try {
+    if (location.hash === '#text')
+      localStorage.setItem('storagi.shelf', 'text');
+    if (localStorage.getItem('storagi.shelf') === 'text') initialTab = 'text';
+  } catch {}
+  if (location.hash === '#text') initialTab = 'text';
   let active = false,
     disposed = false,
     offline = false;
@@ -131,6 +140,7 @@ export async function createDashboard(
   let session: {
     authenticated: boolean;
     csrfToken: string;
+    retentionDays?: number;
     name?: string | null;
     picture?: string | null;
   };
@@ -223,6 +233,7 @@ export async function createDashboard(
     gestures.cancel();
     leaving = true;
     for (const op of [...pending]) op.flush();
+    texts.flush();
     leaving = false;
     closeToast();
   });
@@ -242,14 +253,55 @@ export async function createDashboard(
     canSplash: (e) =>
       !(e.target as Element).closest('#composer, button, a, input'),
   });
+  const textPond = pond('#text-pond', {
+    count: innerWidth < 640 ? 2 : 3,
+    size: innerWidth < 640 ? [80, 130] : [110, 190],
+    font: 11,
+    opacity: 0.9,
+    speed: 0.8,
+    ripples: false,
+    flee: 130,
+    avoid: () => [
+      relative($('#text-draft'), $('#text-pond'), 0),
+      relative($('#text-form'), $('#text-pond'), 0.32),
+      relative($('#text-items'), $('#text-pond'), 0.08),
+      relative($('#text-empty'), $('#text-pond'), 0.08),
+      relative($('#text-error'), $('#text-pond'), 0.08),
+    ],
+    pointerTarget: $('#text-shelf'),
+    splashTarget: $('#text-shelf'),
+    canSplash: (e) =>
+      !(e.target as Element).closest('form,article,button,a,textarea'),
+  });
   const stillPond = () => {
-    if (mainPond) {
-      mainPond.still = offline || reduced();
-      if (mainPond.still) mainPond.paintStill();
-      else mainPond.start();
+    for (const [p, visible] of [
+      [
+        mainPond,
+        app.dataset.view !== 'settings' &&
+          (app.dataset.tab === 'inbox' ||
+            (innerWidth >= 1180 && app.dataset.tab === 'transfers')),
+      ],
+      [textPond, app.dataset.view !== 'settings' && app.dataset.tab === 'text'],
+    ] as const) {
+      if (!p) continue;
+      p.still = offline || reduced() || !visible;
+      if (p.still) {
+        p.stop();
+        if (visible) p.paintStill();
+      } else p.start();
     }
   };
   cleanups.push(onMotionChange(stillPond));
+  listen(window, 'resize', stillPond);
+  // The Text canvas stays in the viewport while its masked content scrolls.
+  listen(window, 'scroll', () => {
+    if (
+      textPond?.still &&
+      app.dataset.tab === 'text' &&
+      app.dataset.view !== 'settings'
+    )
+      textPond.paintStill();
+  });
   const auto = new AutoRefresh(async () => {
     const result: Shelf = await (
       await request('/api/files')
@@ -269,6 +321,7 @@ export async function createDashboard(
     if (!retentionChanged && !retentionSaving)
       retentionDays.value = String(shelf.retentionDays ?? 30);
     renderRetention();
+    texts.setCount(result.textCount);
     for (const id of sel.ids)
       if (!shelf.files.some((f) => f.id === id)) sel.ids.delete(id);
     renderInbox();
@@ -301,7 +354,8 @@ export async function createDashboard(
     path: string,
     method = 'GET',
     signal?: AbortSignal,
-    body?: object,
+    body?: unknown,
+    extraHeaders: Record<string, string> = {},
   ) {
     let response: Response;
     try {
@@ -310,12 +364,14 @@ export async function createDashboard(
         credentials: 'same-origin',
         headers:
           method === 'GET'
-            ? {}
+            ? extraHeaders
             : {
                 'X-CSRF-Token': session.csrfToken,
-                ...(body ? { 'Content-Type': 'application/json' } : {}),
+                ...(body === undefined
+                  ? {}
+                  : { 'Content-Type': 'application/json' }),
               },
-        ...(body ? { body: JSON.stringify(body) } : {}),
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         keepalive: leaving,
         ...(signal ? { signal } : {}),
       });
@@ -327,13 +383,19 @@ export async function createDashboard(
       locked(true);
       throw new Error('Your session expired. Sign in again.');
     }
+    if (response.status === 304 && path === '/api/texts' && method === 'GET') {
+      setOffline(false);
+      return response;
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       if (response.status >= 500) setOffline(true);
       throw Object.assign(
         new Error(
           response.status === 404 || response.status === 410
-            ? 'This copy has expired or was removed. Refresh your Inbox.'
+            ? path.startsWith('/api/texts/')
+              ? 'This text expired or was removed. Refresh your text shelf.'
+              : 'This copy has expired or was removed. Refresh your Inbox.'
             : body.error ||
                 'The host could not complete that request. Please try again.',
         ),
@@ -343,6 +405,13 @@ export async function createDashboard(
     setOffline(false);
     return response;
   }
+  const texts = createTextShelf(
+    root,
+    (path, method, body, headers) =>
+      request(path, method, undefined, body, headers),
+    toast,
+  );
+  cleanups.push(texts.destroy);
   function renderFresh() {
     if (!active) return;
     const lastGood = auto.last ? clock(auto.last) : '—';
@@ -359,7 +428,9 @@ export async function createDashboard(
       : `retrying in ${retry.remaining}s`;
     $('#refresh').setAttribute(
       'aria-label',
-      `Refresh now (auto-refresh in ${auto.remaining} seconds)`,
+      app.dataset.tab === 'text'
+        ? 'Refresh text now (refreshes every 5 seconds while visible)'
+        : `Refresh now (auto-refresh in ${auto.remaining} seconds)`,
     );
   }
   listen(auto, 'change', renderFresh);
@@ -431,8 +502,7 @@ export async function createDashboard(
     $('#no-match').hidden = !all.length || !!files.length;
     $('#no-match').textContent =
       `No filenames match “${$<HTMLInputElement>('#search').value}”. Press Esc to clear the search.`;
-    for (const id of ['nav-files', 'tab-files'])
-      $(`#${id}`).textContent = String(all.length);
+    $('#nav-files').textContent = String(all.length);
     if (!all.length && !offline && !emptyMark) {
       mark('#koi-mark');
       emptyMark = true;
@@ -952,8 +1022,16 @@ export async function createDashboard(
     const ids = selectable();
     sel.set(sel.allState(ids) === 'all' ? [] : ids);
   });
-  listen($('#search'), 'input', renderInbox);
-  listen($('#refresh'), 'click', () => void auto.now());
+  listen($('#search'), 'input', () =>
+    app.dataset.tab === 'text'
+      ? texts.search($<HTMLInputElement>('#search').value)
+      : renderInbox(),
+  );
+  listen(
+    $('#refresh'),
+    'click',
+    () => void (app.dataset.tab === 'text' ? texts.refresh() : auto.now()),
+  );
   listen($('#retry'), 'click', () => void retry.now());
   listen($('#sel-clear'), 'click', () => sel.clear());
   listen($('#sel-delete'), 'click', () => {
@@ -1077,14 +1155,31 @@ export async function createDashboard(
     }
     app.dataset.view = name;
     const settings = name === 'settings';
+    texts.activate(!settings && app.dataset.tab === 'text');
     $('#settings').hidden = !settings;
     $('#nav-settings').classList.toggle('is-active', settings);
-    $('.nav-item[data-tab="inbox"]').classList.toggle('is-active', !settings);
+    for (const item of root.querySelectorAll<HTMLElement>(
+      '.nav-item[data-tab="inbox"],.nav-item[data-tab="text"]',
+    )) {
+      const selected =
+        !settings &&
+        (app.dataset.tab === 'text'
+          ? item.dataset.tab === 'text'
+          : item.dataset.tab === 'inbox' &&
+            (innerWidth >= 1180 || app.dataset.tab !== 'transfers'));
+      item.classList.toggle('is-active', selected);
+      if (selected) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    }
     $('#page-title').textContent = settings
       ? 'Settings'
-      : app.dataset.tab === 'transfers' && innerWidth < 1180
-        ? 'Transfers'
-        : 'Inbox';
+      : app.dataset.tab === 'text'
+        ? 'Text'
+        : app.dataset.tab === 'transfers' && innerWidth < 1180
+          ? 'Transfers'
+          : 'Inbox';
+    panel(!app.classList.contains('panel-closed'));
+    stillPond();
     if (settings && !settingsPond)
       settingsPond = pond('#set-pond', {
         count: 3,
@@ -1119,9 +1214,6 @@ export async function createDashboard(
     (retentionSave.disabled ? retentionDays : retentionSave).focus();
   }
   function renderRetention() {
-    const days = shelf.retentionDays ?? 30;
-    $('#retention-copy').textContent =
-      `Kept ${days} ${days === 1 ? 'day' : 'days'}. Originals stay on your devices.`;
     $('#retention-value').textContent =
       `${retentionDays.value} ${retentionDays.value === '1' ? 'day' : 'days'}`;
     for (const option of retentionChoices) {
@@ -1313,17 +1405,43 @@ export async function createDashboard(
   });
   function panel(open = app.classList.contains('panel-closed')) {
     app.classList.toggle('panel-closed', !open);
-    $('#nav-transfers').classList.toggle('is-active', open);
-    $('#nav-transfers').setAttribute('aria-expanded', String(open));
+    const visible =
+      app.dataset.view !== 'settings' &&
+      (innerWidth >= 1180
+        ? open && app.dataset.tab !== 'text'
+        : app.dataset.tab === 'transfers');
+    $('#nav-transfers').classList.toggle('is-active', visible);
+    $('#nav-transfers').setAttribute('aria-expanded', String(visible));
+    if (visible && innerWidth < 1180)
+      $('#nav-transfers').setAttribute('aria-current', 'page');
+    else $('#nav-transfers').removeAttribute('aria-current');
   }
   function tab(name: string) {
+    const changed = app.dataset.tab !== name;
     app.dataset.tab = name;
+    try {
+      if (name === 'text') localStorage.setItem('storagi.shelf', 'text');
+      else localStorage.removeItem('storagi.shelf');
+    } catch {}
+    history.replaceState(
+      null,
+      '',
+      name === 'text' ? '#text' : location.pathname + location.search,
+    );
+    $('#text-shelf').hidden = name !== 'text';
+    const search = $<HTMLInputElement>('#search');
+    if (changed) search.value = '';
+    search.placeholder = name === 'text' ? 'Search text' : 'Search filenames';
+    search.setAttribute('aria-label', search.placeholder);
+    search.title = `${search.placeholder} ( / )`;
+    if (name === 'text') texts.search(search.value);
+    else renderInbox();
     view('shelf');
-    for (const b of root.querySelectorAll<HTMLElement>('.tabs [data-tab]'))
-      b.setAttribute('aria-selected', String(b.dataset.tab === name));
+    renderFresh();
   }
   function openTransfers() {
     if (innerWidth >= 1180) {
+      if (app.dataset.tab === 'text') tab('inbox');
       view('shelf');
       panel(true);
     } else tab('transfers');
@@ -1350,16 +1468,22 @@ export async function createDashboard(
     );
     if (!b) return;
     e.preventDefault();
+    const fromSheet = !$('#sheet').hidden;
     closeSheet();
     if (b.dataset.view) view(b.dataset.view);
     else if (b.dataset.tab === 'transfers' && innerWidth >= 1180) {
+      const fromText = app.dataset.tab === 'text';
+      if (fromText) tab('inbox');
       view('shelf');
-      panel(b.classList.contains('nav-item') ? undefined : true);
+      panel(
+        fromText ? true : b.classList.contains('nav-item') ? undefined : true,
+      );
     } else {
       tab(b.dataset.tab ?? 'inbox');
       if (b.classList.contains('brand'))
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    if (fromSheet) $('#page-title').focus();
   });
   function switches() {
     $('#koi-switch').setAttribute(
@@ -1471,8 +1595,11 @@ export async function createDashboard(
         for (const [id, m] of morph)
           if (m.state === 'confirm') morph.delete(id);
       }
-      renderInbox();
+      if (app.dataset.tab === 'text')
+        texts.search($<HTMLInputElement>('#search').value);
+      else renderInbox();
     } else if (
+      app.dataset.tab !== 'text' &&
       (e.ctrlKey || e.metaKey) &&
       e.key.toLowerCase() === 'a' &&
       !typing
@@ -1497,7 +1624,7 @@ export async function createDashboard(
       },
     }),
   );
-  tab('inbox');
+  tab(initialTab);
   panel(true);
   await auto.now();
   return destroy;
