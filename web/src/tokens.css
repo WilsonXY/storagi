@@ -237,6 +237,7 @@ ul {
 /* ---------- inline delete morph (after Elia's "Deleting should feel this safe") ---------- */
 .morph {
   display: inline-flex;
+  box-shadow: 0 0 0 1px var(--border);
   align-items: center;
   height: 30px;
   border-radius: 999px;

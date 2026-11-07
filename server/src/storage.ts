@@ -1,7 +1,17 @@
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { mkdirSync, statfsSync, statSync } from 'node:fs';
 import path from 'node:path';
 export const DAY = 86400000;
+export const SHELF_RETENTION_DAYS = 30;
+const shelfExpiresAt = (at: number) => at + SHELF_RETENTION_DAYS * DAY;
+export const TEXT_LIMIT = 64 * 1024;
+export type TextRow = {
+  id: string;
+  text: string;
+  createdAt: number;
+  expiresAt: number;
+};
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -49,7 +59,77 @@ export class Storage {
    CREATE TABLE IF NOT EXISTS secrets (name TEXT PRIMARY KEY,value BLOB NOT NULL);
    CREATE TABLE IF NOT EXISTS profile (sub TEXT PRIMARY KEY,name TEXT,picture TEXT);
    CREATE TABLE IF NOT EXISTS flow_replays (hash TEXT PRIMARY KEY,expiresAt INTEGER NOT NULL);
+   CREATE TABLE IF NOT EXISTS texts (id TEXT PRIMARY KEY,text TEXT NOT NULL,createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL);
    DROP TABLE IF EXISTS flows;`);
+    this.pruneTexts();
+  }
+  pruneTexts(): void {
+    this.db.prepare('DELETE FROM texts WHERE expiresAt<=?').run(this.now());
+  }
+  texts(): TextRow[] {
+    return this.db
+      .prepare(
+        'SELECT * FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
+      )
+      .all(this.now()) as TextRow[];
+  }
+  textsEtag(): string {
+    const ids = this.db
+      .prepare(
+        'SELECT id FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
+      )
+      .all(this.now()) as { id: string }[];
+    // Immutable bodies: ordered live IDs change on send, deletion and expiry.
+    return `W/"${createHash('sha256')
+      .update(ids.map((row) => row.id).join(','))
+      .digest('base64url')}"`;
+  }
+  textCount(): number {
+    return (
+      this.db
+        .prepare('SELECT COUNT(*) count FROM texts WHERE expiresAt>?')
+        .get(this.now()) as { count: number }
+    ).count;
+  }
+  addText(text: unknown): TextRow {
+    if (typeof text !== 'string' || !text.trim())
+      throw new HttpError(400, 'Paste some text or a link first');
+    // UTF-8 storage cannot round-trip lone UTF-16 surrogates; /u keeps valid pairs intact.
+    if (/[\uD800-\uDFFF]/u.test(text))
+      throw new HttpError(400, 'Text must contain valid Unicode');
+    if (Buffer.byteLength(text, 'utf8') > TEXT_LIMIT)
+      throw new HttpError(413, 'Text must be 64 KiB or less');
+    return this.db
+      .transaction(() => {
+        this.pruneTexts();
+        const count = this.db
+          .prepare('SELECT COUNT(*) count FROM texts')
+          .get() as { count: number };
+        if (count.count >= 100)
+          throw new HttpError(
+            409,
+            'Your text shelf is full (100 items). Delete one or wait for it to expire.',
+          );
+        const now = this.now();
+        const row = {
+          id: crypto.randomUUID(),
+          text,
+          createdAt: now,
+          expiresAt: shelfExpiresAt(now),
+        };
+        this.db
+          .prepare('INSERT INTO texts VALUES (?,?,?,?)')
+          .run(row.id, row.text, row.createdAt, row.expiresAt);
+        return row;
+      })
+      .immediate();
+  }
+  deleteText(id: string): void {
+    const row = this.db.prepare('SELECT * FROM texts WHERE id=?').get(id) as
+      TextRow | undefined;
+    if (!row) throw new HttpError(404, 'Text was removed or expired');
+    if (row.expiresAt <= this.now()) throw new HttpError(410, 'Text expired');
+    this.db.prepare('DELETE FROM texts WHERE id=?').run(id);
   }
   pin(id: string): () => void {
     const row = this.get(id);
@@ -127,7 +207,7 @@ export class Storage {
       .prepare(
         'UPDATE files SET uploadedAt=?,expiresAt=?,lastActivity=? WHERE id=? AND uploadedAt IS NULL',
       )
-      .run(at, at + 30 * DAY, at, id);
+      .run(at, shelfExpiresAt(at), at, id);
   }
   forget(id: string): void {
     this.db.transaction(() => {

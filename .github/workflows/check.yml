@@ -46,3 +46,12 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: npm run check
+      - name: Install pinned browser for text handoff acceptance
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/text-browser" --no-save playwright@1.64.1
+          "$RUNNER_TEMP/text-browser/node_modules/.bin/playwright" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/text-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          node -e 'console.log("CHROME_EXECUTABLE=" + require(process.argv[1]).chromium.executablePath())' "$RUNNER_TEMP/text-browser/node_modules/playwright" >> "$GITHUB_ENV"
+      - name: Check actual-service text handoff in two browsers
+        run: server/node_modules/.bin/tsx --test scripts/acceptance-text-browser.test.ts

@@ -14,6 +14,7 @@ export function setupTransfers(
   root: HTMLElement,
   csrfToken: string,
   hooks: {
+    retentionHint?: string;
     refresh: () => Promise<void>;
     notice: (message: string, error?: boolean) => void;
     expired: () => void;
@@ -208,7 +209,7 @@ export function setupTransfers(
       }),
     );
     confirm.querySelector('#paste-note')!.textContent =
-      `${bytes(pasted.reduce((sum, file) => sum + file.size, 0))} in total. Kept 30 days.`;
+      `${bytes(pasted.reduce((sum, file) => sum + file.size, 0))} in total.${hooks.retentionHint ? ` ${hooks.retentionHint}.` : ''}`;
     if (!confirm.open) {
       confirm.showModal();
       confirm.querySelector<HTMLButtonElement>('#paste-cancel')!.focus();
