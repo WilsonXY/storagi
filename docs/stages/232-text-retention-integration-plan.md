@@ -1,6 +1,6 @@
 # 232: Integrate current main and one adjustable Inbox/Text lifetime
 
-- Status: completed implementation/integration; PR update and required CI follow
+- Status: completed implementation/integration/review and PR update; required CI pending at handoff
 - Date: 2026-11-07, Asia/Kuala_Lumpur
 - Coordinator: top-level adjustable-file-retention owner follow-up on PR #40; runtime Codex GPT-6.1 Sol/high
 - Starting branch/head: `feat/adjustable-file-retention`, `4a9626da8cc80c96df328b27adfb19cd2b07ed86`
@@ -42,3 +42,9 @@ The coordinator also added the shared retention browser acceptance to CI after m
 `npm run check` passed in one complete run on cached CI-matching Node 22.23.4: **53 server tests, 180 web tests, 11 HTTP acceptance tests and 154 deployment-script tests**, followed by both TypeScript checks and both production builds (45 web modules). Existing jsdom media pause/load diagnostics did not fail tests. Full formatting and staged Gitleaks8.30.1 passed before implementation commit `e915b55`. Literal command logs remain ignored rather than publishing private paths.
 
 Independent [stage235](235-shared-text-retention-review.md) Opus5.5/high review passed. Actual model/effort were confirmed from its own log; root/remote and reviewer-worktree invariance and cleanup passed. The coordinator fixed a documentation typo and added isolated file-only/Text-only count-growth tests; post-review Settings/Text tests passed **19/19** on Node22.23.4. No application source changed after review, so inspected browser proof remains current. The existing PR40 is the delivery vehicle; push, current hosted proof, synthetic preview refresh and required CI are the remaining external handoff steps. No new PR, unrelated network mapping or production deployment is needed.
+
+## Delivery and private preview
+
+Pushed implementation `e915b55` and post-review tests/records `a825a94` to the existing [PR40](https://github.com/WilsonXY/storagi/pull/40). Its title/body now describe the final shared Inbox/Text feature, all review dispositions and current verification. Four current synthetic Settings/popup/Text/green-feedback screenshots are hosted on GitHub; no local artifact paths appear as proof links. GitHub reports the PR open and mergeable after the main merge, with no outstanding comments or reviews. Required CI is pending and will be handled through the existing thread's PR watch.
+
+Restarted only this task's previously authorized loopback synthetic preview unit to load the updated actual service and built assets. Its saved SQLite policy/data and existing private mapping were preserved. The first browser navigation hit the brief upstream-unavailable startup window; a subsequent HTTP check returned200 and the browser rerun passed. Both non-mutating live preview checks pass: session/Settings policy parity, Text navigation, Settings-from-Text refresh, saved default, changed/reverted tick, no-op submission, no menu animation and right-aligned update status. File/Text rows and policy remained unchanged; zero settings writes were issued. No unrelated service, network mapping, production data or authentication policy was changed. Literal preview URLs/logs remain private.
