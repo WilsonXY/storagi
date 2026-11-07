@@ -178,6 +178,48 @@ test('receiving shelf refreshes every five seconds, on focus, filters expiry and
   expect(request).toHaveBeenCalledTimes(calls);
 });
 
+test('changed deadlines refresh existing Text metadata without replacing selected content or focus', async () => {
+  const { shelf, setItems } = mount();
+  const item = {
+    id: 'same',
+    text: 'Keep this selected note',
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 86400000).toISOString(),
+  };
+  setItems([item]);
+  shelf.activate(true);
+  await tick();
+  const card = document.querySelector('#text-items article')!;
+  const content = card.querySelector('pre')!;
+  content.focus();
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  const selection = window.getSelection()!;
+  selection.removeAllRanges();
+  selection.addRange(range);
+  const expiresAt = new Date(Date.now() + 14 * 86400000).toISOString();
+  setItems([{ ...item, expiresAt }]);
+  await shelf.refresh();
+  expect(document.querySelector('#text-items article')).toBe(card);
+  expect(card.querySelector('pre')).toBe(content);
+  expect(document.activeElement).toBe(content);
+  expect(selection.toString()).toBe(item.text);
+  const expiry = new Date(expiresAt).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  expect(card.querySelector('time')!.dateTime).toBe(expiresAt);
+  expect(card.querySelector('time')!.title).toBe(
+    `Automatically deleted ${expiry}`,
+  );
+  expect(card.querySelector('.sr-only')!.textContent).toContain(
+    `Expires ${expiry}`,
+  );
+  expect(card.querySelector('time')!.textContent).toBe('14d left');
+});
+
 test('search matches full text and a late response never overwrites a newer draft', async () => {
   const { shelf, request } = mount();
   shelf.activate(true);

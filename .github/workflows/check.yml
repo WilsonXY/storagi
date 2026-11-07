@@ -55,3 +55,5 @@ jobs:
           node -e 'console.log("CHROME_EXECUTABLE=" + require(process.argv[1]).chromium.executablePath())' "$RUNNER_TEMP/text-browser/node_modules/playwright" >> "$GITHUB_ENV"
       - name: Check actual-service text handoff in two browsers
         run: server/node_modules/.bin/tsx --test scripts/acceptance-text-browser.test.ts
+      - name: Check shared Inbox and Text retention Settings
+        run: server/node_modules/.bin/tsx --test scripts/acceptance-retention-browser.test.ts

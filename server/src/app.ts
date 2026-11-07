@@ -10,12 +10,7 @@ import { serveShell, defaultWebDir } from './static.js';
 import { timingSafeEqual } from 'node:crypto';
 import type * as oidc from 'openid-client';
 import type { Config } from './config.js';
-import {
-  Storage,
-  HttpError,
-  SHELF_RETENTION_DAYS,
-  type TextRow,
-} from './storage.js';
+import { Storage, HttpError, type TextRow } from './storage.js';
 import { Auth, googleConfig } from './auth.js';
 export type AppOptions = {
   oidc?: oidc.Configuration;
@@ -403,7 +398,7 @@ export async function createApp(config: Config, options: AppOptions = {}) {
         json(res, 200, {
           authenticated: true,
           csrfToken: session.csrf,
-          retentionDays: SHELF_RETENTION_DAYS,
+          retentionDays: storage.retentionDays(),
           ...auth.profile(),
         });
         return;

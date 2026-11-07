@@ -7,6 +7,8 @@ afterEach(() => {
   document.body.replaceChildren();
   vi.restoreAllMocks();
   vi.useRealTimers();
+  localStorage.clear();
+  history.replaceState(null, '', '/');
 });
 const tick = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
@@ -34,6 +36,7 @@ async function mount(
   const fetcher = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     if (url === '/api/session')
       return Response.json({ authenticated: true, csrfToken: 'test-csrf' });
+    if (url === '/api/texts') return Response.json({ texts: [] });
     if (url === '/api/settings') {
       if (save) {
         const response = await save(JSON.parse(String(init?.body)));
@@ -209,14 +212,13 @@ test('a concurrent policy change during the save refresh leaves its different dr
   releases.shift()!();
   await tick();
   const save = document.querySelector<HTMLButtonElement>('#retention-save')!;
-  expect(document.querySelector('#retention-copy')!.textContent).toContain(
-    '14 days',
-  );
   expect(
     document.querySelector<HTMLButtonElement>('#retention-days')!.value,
   ).toBe('90');
   expect(save.disabled).toBe(false);
   expect(save.classList.contains('is-saved')).toBe(false);
+  select(14);
+  expect(save.disabled).toBe(true);
 });
 
 test('refresh preserves a different draft and follows new saved policy once they match', async () => {
@@ -269,6 +271,28 @@ test('reopening Settings discards the draft and refreshes the saved server durat
   await tick();
   expect(trigger.value).toBe('14');
   expect(save.disabled).toBe(true);
+});
+
+test('Settings opened from Text refreshes the shared policy instead of the hidden Text list', async () => {
+  const fetcher = await mount();
+  click('.nav-item[data-tab="text"]');
+  await tick();
+  click('#nav-settings');
+  await tick();
+  fetcher.mockClear();
+  fetcher.setSavedDays(14);
+  click('#refresh');
+  await tick();
+  expect(fetcher.mock.calls.some(([url]) => url === '/api/files')).toBe(true);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-days')!.value,
+  ).toBe('14');
+  expect(
+    document.querySelector('#refresh')!.getAttribute('aria-label'),
+  ).not.toContain('Refresh text');
+  expect(document.querySelector('#retention-label')!.textContent).toMatch(
+    /files.*text/i,
+  );
 });
 
 test('before the first listing loads both controls and direct saving stay disabled', async () => {
@@ -563,7 +587,7 @@ test('the closed duration trigger keeps select-like isolation from dashboard sho
   expect(picker).not.toHaveBeenCalled();
 });
 
-test('loads shared retention and saves a harmless change with CSRF, updating shelf copy', async () => {
+test('loads shared retention and saves a harmless change with CSRF, updating the selected duration', async () => {
   const fetcher = await mount();
   expect(
     document.querySelector('#retention-save')?.getAttribute('aria-label'),
@@ -572,7 +596,7 @@ test('loads shared retention and saves a harmless change with CSRF, updating she
   expect(
     document.querySelector<HTMLButtonElement>('#retention-days')?.value,
   ).toBe('60');
-  expect(document.querySelector('#retention-copy')?.textContent).toContain(
+  expect(document.querySelector('#retention-value')?.textContent).toContain(
     '60 days',
   );
   select(90);
@@ -590,7 +614,7 @@ test('loads shared retention and saves a harmless change with CSRF, updating she
       body: JSON.stringify({ retentionDays: 90, confirmDeletes: 0 }),
     }),
   );
-  expect(document.querySelector('#retention-copy')?.textContent).toContain(
+  expect(document.querySelector('#retention-value')?.textContent).toContain(
     '90 days',
   );
   expect(document.querySelector('#retention-status')?.textContent).toBe('');
@@ -647,12 +671,14 @@ test('failed saves preserve policy and allow retry; loading blocks duplicate sav
   expect(
     document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
   ).toBe(false);
-  expect(document.querySelector('#retention-copy')?.textContent).toContain(
-    '60 days',
-  );
   expect(
     document.querySelector<HTMLButtonElement>('#retention-days')!.value,
   ).toBe('7');
+  select(60);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(true);
+  select(7);
   click('#retention-save');
   respond(Response.json({ error: 'Session expired' }, { status: 401 }));
   await tick();
@@ -676,7 +702,7 @@ test('conflict shows exact deletion count, Cancel and Escape never acknowledge; 
   expect(
     document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
   ).toBe(false);
-  expect(dialog.textContent).toContain('6 files will be permanently deleted');
+  expect(dialog.textContent).toContain('6 items will be permanently deleted');
   expect(document.querySelector('#retention-title')?.textContent).toBe(
     'Change to 7 days?',
   );
@@ -703,9 +729,10 @@ test('conflict shows exact deletion count, Cancel and Escape never acknowledge; 
     { retentionDays: 7, confirmDeletes: 0 },
     { retentionDays: 14, confirmDeletes: 0 },
   ]);
-  expect(document.querySelector('#retention-copy')?.textContent).toContain(
-    '60 days',
-  );
+  select(60);
+  expect(
+    document.querySelector<HTMLButtonElement>('#retention-save')!.disabled,
+  ).toBe(true);
 });
 
 test('a larger count requires a fresh click and confirming sends the displayed duration and count', async () => {
@@ -734,7 +761,7 @@ test('a larger count requires a fresh click and confirming sends the displayed d
     document.querySelector<HTMLDialogElement>('#retention-confirm')!.open,
   ).toBe(true);
   expect(document.querySelector('#retention-note')?.textContent).toContain(
-    '8 files',
+    '8 items',
   );
   expect(document.activeElement?.id).toBe('retention-cancel');
   click('#retention-apply');

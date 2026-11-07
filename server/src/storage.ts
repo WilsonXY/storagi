@@ -4,8 +4,6 @@ import { mkdirSync, statfsSync, statSync } from 'node:fs';
 import path from 'node:path';
 export const DAY = 86400000;
 export const RETENTION_DAYS = [1, 7, 14, 30, 60, 90];
-export const SHELF_RETENTION_DAYS = 30;
-const shelfExpiresAt = (at: number) => at + SHELF_RETENTION_DAYS * DAY;
 export const TEXT_LIMIT = 64 * 1024;
 export type TextRow = {
   id: string;
@@ -77,14 +75,14 @@ export class Storage {
       .all(this.now()) as TextRow[];
   }
   textsEtag(): string {
-    const ids = this.db
+    const rows = this.db
       .prepare(
-        'SELECT id FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
+        'SELECT id,expiresAt FROM texts WHERE expiresAt>? ORDER BY createdAt DESC,rowid DESC',
       )
-      .all(this.now()) as { id: string }[];
-    // Immutable bodies: ordered live IDs change on send, deletion and expiry.
+      .all(this.now()) as { id: string; expiresAt: number }[];
+    // Bodies are immutable; saved retention can also change live deadlines.
     return `W/"${createHash('sha256')
-      .update(ids.map((row) => row.id).join(','))
+      .update(rows.map((row) => `${row.id}:${row.expiresAt}`).join(','))
       .digest('base64url')}"`;
   }
   textCount(): number {
@@ -118,7 +116,7 @@ export class Storage {
           id: crypto.randomUUID(),
           text,
           createdAt: now,
-          expiresAt: shelfExpiresAt(now),
+          expiresAt: this.shelfExpiresAt(now),
         };
         this.db
           .prepare('INSERT INTO texts VALUES (?,?,?,?)')
@@ -210,7 +208,10 @@ export class Storage {
       .prepare(
         'UPDATE files SET uploadedAt=?,expiresAt=?,lastActivity=? WHERE id=? AND uploadedAt IS NULL',
       )
-      .run(at, at + this.retentionDays() * DAY, at, id);
+      .run(at, this.shelfExpiresAt(at), at, id);
+  }
+  private shelfExpiresAt(at: number): number {
+    return at + this.retentionDays() * DAY;
   }
   retentionDays(): number {
     return (
@@ -236,14 +237,21 @@ export class Storage {
           duration = retentionDays * DAY;
         const { deleteCount } = this.db
           .prepare(
-            'SELECT COUNT(*) deleteCount FROM files WHERE uploadedAt IS NOT NULL AND expiresAt>? AND uploadedAt+?<=?',
+            `SELECT
+              (SELECT COUNT(*) FROM files WHERE uploadedAt IS NOT NULL AND expiresAt>? AND uploadedAt+?<=?) +
+              (SELECT COUNT(*) FROM texts WHERE expiresAt>? AND createdAt+?<=?) deleteCount`,
           )
-          .get(now, duration, now) as { deleteCount: number };
+          .get(now, duration, now, now, duration, now) as {
+          deleteCount: number;
+        };
         if (deleteCount > confirmDeletes) return { deleteCount };
         this.db
           .prepare(
             'UPDATE files SET expiresAt=uploadedAt+? WHERE uploadedAt IS NOT NULL AND expiresAt>?',
           )
+          .run(duration, now);
+        this.db
+          .prepare('UPDATE texts SET expiresAt=createdAt+? WHERE expiresAt>?')
           .run(duration, now);
         this.db
           .prepare("UPDATE settings SET value=? WHERE name='retentionDays'")

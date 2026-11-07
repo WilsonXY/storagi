@@ -1,4 +1,4 @@
-// Real built dashboard and service; synthetic signed identity and empty file fixtures only.
+// Real built dashboard/service; synthetic signed identities, Text and empty file fixtures only.
 // npm run build --prefix web
 // TMPDIR="$HOME/.cache/storagi/tmp" server/node_modules/.bin/tsx --test scripts/acceptance-retention-browser.test.ts
 // Optional local playwright-core and Chromium: see acceptance-browser.mjs.
@@ -15,7 +15,7 @@ import { createApp } from '../server/src/app.js';
 import { identity } from '../server/test/helpers.js';
 import { DAY } from '../server/src/storage.js';
 
-test('retention Settings uses a styled duration menu, real atomic saves and native confirmation at desktop and phone widths', async () => {
+test('shared file/Text retention uses one Settings policy, atomic saves and native confirmation across devices', async () => {
   const artifacts = path.resolve(
     process.env.STORAGI_ARTIFACT_DIR || 'artifacts/retention',
   );
@@ -106,11 +106,18 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       app.storage.complete(file, now - age);
     }
     const before = app.storage.rows();
+    const at = now;
+    const textItems = [0, 8 * DAY].map((age, i) => {
+      now = at - age;
+      return app.storage.addText(`Synthetic shared-retention text ${i}`);
+    });
+    now = at;
+    const beforeTexts = app.storage.texts();
     const page = await context.newPage();
-    const navigate = async (selector: string) => {
-      if (await page.locator('#menu-btn').isVisible())
-        await page.locator('#menu-btn').click();
-      await page.locator(selector).click();
+    const navigate = async (selector: string, target = page) => {
+      if (await target.locator('#menu-btn').isVisible())
+        await target.locator('#menu-btn').click();
+      await target.locator(selector).click();
     };
     const chooseDays = async (days: number) => {
       await page.locator('#retention-days').click();
@@ -130,6 +137,20 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page
       .locator('#retention-days:not([disabled])')
       .waitFor({ state: 'attached' });
+    const other = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
+    await other.addCookies([cookie]);
+    await other.addInitScript(markSyntheticProof);
+    const device = await other.newPage();
+    await device.goto(origin);
+    await device
+      .locator('#retention-days:not([disabled])')
+      .waitFor({ state: 'attached' });
+    await navigate('.nav-item[data-tab="text"]', device);
+    const liveText = device.locator(`[data-text-id="${textItems[0].id}"]`);
+    await liveText.waitFor();
+    const textCard = await liveText.elementHandle();
     for (const [width, height] of [
       [1440, 1000],
       [728, 900],
@@ -366,13 +387,14 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
 
     assert.match(
       await page.locator('#retention-note').innerText(),
-      /2 files will be permanently deleted/,
+      /3 items will be permanently deleted/,
     );
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
       'retention-cancel',
     );
     assert.deepEqual(app.storage.rows(), before);
+    assert.deepEqual(app.storage.texts(), beforeTexts);
     assert.equal(app.storage.retentionDays(), 60);
     for (const [width, height] of [
       [1440, 1000],
@@ -395,6 +417,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page.keyboard.press('Escape');
     await page.locator('#retention-confirm').waitFor({ state: 'hidden' });
     assert.deepEqual(app.storage.rows(), before);
+    assert.deepEqual(app.storage.texts(), beforeTexts);
     assert.equal(saves.length, 1);
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
@@ -404,12 +427,13 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page.locator('#retention-confirm[open]').waitFor();
     await page.locator('#retention-cancel').click();
     assert.deepEqual(app.storage.rows(), before);
+    assert.deepEqual(app.storage.texts(), beforeTexts);
     await chooseDays(14);
     await page.locator('#retention-save').click();
     await page.locator('#retention-confirm[open]').waitFor();
     assert.match(
       await page.locator('#retention-note').innerText(),
-      /1 file will be permanently deleted/,
+      /1 item will be permanently deleted/,
     );
     assert.deepEqual(saves.at(-1)?.body, {
       retentionDays: 14,
@@ -423,9 +447,10 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page.locator('#retention-apply').click();
     await page
       .locator('#retention-note')
-      .filter({ hasText: '3 files' })
+      .filter({ hasText: '4 items' })
       .waitFor();
     assert.deepEqual(app.storage.rows(), before);
+    assert.deepEqual(app.storage.texts(), beforeTexts);
     assert.equal(app.storage.retentionDays(), 60);
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
@@ -527,13 +552,36 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       fullPage: true,
       animations: 'disabled',
     });
+    await device.locator('#refresh').click();
+    await device.waitForFunction(
+      ({ id, expiresAt }) =>
+        document
+          .querySelector(`[data-text-id="${id}"] time`)
+          ?.getAttribute('datetime') === expiresAt,
+      {
+        id: textItems[0].id,
+        expiresAt: new Date(textItems[0].createdAt + 7 * DAY).toISOString(),
+      },
+    );
+    await navigate('#nav-settings', device);
+    await device.waitForFunction(
+      () =>
+        (document.querySelector('#retention-days') as HTMLButtonElement)
+          ?.value === '7',
+    );
+    assert.match(
+      await device.locator('#retention-label').textContent(),
+      /files.*text/i,
+    );
     await page.setViewportSize({ width: 1440, height: 1000 });
     await chooseDays(60);
     await page.locator('#retention-save').click();
-    await page.waitForFunction(() =>
-      document
-        .querySelector('#retention-copy')
-        ?.textContent?.includes('60 days'),
+    await page
+      .locator('#retention-save[disabled][aria-busy="false"]')
+      .waitFor();
+    assert.equal(
+      await page.locator('#retention-days').getAttribute('value'),
+      '60',
     );
     assert.equal(await page.locator('#retention-save').isDisabled(), true);
     assert.equal(
@@ -549,15 +597,99 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       1,
       'lengthening does not revive the three expired copies',
     );
-    const other = await browser.newContext();
-    await other.addCookies([cookie]);
-    const device = await other.newPage();
-    await device.goto(origin);
-    await device.waitForFunction(() =>
-      document
-        .querySelector('#retention-copy')
-        ?.textContent?.includes('60 days'),
+    await device.locator('#refresh').click();
+    await device.waitForFunction(
+      () =>
+        (document.querySelector('#retention-days') as HTMLButtonElement)
+          ?.value === '60',
     );
+    await navigate('.nav-item[data-tab="text"]', device);
+    const expiry60 = new Date(textItems[0].createdAt + 60 * DAY).toISOString();
+    await device.waitForFunction(
+      ({ id, expiresAt }) =>
+        document
+          .querySelector(`[data-text-id="${id}"] time`)
+          ?.getAttribute('datetime') === expiresAt,
+      { id: textItems[0].id, expiresAt: expiry60 },
+    );
+    assert.equal(
+      await textCard!.evaluate((el: HTMLElement) => el.isConnected),
+      true,
+    );
+    assert.equal(
+      await device.locator(`[data-text-id="${textItems[1].id}"]`).count(),
+      0,
+    );
+    assert.equal(
+      app.storage.texts().length,
+      1,
+      'lengthening does not revive expired Text',
+    );
+    const expiryLabel = await device.evaluate(
+      (expiresAt: string) =>
+        new Date(expiresAt).toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+      expiry60,
+    );
+    assert.ok(
+      (await liveText.locator('time').getAttribute('title'))!.includes(
+        expiryLabel,
+      ),
+    );
+    assert.ok(
+      (await liveText.locator('.sr-only').textContent())!.includes(expiryLabel),
+    );
+
+    await navigate('.nav-item[data-tab="inbox"]');
+    await page.locator('#picker').setInputFiles({
+      name: 'shared-policy-zero.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.alloc(0),
+    });
+    await page
+      .getByRole('checkbox', {
+        name: 'Select shared-policy-zero.txt',
+        exact: true,
+      })
+      .waitFor({ state: 'attached' });
+    await device
+      .locator('#text-draft')
+      .fill('Synthetic new shared-policy text');
+    await device.locator('#text-send').click();
+    await device
+      .locator('#text-items article')
+      .filter({ hasText: 'Synthetic new shared-policy text' })
+      .waitFor();
+    const shared = await device.evaluate(async () => {
+      const files = await (await fetch('/api/files')).json();
+      const texts = await (await fetch('/api/texts')).json();
+      return {
+        retentionDays: files.retentionDays,
+        file: files.files.find((x: any) => x.name === 'shared-policy-zero.txt'),
+        text: texts.texts.find(
+          (x: any) => x.text === 'Synthetic new shared-policy text',
+        ),
+      };
+    });
+    assert.equal(shared.retentionDays, 60);
+    assert.equal(
+      Date.parse(shared.file.expiresAt) - Date.parse(shared.file.uploadedAt),
+      60 * DAY,
+    );
+    assert.equal(
+      Date.parse(shared.text.expiresAt) - Date.parse(shared.text.createdAt),
+      60 * DAY,
+    );
+    assert.equal(shared.file.expiresAt, shared.text.expiresAt);
+    await device.screenshot({
+      path: path.join(artifacts, 'shared-text-retention-390.png'),
+      fullPage: true,
+    });
+    await navigate('#nav-settings');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 390, height: 844 });
     await chooseDays(90);
@@ -635,7 +767,7 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       path.join(artifacts, 'result.json'),
       JSON.stringify(
         {
-          kind: 'real service and built dashboard; synthetic signed identity and empty files',
+          kind: 'real service and built dashboard; synthetic identities, Text and empty files',
           browser: browser.version(),
           widths: [1440, 728, 390],
           saves,

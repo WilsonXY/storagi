@@ -196,6 +196,8 @@ export async function createDashboard(
   const app = $('#shelf-app'),
     sel = new Selection(),
     hidden = new Set<string>();
+  const isTextView = () =>
+    app.dataset.view !== 'settings' && app.dataset.tab === 'text';
   let shelf: Shelf = {
       files: [],
       usedBytes: 0,
@@ -428,7 +430,7 @@ export async function createDashboard(
       : `retrying in ${retry.remaining}s`;
     $('#refresh').setAttribute(
       'aria-label',
-      app.dataset.tab === 'text'
+      isTextView()
         ? 'Refresh text now (refreshes every 5 seconds while visible)'
         : `Refresh now (auto-refresh in ${auto.remaining} seconds)`,
     );
@@ -1030,7 +1032,7 @@ export async function createDashboard(
   listen(
     $('#refresh'),
     'click',
-    () => void (app.dataset.tab === 'text' ? texts.refresh() : auto.now()),
+    () => void (isTextView() ? texts.refresh() : auto.now()),
   );
   listen($('#retry'), 'click', () => void retry.now());
   listen($('#sel-clear'), 'click', () => sel.clear());
@@ -1179,6 +1181,7 @@ export async function createDashboard(
           ? 'Transfers'
           : 'Inbox';
     panel(!app.classList.contains('panel-closed'));
+    renderFresh();
     stillPond();
     if (settings && !settingsPond)
       settingsPond = pond('#set-pond', {
@@ -1362,7 +1365,7 @@ export async function createDashboard(
         $('#retention-title').textContent =
           `Change to ${days} ${days === 1 ? 'day' : 'days'}?`;
         $('#retention-note').textContent =
-          `${conflict.deleteCount} ${conflict.deleteCount === 1 ? 'file will' : 'files will'} be permanently deleted. Originals stay on your devices.`;
+          `${conflict.deleteCount} ${conflict.deleteCount === 1 ? 'item will' : 'items will'} be permanently deleted. Files on your devices are unchanged.`;
         retentionDialog.showModal();
         $('#retention-cancel').focus();
       } else $('#retention-status').textContent = conflict.message;
@@ -1437,7 +1440,6 @@ export async function createDashboard(
     if (name === 'text') texts.search(search.value);
     else renderInbox();
     view('shelf');
-    renderFresh();
   }
   function openTransfers() {
     if (innerWidth >= 1180) {
@@ -1611,7 +1613,7 @@ export async function createDashboard(
   cleanups.push(
     setupTransfers(root, session.csrfToken, {
       refresh: () => auto.now(),
-      retentionDays: () => shelf.retentionDays ?? 30,
+      retentionDays: () => shelf.retentionDays ?? session.retentionDays ?? 30,
       notice: (message) => toast(message),
       expired: () => locked(true),
       offline: () => setOffline(true),

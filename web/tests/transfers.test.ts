@@ -33,25 +33,29 @@ vi.mock('tus-js-client', () => ({
 const tick = async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
-async function mount(retentionDays = 30) {
+async function mount(retentionDays = 30, firstListing?: Promise<Response>) {
   document.body.innerHTML = '<main id="app"></main>';
+  let initial = firstListing;
   await createDashboard(document.querySelector('#app')!, {
-    fetch: vi.fn(
-      async (url: RequestInfo | URL) =>
-        new Response(
-          JSON.stringify(
-            String(url) === '/api/session'
-              ? { authenticated: true, csrfToken: 'test-csrf', retentionDays }
-              : {
-                  retentionDays: 60,
-                  files: [],
-                  usedBytes: 0,
-                  reservedBytes: 0,
-                  budgetBytes: 200 * 1024 ** 3,
-                },
-          ),
-        ),
-    ),
+    fetch: vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url) === '/api/files' && initial) {
+        const response = initial;
+        initial = undefined;
+        return response;
+      }
+      if (String(url) === '/api/texts') return Response.json({ texts: [] });
+      return Response.json(
+        String(url) === '/api/session'
+          ? { authenticated: true, csrfToken: 'test-csrf', retentionDays }
+          : {
+              retentionDays: 60,
+              files: [],
+              usedBytes: 0,
+              reservedBytes: 0,
+              budgetBytes: 200 * 1024 ** 3,
+            },
+      );
+    }),
   });
 }
 function select(...files: File[]) {
@@ -378,7 +382,7 @@ test('a paste right after Cancel starts a fresh list that survives the late clos
   expect(mocks.uploads.map((upload) => upload.file)).toEqual([b]);
 });
 
-test('composers omit retention sentences while paste confirmation keeps the server policy', async () => {
+test('composers omit retention sentences while paste confirmation keeps the latest listed policy', async () => {
   await mount(45);
   expect(document.querySelector('#composer .composer-hint')).toBeNull();
   expect(document.querySelector('#text-hint')).toBeNull();
@@ -391,6 +395,38 @@ test('composers omit retention sentences while paste confirmation keeps the serv
   paste([new File(['x'], 'policy.txt'), { isDirectory: false }]);
   await tick();
   expect(document.querySelector('#paste-note')?.textContent).toContain(
-    'Kept 45 days',
+    'Kept 60 days',
+  );
+});
+
+test('paste policy uses committed session metadata while its first listing is pending, then follows the listing', async () => {
+  let release!: (response: Response) => void;
+  const pending = mount(
+    7,
+    new Promise<Response>((resolve) => {
+      release = resolve;
+    }),
+  );
+  await tick();
+  const file = new File(['x'], 'shared-policy.txt');
+  paste([file, { isDirectory: false }]);
+  await tick();
+  const initialNote = document.querySelector('#paste-note')!.textContent;
+  press('#paste-cancel');
+  release(
+    Response.json({
+      retentionDays: 14,
+      files: [],
+      usedBytes: 0,
+      reservedBytes: 0,
+      budgetBytes: 200 * 1024 ** 3,
+    }),
+  );
+  await pending;
+  paste([file, { isDirectory: false }]);
+  await tick();
+  expect(initialNote).toContain('Kept 7 days.');
+  expect(document.querySelector('#paste-note')!.textContent).toContain(
+    'Kept 14 days.',
   );
 });

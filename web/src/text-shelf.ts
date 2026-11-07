@@ -93,24 +93,24 @@ export function createTextShelf(
       let card = [...container.querySelectorAll<HTMLElement>('article')].find(
         (el) => el.dataset.textId === item.id,
       );
+      const url = linkFor(item.text);
+      const expiry = new Date(item.expiresAt).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      const created = new Date(item.createdAt).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
       if (!card) {
         card = document.createElement('article');
         card.className = 'text-card';
         card.dataset.textId = item.id;
         card.dataset.id = item.id;
-        const url = linkFor(item.text);
-        const expiry = new Date(item.expiresAt).toLocaleString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-        });
-        const created = new Date(item.createdAt).toLocaleString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-        });
         card.innerHTML = `<span class="sr-only" id="text-meta-${esc(item.id)}">${url ? esc(new URL(url).hostname) : 'Text'} · ${esc(created)}. Expires ${esc(expiry)}</span><pre dir="auto" tabindex="0"></pre><div class="text-card-actions"><time class="text-expiry mono" datetime="${esc(item.expiresAt)}" title="Automatically deleted ${esc(expiry)}"></time><button type="button" class="icon-btn text-copy" data-text-copy aria-label="Copy text" title="Copy text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="7.5" height="8" rx="1.5"/><path d="M10.5 5.5V3A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h2.5"/></svg></button><button type="button" class="icon-btn text-remove" data-text-delete aria-label="Delete text" title="Delete text" aria-describedby="text-meta-${esc(item.id)}"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg></button><span class="morph text-delete-confirm" role="group" aria-label="Delete this text?" hidden><span class="m-ask">Delete text?</span><button type="button" data-text-cancel aria-describedby="text-meta-${esc(item.id)}">Cancel</button><button type="button" class="m-confirm" data-text-confirm aria-describedby="text-meta-${esc(item.id)}">Delete</button></span><span class="morph text-deleted" hidden><span class="m-ok">✓ Deleted</span><button type="button" data-text-undo aria-describedby="text-meta-${esc(item.id)}" title="Undo deletion (4 seconds)" hidden>Undo</button><span class="m-clock" data-text-clock>4s</span></span><span class="morph text-deleting" hidden><span class="m-quiet"><i class="spin"></i>Deleting</span></span></div>`;
         const content = card.querySelector('pre')!;
         if (url) {
@@ -156,6 +156,12 @@ export function createTextShelf(
       const clock = card.querySelector<HTMLElement>('[data-text-clock]')!;
       clock.textContent = `${pending.get(item.id)?.left ?? GRACE_SECONDS}s`;
       const time = card.querySelector('time')!;
+      if (time.dateTime !== item.expiresAt) {
+        time.dateTime = item.expiresAt;
+        time.title = `Automatically deleted ${expiry}`;
+        card.querySelector<HTMLElement>('.sr-only')!.textContent =
+          `${url ? new URL(url).hostname : 'Text'} · ${created}. Expires ${expiry}`;
+      }
       if (time.textContent !== remaining) time.textContent = remaining;
       if (container.children[index] !== card)
         container.insertBefore(card, container.children[index] ?? null);
