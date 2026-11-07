@@ -166,6 +166,9 @@ test('shared file/Text retention uses one Settings policy, atomic saves and nati
         const header = el.closest('header')!;
         return {
           right: el.getBoundingClientRect().right,
+          toolbarRight: header
+            .querySelector('#nav-transfers')!
+            .getBoundingClientRect().right,
           expected:
             header.getBoundingClientRect().right -
             parseFloat(getComputedStyle(header).paddingRight),
@@ -176,8 +179,8 @@ test('shared file/Text retention uses one Settings policy, atomic saves and nati
         `Settings status matches Inbox at ${width}px`,
       );
       assert.ok(
-        Math.abs(settingsEdge.right - settingsEdge.expected) < 1,
-        `Settings status respects the right header padding at ${width}px`,
+        Math.abs(settingsEdge.toolbarRight - settingsEdge.expected) < 1,
+        `Transfers respects the right header padding at ${width}px`,
       );
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
