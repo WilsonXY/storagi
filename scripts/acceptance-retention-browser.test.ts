@@ -565,6 +565,8 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
     await page.locator('#retention-save.is-saved').waitFor();
     const reduced = await sampleFeedback();
     assert.equal(reduced.count, pulse.count);
+    assert.equal(reduced.duration, pulse.duration);
+    assert.deepEqual(reduced.samples, pulse.samples);
     assert.equal(reduced.backgroundImage, 'none');
     assert.equal(reduced.color, pulse.color);
     assert.equal(reduced.disabled, true);
@@ -580,6 +582,10 @@ test('retention Settings uses a styled duration menu, real atomic saves and nati
       path: path.join(artifacts, 'save-feedback-reduced-motion.png'),
       fullPage: true,
       animations: 'allow',
+    });
+    await page.locator('#retention-save').evaluate((el) => {
+      for (const animation of el.getAnimations({ subtree: true }))
+        animation.play();
     });
     await page
       .locator('#retention-save.is-saved')
