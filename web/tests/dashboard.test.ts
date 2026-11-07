@@ -1958,8 +1958,18 @@ test('a video still loading stops when hidden, a cancelled text read cannot untr
   vi.restoreAllMocks();
 });
 
-test('Text navigation uses authenticated JSON mutations, search and manual refresh without changing the file shelf', async () => {
+test('Text navigation filters notes by search, sends authenticated JSON and refreshes on demand without changing the file shelf', async () => {
+  // Frozen clock: any new Text GET below comes from the button, never a poll.
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-08T00:00:00Z'));
   const api = service();
+  const note = (id: string, text: string) => ({
+    id,
+    text,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 86400000).toISOString(),
+  });
+  let texts = [note('a', 'alpha note'), note('b', 'beta note')];
   const fetcher = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     if (String(url).startsWith('/api/texts'))
       return Response.json(
@@ -1970,10 +1980,18 @@ test('Text navigation uses authenticated JSON mutations, search and manual refre
               createdAt: new Date().toISOString(),
               expiresAt: new Date(Date.now() + 86400000).toISOString(),
             }
-          : { texts: [] },
+          : { texts },
       );
     return api.fetcher(url);
   });
+  const textGets = () =>
+    fetcher.mock.calls.filter(
+      ([url, init]) => String(url) === '/api/texts' && init?.method === 'GET',
+    ).length;
+  const shown = () =>
+    [...document.querySelectorAll('#text-items article pre')].map(
+      (x) => x.textContent,
+    );
   await mount(fetcher);
   expect(fetcher.mock.calls.some((c) => String(c[0]) === '/api/texts')).toBe(
     false,
@@ -1981,9 +1999,13 @@ test('Text navigation uses authenticated JSON mutations, search and manual refre
   click('.nav-item[data-tab="text"]');
   await tick();
   expect(document.querySelector('#page-title')?.textContent).toBe('Text');
-  expect(document.querySelector<HTMLInputElement>('#search')!.placeholder).toBe(
-    'Search text',
-  );
+  expect(textGets()).toBe(1);
+  expect(shown()).toEqual(['alpha note', 'beta note']);
+  const search = document.querySelector<HTMLInputElement>('#search')!;
+  expect(search.placeholder).toBe('Search text');
+  search.value = 'BETA';
+  search.dispatchEvent(new Event('input'));
+  expect(shown()).toEqual(['beta note']);
   const draft = document.querySelector<HTMLTextAreaElement>('#text-draft')!;
   draft.value = 'hello';
   draft.dispatchEvent(new Event('input'));
@@ -2003,8 +2025,13 @@ test('Text navigation uses authenticated JSON mutations, search and manual refre
       body: JSON.stringify({ text: 'hello' }),
     }),
   );
+  texts = [note('fresh', 'fresh from another device')];
+  expect(shown()).not.toContain('fresh from another device');
+  const before = textGets();
   click('#refresh');
+  expect(textGets()).toBe(before + 1);
   await tick();
+  expect(shown()).toEqual(['fresh from another device']);
   click('.nav-item[data-tab="inbox"]');
   expect(rows()).toHaveLength(2);
   expect(document.querySelector('#page-title')?.textContent).toBe('Inbox');
