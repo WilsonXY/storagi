@@ -151,8 +151,7 @@ export function createTransferView(root: HTMLElement) {
       items.filter((t) => t.dir === dir && live(t));
     const up = active('up').reduce((s, t) => s + t.metrics.speed, 0),
       down = active('down').reduce((s, t) => s + t.metrics.speed, 0);
-    for (const id of ['nav-open', 'det-open'])
-      $(`#${id}`).textContent = String(open().length);
+    $('#det-open').textContent = String(open().length);
     $('#tr-empty').hidden = items.length > 0;
     const { pause, action, cancel } = bulk();
     $('#pause-all').hidden = !pause.length;

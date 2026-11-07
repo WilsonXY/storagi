@@ -63,6 +63,61 @@ const click = (selector: string) =>
   document.querySelector<HTMLElement>(selector)!.click();
 const rows = () => [...document.querySelectorAll<HTMLElement>('#groups .row')];
 
+test('toolbar Transfers starts closed and toggles independently of sidebar navigation', async () => {
+  vi.stubGlobal('innerWidth', 1440);
+  await mount();
+  const app = document.querySelector<HTMLElement>('#shelf-app')!;
+  const button = document.querySelector<HTMLButtonElement>('#nav-transfers')!;
+  const details = document.querySelector<HTMLElement>('#details')!;
+  expect(button?.closest('.top')).not.toBeNull();
+  expect(document.querySelector('.nav-item[data-tab="transfers"]')).toBeNull();
+  expect(app.classList.contains('panel-closed')).toBe(true);
+  expect(button.getAttribute('aria-expanded')).toBe('false');
+  expect(details.getAttribute('aria-hidden')).toBe('true');
+  expect(details.hasAttribute('inert')).toBe(true);
+  button.click();
+  expect(button.getAttribute('aria-expanded')).toBe('true');
+  expect(details.hasAttribute('inert')).toBe(false);
+  vi.stubGlobal('innerWidth', 1000);
+  window.dispatchEvent(new Event('resize'));
+  expect(app.dataset.tab).toBe('transfers');
+  expect(button.getAttribute('aria-expanded')).toBe('true');
+  vi.stubGlobal('innerWidth', 1440);
+  window.dispatchEvent(new Event('resize'));
+  expect(button.getAttribute('aria-expanded')).toBe('true');
+  details.focus();
+  button.click();
+  expect(button.getAttribute('aria-expanded')).toBe('false');
+  expect(document.activeElement).toBe(button);
+  vi.stubGlobal('innerWidth', 390);
+  button.click();
+  expect(app.dataset.tab).toBe('transfers');
+  expect(button.getAttribute('aria-expanded')).toBe('true');
+  button.click();
+  expect(app.dataset.tab).toBe('inbox');
+  expect(button.getAttribute('aria-expanded')).toBe('false');
+});
+
+test('new accepted uploads open Transfers but duplicate queue notices leave it closed', async () => {
+  vi.stubGlobal('innerWidth', 390);
+  await mount();
+  const button = document.querySelector<HTMLButtonElement>('#nav-transfers')!;
+  const picker = document.querySelector<HTMLInputElement>('#picker')!;
+  const file = new File(['x'], 'queued.zip', { lastModified: 123 });
+  Object.defineProperty(picker, 'files', { configurable: true, value: [file] });
+  picker.dispatchEvent(new Event('change'));
+  expect(button.getAttribute('aria-expanded')).toBe('true');
+  button.click();
+  picker.dispatchEvent(new Event('change'));
+  expect(button.getAttribute('aria-expanded')).toBe('false');
+  Object.defineProperty(picker, 'files', {
+    configurable: true,
+    value: [new File(['y'], 'another.zip')],
+  });
+  picker.dispatchEvent(new Event('change'));
+  expect(button.getAttribute('aria-expanded')).toBe('true');
+});
+
 test('locked pond contains a static decoy and never renders private shelf data', async () => {
   const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 401 }));
   await mount(fetcher);
@@ -299,6 +354,9 @@ test('single download calls the save picker synchronously and streams the respon
   expect(picker).toHaveBeenCalledWith({ suggestedName: 'archive.zip' });
   expect(event.defaultPrevented).toBe(true);
   await tick();
+  expect(
+    document.querySelector('#nav-transfers')?.getAttribute('aria-expanded'),
+  ).toBe('true');
   expect(write).toHaveBeenCalledOnce();
   expect(close).toHaveBeenCalledOnce();
   expect(document.querySelector('.tr.done')?.textContent).toContain(
@@ -322,6 +380,9 @@ test('download without a picker remains a plain browser link', async () => {
   document.addEventListener('click', handler, { once: true });
   a.click();
   expect(prevented).toBe(false);
+  expect(
+    document.querySelector('#nav-transfers')?.getAttribute('aria-expanded'),
+  ).toBe('true');
   expect(document.querySelector('.toast')?.textContent).toContain(
     'Downloading in your browser',
   );
@@ -496,7 +557,7 @@ test('settings persist switches, phone menu opens, and tabs and shortcuts change
   expect(document.querySelector<HTMLElement>('#sheet')!.hidden).toBe(false);
   click('#sheet-close');
   vi.stubGlobal('innerWidth', 390);
-  click('.nav-item[data-tab="transfers"]');
+  click('#nav-transfers');
   expect(document.querySelector('#shelf-app')?.getAttribute('data-tab')).toBe(
     'transfers',
   );
@@ -2084,10 +2145,16 @@ test('shelf navigation exists only in the sidebar and phone menu, with Text koi 
   ).toBe('page');
   vi.stubGlobal('innerWidth', 390);
   click('#menu-btn');
-  click('#sheet-slot .nav-item[data-tab="transfers"]');
+  expect(
+    document.querySelector('#sheet-slot [data-tab="transfers"]'),
+  ).toBeNull();
+  click('#sheet-close');
+  click('#nav-transfers');
   expect(document.querySelector<HTMLElement>('#sheet')!.hidden).toBe(true);
   expect(document.querySelector<HTMLElement>('#shelf-app')!.dataset.tab).toBe(
     'transfers',
   );
-  expect(document.activeElement?.id).toBe('page-title');
+  expect(
+    document.querySelector('#nav-transfers')?.getAttribute('aria-expanded'),
+  ).toBe('true');
 });

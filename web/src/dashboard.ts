@@ -1043,6 +1043,7 @@ export async function createDashboard(
     toast('Downloading in your browser. Allow multiple downloads if asked.');
   });
   function browserDownload(f: ShelfFile) {
+    openTransfers();
     const a = document.createElement('a');
     a.href = `/api/files/${encodeURIComponent(f.id)}/download`;
     a.download = f.name;
@@ -1054,6 +1055,7 @@ export async function createDashboard(
     const picker = (window as Window & { showSaveFilePicker?: SavePicker })
       .showSaveFilePicker;
     if (!picker) {
+      openTransfers();
       toast('Downloading in your browser');
       return;
     }
@@ -1171,18 +1173,20 @@ export async function createDashboard(
       });
   }
   let settingsPond: KoiPond | undefined;
-  function panel(open = app.classList.contains('panel-closed')) {
+  function panel(open: boolean) {
     app.classList.toggle('panel-closed', !open);
     const visible =
       app.dataset.view !== 'settings' &&
       (innerWidth >= 1180
         ? open && app.dataset.tab !== 'text'
-        : app.dataset.tab === 'transfers');
+        : open && app.dataset.tab === 'transfers');
     $('#nav-transfers').classList.toggle('is-active', visible);
     $('#nav-transfers').setAttribute('aria-expanded', String(visible));
-    if (visible && innerWidth < 1180)
-      $('#nav-transfers').setAttribute('aria-current', 'page');
-    else $('#nav-transfers').removeAttribute('aria-current');
+    const details = $('#details');
+    if (!visible && details.contains(document.activeElement))
+      $('#nav-transfers').focus();
+    details.toggleAttribute('inert', !visible);
+    details.setAttribute('aria-hidden', String(!visible));
   }
   function tab(name: string) {
     const changed = app.dataset.tab !== name;
@@ -1212,7 +1216,10 @@ export async function createDashboard(
       if (app.dataset.tab === 'text') tab('inbox');
       view('shelf');
       panel(true);
-    } else tab('transfers');
+    } else {
+      tab('transfers');
+      panel(true);
+    }
   }
   function closeSheet() {
     if ($('#sheet').hidden) return;
@@ -1239,13 +1246,13 @@ export async function createDashboard(
     const fromSheet = !$('#sheet').hidden;
     closeSheet();
     if (b.dataset.view) view(b.dataset.view);
-    else if (b.dataset.tab === 'transfers' && innerWidth >= 1180) {
-      const fromText = app.dataset.tab === 'text';
-      if (fromText) tab('inbox');
-      view('shelf');
-      panel(
-        fromText ? true : b.classList.contains('nav-item') ? undefined : true,
-      );
+    else if (b.id === 'nav-transfers') {
+      if (b.getAttribute('aria-expanded') === 'true') {
+        panel(false);
+        if (app.dataset.tab === 'transfers') tab('inbox');
+      } else openTransfers();
+    } else if (b.dataset.tab === 'transfers') {
+      openTransfers();
     } else {
       tab(b.dataset.tab ?? 'inbox');
       if (b.classList.contains('brand'))
@@ -1372,6 +1379,7 @@ export async function createDashboard(
       offline: () => setOffline(true),
       view: transfers,
       queued: (n) => {
+        openTransfers();
         toast(`${n} ${n === 1 ? 'file' : 'files'} queued`, {
           action: 'View',
           onAction: openTransfers,
@@ -1380,7 +1388,15 @@ export async function createDashboard(
     }),
   );
   tab(initialTab);
-  panel(true);
+  panel(false);
+  let wide = innerWidth >= 1180;
+  listen(window, 'resize', () => {
+    if (wide === innerWidth >= 1180) return;
+    wide = innerWidth >= 1180;
+    if ($('#nav-transfers').getAttribute('aria-expanded') === 'true')
+      openTransfers();
+    else view(app.dataset.view ?? 'shelf');
+  });
   await auto.now();
   return destroy;
 }

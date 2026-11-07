@@ -102,7 +102,9 @@ test('text moves between two browser devices using the actual authenticated serv
       const nav = page.locator(
         name === 'settings'
           ? '.nav-item[data-view="settings"]'
-          : `.nav-item[data-tab="${name}"]`,
+          : name === 'transfers'
+            ? '#nav-transfers'
+            : `.nav-item[data-tab="${name}"]`,
       );
       if (!(await nav.isVisible())) await page.locator('#menu-btn').click();
       await nav.click();
@@ -706,13 +708,10 @@ test('text moves between two browser devices using the actual authenticated serv
         fullPage: true,
       });
     }
-    // Sidebar navigation stays available at the old sidebar/transfer-panel breakpoint.
+    // The toolbar toggle stays available at the sidebar/transfer-panel breakpoint.
     await sender.setViewportSize({ width: 1000, height: 900 });
     await navigate(sender, 'transfers');
-    assert.equal(
-      await sender.locator('.nav-item[data-tab="transfers"]').isVisible(),
-      true,
-    );
+    assert.equal(await sender.locator('.top #nav-transfers').isVisible(), true);
     await navigate(sender, 'text');
     await receiver.locator('#menu-btn').click();
     await receiver.screenshot({
@@ -1418,7 +1417,7 @@ test('text moves between two browser devices using the actual authenticated serv
             'Text copied/deleted notifications align with content across sidebar breakpoint/resize; Inbox/settings retain viewport centering',
             'long duplicate-transfer and unbroken-filename notice text wraps within the content bounds; resize preserves toast identity',
             'zero browser errors',
-            'sidebar/menu-only navigation including 1000px Transfers',
+            'sidebar/menu shelf navigation and toolbar Transfers including 1000px',
             'real koi canvas on desktop and phone',
             'quiet hierarchy without central tabs or repeated headings',
             'composer keyboard order',
