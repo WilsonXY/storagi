@@ -595,7 +595,9 @@ test('text moves between two browser devices using the actual authenticated serv
         'x'.repeat(150) + '.txt',
       ]) {
         await sender.setViewportSize({ width, height: 1000 });
-        const previousNotice = await sender.locator('#notice').elementHandle();
+        // A previous toast may already have expired; snapshot it without waiting for one.
+        const previousNotice =
+          (await sender.locator('#notice').elementHandles())[0] ?? null;
         await sender.locator('[data-text-copy]').click();
         await sender.waitForFunction((old: HTMLElement | null) => {
           const notice = document.querySelector('#notice');
