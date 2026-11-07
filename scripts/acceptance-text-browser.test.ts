@@ -1254,12 +1254,15 @@ test('text moves between two browser devices using the actual authenticated serv
       .locator('#groups .row')
       .filter({ hasText: 'handoff-proof' })
       .waitFor();
-    const inboxCard = await sender.locator('#composer').boundingBox();
-    const chooseBox = await sender.locator('#choose').boundingBox();
+    // Upload opens the transfer panel: sample both edges in the same layout frame.
+    const chooseRightAligned = await sender.evaluate(() => {
+      const card = document.querySelector('#composer')!.getBoundingClientRect();
+      const button = document.querySelector('#choose')!.getBoundingClientRect();
+      const gap = card.right - button.right;
+      return card.width > 0 && button.width > 0 && gap >= 0 && gap <= 20;
+    });
     assert.ok(
-      inboxCard &&
-        chooseBox &&
-        inboxCard.x + inboxCard.width - chooseBox.x - chooseBox.width <= 20,
+      chooseRightAligned,
       'Choose files remains right-aligned after removing helper copy',
     );
     await sender.screenshot({
