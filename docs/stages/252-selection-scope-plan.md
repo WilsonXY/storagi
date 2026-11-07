@@ -1,6 +1,6 @@
 # 252: Scope Inbox selection to the visible shelf
 
-- Status: in progress
+- Status: completed (selection implementation, local verification and independent review; PR CI tracked separately)
 - Started / last updated: 2026-11-08 (Asia/Kuala_Lumpur)
 - Coordinator thread: `mcp:launch:e47359e10cea73eb04f1661ca2441c31bd23fb0e11ab41694432d71a2ef9e62a`
 - Agent/task: coordinator owns regression, implementation and integration; a distinct proof agent owns disposable service/browser evidence; a fresh independent reviewer owns read-only committed-code review.
@@ -42,3 +42,5 @@ Coordinator confirmed the companion test/refresh tasks retain their own Opus ins
 ## Handoff
 
 Implementation committed as `0b264e4`; test-only review corrections as `b2ec097`. Stage 254 preserves Opus usage-limit failure; stage 255 records independent Astra/high PASS and accepted low test suggestions. Stage 256 preserves a PASS verdict rejected as final audit because a companion remote branch appeared during the audit window. Fresh stage 257 review passed with independently verified actual model/effort, exact HEAD/status/all-origin-head invariance and clean reviewer checkout. Every temporary reviewer checkout/branch was removed. PR publication and CI remain. Companion test/refresh tasks stay on Opus until 5am by explicit owner decision; no merge/deployment readiness while remaining work and combined CI are unresolved.
+
+Published [PR #44](https://github.com/WilsonXY/storagi/pull/44) with final after-review MP4 uploaded to GitHub and its hosted attachment verified in the PR body. CI is pending and handled by T3 PR watch. [Companion backend PR #43](https://github.com/WilsonXY/storagi/pull/43) remains separate; `feat/shared-shelf-refresh` and `test/strengthen-shelf-tests` remain paused on Opus per owner decision. No merge, tag, deployment, production/OAuth, exposure or host-service changes performed. Synthetic processes and reviewer checkouts cleaned; root working tree clean before this final handoff record.
