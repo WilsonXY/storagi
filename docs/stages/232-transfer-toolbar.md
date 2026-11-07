@@ -1,6 +1,6 @@
 # 232: Transfer toolbar panel
 
-- Status: implementation and coordinator verification completed; independent review pending
+- Status: implementation and coordinator verification completed; independent review passed with minor Settings spacing correction
 - Started: 2026-11-07 Asia/Kuala_Lumpur
 - Coordinator thread: 3758131b-e560-4358-964b-1b2d8fc1e509
 - Agent/task identifiers: implementation agent /root/transfer_toolbar; independent review follows in a fresh worktree
@@ -54,4 +54,4 @@ Coordinator receives implementation and tests without a commit. Run full reposit
 - `scripts/acceptance-transfer-panel.mjs`: passed at 1440, 1180, 1000, 728 and 390 pixels; verifies real running ease-out transitions in both directions, default closed state, manual toggle, upload/download auto-opening, closing during completion, resize across the panel breakpoint, reduced motion and zero page errors. Local synthetic evidence and screenshots stay under ignored `artifacts/transfer-toolbar/`.
 - Synthetic browser recording demonstrates default, manual open/close and automatic upload opening with readable holds. Hosted proof will be attached to the PR.
 - Proof harness corrections during development: replaced obsolete file-row selectors and read animation easing from effect timing rather than keyframe easing. The final proof passed; these were harness failures, not product failures.
-- Actual-service two-browser Text acceptance is running against the built assets to check the updated navigation helper.
+- Actual-service two-browser Text acceptance passed 1/1 in 83.5 seconds against the built assets and updated navigation helper.

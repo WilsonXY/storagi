@@ -758,6 +758,9 @@ dialog.paste-confirm::backdrop {
 .app[data-view='settings'] .search {
   display: none;
 }
+.app[data-view='settings'] .fresh {
+  margin-left: auto;
+}
 #nav-transfers {
   flex: none;
   transition:
