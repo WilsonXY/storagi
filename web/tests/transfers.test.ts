@@ -43,6 +43,7 @@ async function mount() {
             String(url) === '/api/session'
               ? { authenticated: true, csrfToken: 'test-csrf' }
               : {
+                  retentionDays: 60,
                   files: [],
                   usedBytes: 0,
                   reservedBytes: 0,
@@ -275,6 +276,9 @@ test('pasted files wait for confirmation, and a pasted folder is refused like a 
     'Upload 1 pasted file?',
   );
   expect(listed()).toEqual(['image.png1 B']);
+  expect(confirmBox().querySelector('#paste-note')!.textContent).toContain(
+    'Kept 60 days.',
+  );
   expect(mocks.uploads).toHaveLength(0);
   press('#paste-upload');
   await tick();

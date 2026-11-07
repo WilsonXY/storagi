@@ -240,3 +240,9 @@ The next stage is a concrete implementation plan based on this record. This docu
 ### Subsequent implementation authorization
 
 The owner then requested implementation in a **new thread** and required every stage performed by different agents to be documented. This later instruction authorizes implementation and supersedes the documentation-only stopping point above. The product requirements remain as agreed. [The stage records](stages/README.md) and [repository agent instructions](../AGENTS.md) govern stage ownership, evidence, and handoffs. Implementation is not being performed in the original design thread.
+
+### Subsequent adjustable-retention decision (2026-11-05)
+
+The owner subsequently requested an adjustable completed-file retention policy in Settings, saved on the server and shared across devices. Thirty days remains the default. Explicit saves also re-date existing live completed copies from their original completion time. A save that would expire files now must first show their permanent-deletion count; Cancel or Escape leaves policy and deadlines unchanged. Expired copies cannot be revived, unfinished uploads retain the separate 24-hour inactivity rule, and startup or rollback does not silently rewrite stored deadlines. Physical cleanup remains periodic and active streams can retain quota.
+
+The implementation offers 1, 7, 14, 30, 60 and 90 whole days and reuses the established Settings and paste-confirm dialog design. See [the reviewed minimal design](stages/171-adjustable-expiry-proposal-review.md), [implementation](stages/172-adjustable-expiry-implementation.md) and [API agreement](api-agreement.md). This subsequent decision supersedes the original fixed-duration requirement without changing the historical record above.

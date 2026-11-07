@@ -355,6 +355,33 @@ export async function createApp(config: Config, options: AppOptions = {}) {
         res.end();
         return;
       }
+      if (url.pathname === '/api/settings' && method === 'PUT') {
+        let text = '';
+        for await (const chunk of req) {
+          text += chunk.toString();
+          if (Buffer.byteLength(text) > 1024)
+            throw new HttpError(413, 'Settings body is too large');
+        }
+        let body;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          throw new HttpError(400, 'Invalid settings JSON');
+        }
+        if (!body || typeof body !== 'object' || Array.isArray(body))
+          throw new HttpError(400, 'Settings object required');
+        const result = storage.saveRetention(
+          body.retentionDays,
+          body.confirmDeletes,
+        );
+        if ('deleteCount' in result)
+          json(res, 409, {
+            error: 'Confirm permanent deletion before saving',
+            deleteCount: result.deleteCount,
+          });
+        else json(res, 200, result);
+        return;
+      }
       if (url.pathname === '/api/files' && method === 'GET') {
         const q = (url.searchParams.get('q') || '').toLocaleLowerCase();
         const files = storage
@@ -375,7 +402,11 @@ export async function createApp(config: Config, options: AppOptions = {}) {
             uploadedAt: new Date(r.uploadedAt!).toISOString(),
             expiresAt: new Date(r.expiresAt).toISOString(),
           }));
-        json(res, 200, { files, ...storage.usage() });
+        json(res, 200, {
+          files,
+          ...storage.usage(),
+          retentionDays: storage.retentionDays(),
+        });
         return;
       }
       const uploadMatch = /^\/api\/uploads(?:\/([a-f0-9-]{36}))?$/.exec(
