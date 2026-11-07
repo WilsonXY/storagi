@@ -425,6 +425,8 @@ export async function createApp(config: Config, options: AppOptions = {}) {
         }
         if (!body || typeof body !== 'object' || Array.isArray(body))
           throw new HttpError(400, 'Settings object required');
+        if (!auth.session(c[SESSION] || ''))
+          throw new HttpError(401, 'Authentication required');
         const result = storage.saveRetention(
           body.retentionDays,
           body.confirmDeletes,
@@ -477,6 +479,8 @@ export async function createApp(config: Config, options: AppOptions = {}) {
           const body = await readTextBody(req);
           if (!body || typeof body !== 'object' || Array.isArray(body))
             throw new HttpError(400, 'Send an object containing text');
+          if (!auth.session(c[SESSION] || ''))
+            throw new HttpError(401, 'Authentication required');
           json(
             res,
             201,
