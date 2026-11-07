@@ -1,5 +1,5 @@
 <!-- The shelf -->
-<div class="app" id="shelf-app" hidden>
+<div class="app panel-closed" id="shelf-app" hidden>
   <aside class="side" id="side" aria-label="Storagi">
     <a class="brand" href="#"
       ><img src="/favicon.svg" alt="" width="22" height="22" /><span
@@ -22,19 +22,6 @@
         ><svg class="i" viewBox="0 0 16 16">
           <path d="M3 3h10M8 3v10M5 13h6" /></svg
         ><span>Text</span><b class="mono" id="nav-texts">—</b></a
-      >
-      <a
-        href="#"
-        class="nav-item"
-        data-tab="transfers"
-        id="nav-transfers"
-        aria-controls="details"
-        aria-expanded="true"
-        ><svg class="i" viewBox="0 0 16 16">
-          <path
-            d="M5 13V3M2.5 5.5 5 3l2.5 2.5M11 3v10M8.5 10.5 11 13l2.5-2.5"
-          /></svg
-        ><span>Transfers</span><b class="mono" id="nav-open">0</b></a
       >
       <a href="#" class="nav-item" data-view="settings" id="nav-settings"
         ><svg class="i" viewBox="0 0 16 16">
@@ -150,6 +137,21 @@
           </svg>
         </button>
       </div>
+      <button
+        type="button"
+        class="icon-btn"
+        id="nav-transfers"
+        data-tab="transfers"
+        aria-label="Transfers"
+        title="Transfers"
+        aria-controls="details"
+        aria-expanded="false"
+      >
+        <svg class="i" viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="2" y="2" width="12" height="12" rx="1.5" />
+          <path d="M10 2v12" />
+        </svg>
+      </button>
     </header>
 
     <div class="body">
@@ -493,6 +495,8 @@
         class="details"
         id="details"
         aria-labelledby="details-title"
+        aria-hidden="true"
+        inert
         tabindex="0"
       >
         <div class="details-head">
