@@ -1,6 +1,6 @@
 # 256: Shared refresh integration and actual-service verification
 
-- Status: in progress
+- Status: completed (bounded verification and reviewed candidate handoff)
 - Started / last updated: 2026-11-08 (Asia/Kuala_Lumpur)
 - Coordinator thread: shared Inbox/Text refresh (stage 249)
 - Agent: coordinator integration, separate from stage 255 implementation delegate
@@ -27,7 +27,9 @@ Companion `test/strengthen-shelf-tests` owns discriminating manual Refresh/searc
 - `server/node_modules/.bin/tsx --test --test-concurrency=1 scripts/acceptance-text-browser.test.ts scripts/acceptance-retention-browser.test.ts` passed **2/2**, 94.7 seconds total (Text 65.8 seconds, retention 26.5 seconds). Includes Text first load, immediate sends/deletes, manual Refresh, selection/copy/link/drafts/Undo, real file upload, shared retention and the new both-view refresh scenarios. Existing geometry assertion remained unchanged and passed locally; companion still owns its known CI race.
 - Browser clocks are installed before page scripts and paused only during the new bounded refresh checks. Cadence tests reject five-second polling without waiting a minute. Later cross-device gesture tests explicitly Refresh after completed remote mutations. Companion discriminating manual Refresh assertions remain separate.
 - Logs/results/screenshots: `artifacts/shared-refresh/` and `artifacts/text-handoff/` (ignored local synthetic evidence). A focused repeat captures offline/recovered screenshots for PR proof without changing product code.
-- Remaining review/PR results recorded after execution.
+- Independent review passed with no findings; see stage 258 for actual Astra/high session proof, exact Git invariance and reviewer-only cleanup. Opus rate-limit failure is retained in stage 257. Product code did not change after checks/review.
+- Focused screenshot repeat passed (20.3 seconds including harness startup), capturing both views offline and recovered. No browser/service from these completed runs is intentionally left running.
+- PR/CI state is reported by the linked PR and coordinator handoff; no merge/deployment is authorized.
 
 ## Handoff
 

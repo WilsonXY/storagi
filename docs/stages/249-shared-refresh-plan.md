@@ -1,10 +1,10 @@
 # 249: Shared Inbox/Text refresh plan
 
-- Status: in progress
+- Status: implementation and review completed; PR/CI handoff
 - Started / last updated: 2026-11-08 (Asia/Kuala_Lumpur)
 - Coordinator thread: this T3 Code thread (owner-requested new thread for shared refresh)
-- Agent/task/thread identifiers: coordinator and implementer are this thread; reviewers recorded in their own stage files
-- Provider/model/effort: initial Claude Opus 5.5/high attempt stopped at the provider rate limit; owner explicitly resumed this thread on Codex `gpt-6.1-sol`/high. T3 capabilities confirmed inherited model and `reasoningEffort=high` on 2026-11-08. Actual session evidence will be recorded at verification.
+- Agent/task/thread identifiers: initial Opus partial implementation and Sol/high integration in this thread; distinct Sol/high implementation delegate in stage 255; independent reviewers in stages 257–258
+- Provider/model/effort: initial requested Claude Opus 5.5/high attempt stopped at the provider rate limit; owner explicitly resumed this thread on Codex `gpt-6.1-sol`/high. T3 capabilities confirmed inherited model and `reasoningEffort=high` on 2026-11-08. Actual session evidence will be recorded at verification.
 - Workspace/branch and starting commit: `feat/shared-shelf-refresh` from `b44bb6d17beb896146b8f01a987bb69a990a9289`
 - Scope and acceptance criteria: below
 
@@ -29,10 +29,13 @@ Out of scope: companion branch `test/strengthen-shelf-tests` (weak-test strength
 | --- | --- | --- | --- |
 | 249 | this thread (coordinator) | Plan, integration, PR, CI handling | Records complete; PR open; CI result reported |
 | 255 | distinct Sol/high implementation delegate | TDD implementation of the shared mechanism | `npm run check`, format, secret scan, typechecks/builds; fake-time unit tests for both views; text browser acceptance with both pages |
-| 257 | independent reviewer per owner profile (read-only, isolated worktree) | Review of the committed diff | Findings answered; repository invariance audited; reviewer worktree/branch removed; model/effort confirmed from reviewer logs |
+| 257–258 | independent reviewer per owner profile (read-only, isolated worktree) | Review of the committed diff | Findings answered; repository invariance audited; reviewer worktree/branch removed; model/effort confirmed from reviewer logs |
 
 Further review rounds, if any, get new files.
 
 ## Outcomes
 
 The initial Opus attempt preserved partial source/tests, then failed with “Claude API rate limit reached” (2026-11-08 local). Owner superseded the Opus-only/wait decision with Sol/high. Starting HEAD remains the expected commit. No obsolete implementation children belong to this thread. Companion reserves stages 250–254; this thread uses 255 onward. Companion owns manual Refresh/search assertion strength, Text Undo context, duplicate trimming and same-frame geometry; preserve its timer-freezing and synchronous button/GET seams during later integration. No integration or merge of its branch is authorized here.
+
+
+Implementation completed in stage 255. Integration verification (stage 256) passed 417 repository checks, both typechecks/builds, formatting/secrets and actual-service Text/retention 2/2 plus focused both-view refresh proof. Fresh Opus review failed at its provider rate limit (stage 257); the owner-authorized fresh Astra/high review passed with no findings (stage 258), with its own session proof and exact parent/reviewer/remote invariance. Reviewer-only worktrees/branches were cleaned; the failed Opus task was cancelled. Product code is commit `3ebaf1b`; later commits contain records only. Coordinator owns the linked PR and CI handoff. No merge, tag, deployment or exposure.
