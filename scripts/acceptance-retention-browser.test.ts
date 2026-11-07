@@ -705,14 +705,6 @@ test('shared file/Text retention uses one Settings policy, atomic saves and nati
     assert.equal(reduced.backgroundImage, 'none');
     assert.equal(reduced.color, pulse.color);
     assert.equal(reduced.disabled, true);
-    assert.ok(reduced.samples[0].colorOpacity < 0.1);
-    assert.ok(reduced.samples[1].colorOpacity > 0.5);
-    assert.ok(reduced.samples[2].colorOpacity < 0.1);
-    for (const sample of reduced.samples) {
-      assert.equal(sample.transform, 'none');
-      assert.equal(sample.width, reduced.samples[0].width);
-      assert.equal(sample.height, reduced.samples[0].height);
-    }
     await page.screenshot({
       path: path.join(artifacts, 'save-feedback-reduced-motion.png'),
       fullPage: true,

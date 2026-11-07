@@ -128,18 +128,21 @@ try {
     const settings = page.locator('#nav-settings');
     if (!(await settings.isVisible())) await page.locator('#menu-btn').click();
     await settings.click();
-    const bounds = await toggle.boundingBox();
-    assert.ok(
-      bounds && width - bounds.x - bounds.width <= 20,
-      `Transfers stays at the far right on Settings at ${width}px`,
-    );
+    // Retention checks the exact edge at 1440/390px; retain the distinct intermediate bound.
+    if (width === 1000) {
+      const bounds = await toggle.boundingBox();
+      assert.ok(
+        bounds && width - bounds.x - bounds.width <= 20,
+        `Transfers stays at the far right on Settings at ${width}px`,
+      );
+    }
     await toggle.click();
     await expanded(true);
     await toggle.click();
     await expanded(false);
   }
   evidence.flows.push(
-    'Toolbar remains at the far right and can open Transfers from Settings at desktop, intermediate and phone widths',
+    'Transfers opens and closes from Settings at desktop, intermediate and phone widths',
   );
 
   for (const width of [1440, 390]) {
