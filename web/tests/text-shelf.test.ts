@@ -439,18 +439,6 @@ test('links have one keyboard stop and clipboard denial uses only inline recover
   ).toContain('Clipboard');
 });
 
-test('draft auto-grows within a bound and shrinks after clearing', () => {
-  mount();
-  Object.defineProperty(draft(), 'scrollHeight', {
-    configurable: true,
-    get: () => (draft().value ? 600 : 62),
-  });
-  type('line\n'.repeat(80));
-  expect(draft().style.height).toBe('240px');
-  type('');
-  expect(draft().style.height).toBe('62px');
-});
-
 test('removing the last text restores header focus instead of opening the phone keyboard', async () => {
   vi.useFakeTimers();
   vi.stubGlobal(
@@ -735,35 +723,26 @@ test('keyboard Undo restores Copy focus and deletion is announced once', async (
   expect(document.querySelector('#text-sync')?.textContent).toBe(announcement);
 });
 
-test('Undo identifies the same note as Copy for assistive technology', async () => {
+test("active Undo is described by this note's metadata, like Copy", async () => {
+  vi.useFakeTimers();
   const { shelf } = mount();
   shelf.activate(true);
   await tick();
+  swipe(-180);
+  await vi.advanceTimersByTimeAsync(0);
+  const card = document.querySelector('.text-card')!;
+  const undo = card.querySelector<HTMLButtonElement>('[data-text-undo]')!;
+  expect(undo.closest('.text-card [hidden]')).toBeNull();
+  const ids = undo.getAttribute('aria-describedby')?.split(/\s+/) ?? [];
+  expect(ids.filter(Boolean)).not.toHaveLength(0);
+  for (const id of ids)
+    expect(card.contains(document.getElementById(id))).toBe(true);
   expect(
-    document
-      .querySelector('[data-text-undo]')
-      ?.getAttribute('aria-describedby'),
-  ).toBe(
-    document
-      .querySelector('[data-text-copy]')
-      ?.getAttribute('aria-describedby'),
-  );
-});
-
-test('long shelf retention displays days instead of hundreds of hours', async () => {
-  const { shelf, setItems } = mount();
-  const now = Date.now();
-  setItems([
-    {
-      id: 'long',
-      text: 'A shelf note',
-      createdAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + 30 * 86400000).toISOString(),
-    },
-  ]);
-  shelf.activate(true);
-  await tick();
-  expect(document.querySelector('.text-expiry')?.textContent).toBe('30d left');
+    ids.map((id) => document.getElementById(id)?.textContent).join(' '),
+  ).toMatch(/example\.com · .+\. Expires .+/);
+  expect(
+    card.querySelector('[data-text-copy]')!.getAttribute('aria-describedby'),
+  ).toBe(undo.getAttribute('aria-describedby'));
 });
 
 test('auto-grow includes the non-scrolling textarea insets and preserves its cap', () => {

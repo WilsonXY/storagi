@@ -234,6 +234,30 @@ test('text moves between two browser devices using the actual authenticated serv
       await page.screenshot({ path: path.join(artifacts, shot) });
     };
     const sender = await desktop.newPage();
+    // Count dashboard Text reads so manual Refresh can be tied to its own click, not a poll.
+    await sender.addInitScript(() => {
+      const fetch = window.fetch;
+      (window as any).textReads = 0;
+      let beforeRefresh = 0;
+      document.addEventListener(
+        'click',
+        (event) => {
+          if ((event.target as Element).closest('#refresh'))
+            beforeRefresh = (window as any).textReads;
+        },
+        true,
+      );
+      window.addEventListener('click', (event) => {
+        if ((event.target as Element).closest('#refresh'))
+          (window as any).refreshReads =
+            (window as any).textReads - beforeRefresh;
+      });
+      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === '/api/texts' && (init?.method ?? 'GET') === 'GET')
+          (window as any).textReads++;
+        return fetch.call(window, input, init);
+      };
+    });
     const receiver = await phone.newPage();
     let releaseLoading!: () => void;
     const loadingGate = new Promise<void>((resolve) => {
@@ -571,7 +595,9 @@ test('text moves between two browser devices using the actual authenticated serv
         'x'.repeat(150) + '.txt',
       ]) {
         await sender.setViewportSize({ width, height: 1000 });
-        const previousNotice = await sender.locator('#notice').elementHandle();
+        // A previous toast may already have expired; snapshot it without waiting for one.
+        const previousNotice =
+          (await sender.locator('#notice').elementHandles())[0] ?? null;
         await sender.locator('[data-text-copy]').click();
         await sender.waitForFunction((old: HTMLElement | null) => {
           const notice = document.querySelector('#notice');
@@ -1243,13 +1269,36 @@ test('text moves between two browser devices using the actual authenticated serv
       .locator('#groups .row')
       .filter({ hasText: 'handoff-proof' })
       .waitFor();
-    const inboxCard = await sender.locator('#composer').boundingBox();
-    const chooseBox = await sender.locator('#choose').boundingBox();
+    // The upload opens Transfers and animates the .body grid; read both boxes in one frame.
+    const chooseAlign = await sender.evaluate(() => {
+      const [card, choose] = ['#composer', '#choose'].map((selector) =>
+        document.querySelector<HTMLElement>(selector)!,
+      );
+      const [a, b] = [card, choose].map((el) => el.getBoundingClientRect());
+      return {
+        visible:
+          card.checkVisibility({
+            checkOpacity: true,
+            checkVisibilityCSS: true,
+          }) &&
+          choose.checkVisibility({
+            checkOpacity: true,
+            checkVisibilityCSS: true,
+          }) &&
+          a.width > 0 &&
+          a.height > 0 &&
+          b.width > 0 &&
+          b.height > 0 &&
+          b.left >= a.left &&
+          b.right <= a.right &&
+          b.top >= a.top &&
+          b.bottom <= a.bottom,
+        gap: a.right - b.right,
+      };
+    });
     assert.ok(
-      inboxCard &&
-        chooseBox &&
-        inboxCard.x + inboxCard.width - chooseBox.x - chooseBox.width <= 20,
-      'Choose files remains right-aligned after removing helper copy',
+      chooseAlign.visible && chooseAlign.gap <= 20,
+      `Choose files remains right-aligned after removing helper copy (gap ${chooseAlign.gap}px)`,
     );
     await sender.screenshot({
       path: path.join(artifacts, 'inbox-no-retention-1440.png'),
@@ -1333,7 +1382,17 @@ test('text moves between two browser devices using the actual authenticated serv
           throw new Error(`Fixture send failed: ${response.status}`);
       }
     });
-    await sender.locator('#refresh').click();
+    // Capture and bubble listeners measure only this real browser click's dispatch:
+    // a periodic poll cannot run between them. Retry if Refresh joins an in-flight read.
+    let refreshRead = false;
+    for (let attempt = 0; attempt < 10 && !refreshRead; attempt++) {
+      await sender.locator('#refresh').click();
+      refreshRead = await sender.evaluate(
+        () => (window as any).refreshReads > 0,
+      );
+    }
+    assert.ok(refreshRead, 'manual Refresh itself starts a fresh Text read');
+    // Started after every fixture POST, that read alone can list all fifteen notes.
     await sender.locator('#text-items article').nth(14).waitFor();
     await sender.setViewportSize({ width: 1440, height: 1400 });
     await sender.evaluate(() => window.scrollTo(0, 0));

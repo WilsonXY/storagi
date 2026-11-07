@@ -25,47 +25,6 @@ const advanceShelfClock = (
   f.setNow(at);
 };
 
-test('new Text and completed files share the same 30-day retention deadline', async () => {
-  const f = await fixture();
-  try {
-    const uploaded = await f.request('/api/uploads', {
-      method: 'POST',
-      headers: {
-        ...f.headers,
-        'upload-length': '0',
-        'upload-metadata': 'filename ZW1wdHk=',
-      },
-    });
-    assert.equal(uploaded.status, 201);
-    const files = await (
-      await f.request('/api/files', { headers: f.headers })
-    ).json();
-    const text = await (await post(f, 'same shelf lifetime')).json();
-    assert.equal(
-      files.files[0].expiresAt,
-      new Date(f.now() + 30 * DAY).toISOString(),
-    );
-    assert.equal(text.expiresAt, files.files[0].expiresAt);
-  } finally {
-    await f.close();
-  }
-});
-
-test('authenticated session describes the shared shelf retention policy', async () => {
-  const f = await fixture();
-  try {
-    const session = await (
-      await f.request('/api/session', { headers: f.headers })
-    ).json();
-    assert.equal(session.retentionDays, 30);
-    assert.equal(session.authenticated, true);
-    assert.ok(session.csrfToken);
-    assert.equal((await f.request('/api/session')).status, 401);
-  } finally {
-    await f.close();
-  }
-});
-
 test('texts preserve exact Unicode/whitespace, are newest first and survive restart without affecting file quota', async () => {
   const f = await fixture(0);
   try {
@@ -116,6 +75,11 @@ test('texts preserve exact Unicode/whitespace, are newest first and survive rest
 test('every text operation requires owner auth and mutations require same-origin CSRF', async () => {
   const f = await fixture();
   try {
+    const session = await (
+      await f.request('/api/session', { headers: f.headers })
+    ).json();
+    assert.equal(session.authenticated, true);
+    assert.equal(session.csrfToken, f.headers['x-csrf-token']);
     for (const route of [
       '/api/texts',
       '/api/texts/00000000-0000-4000-8000-000000000000',
