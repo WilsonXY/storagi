@@ -126,6 +126,45 @@ test('default policy survives restart and saving updates existing and new comple
   }
 });
 
+for (const kind of ['files', 'Text'] as const)
+  test(`${kind}-only shortening requires fresh acknowledgement when another item crosses the boundary`, async () => {
+    const f = await fixture();
+    try {
+      const storage = f.app.storage;
+      for (const age of [7 * DAY, 7 * DAY - 1]) {
+        if (kind === 'files') {
+          const id = await upload(f, 'boundary');
+          storage.db
+            .prepare('UPDATE files SET uploadedAt=? WHERE id=?')
+            .run(f.now() - age, id);
+        } else {
+          const note = await postText(f, 'boundary');
+          storage.db
+            .prepare('UPDATE texts SET createdAt=? WHERE id=?')
+            .run(f.now() - age, note.id);
+        }
+      }
+      const beforeFiles = storage.rows(),
+        beforeTexts = textRows(f);
+      let response = await save(f, 7);
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).deleteCount, 1);
+      f.setNow(f.now() + 1);
+      response = await save(f, 7, 1);
+      assert.equal(response.status, 409);
+      assert.equal((await response.json()).deleteCount, 2);
+      assert.equal(storage.retentionDays(), 30);
+      assert.deepEqual(storage.rows(), beforeFiles);
+      assert.deepEqual(textRows(f), beforeTexts);
+      assert.equal((await save(f, 7, 2)).status, 200);
+      assert.equal(storage.retentionDays(), 7);
+      assert.equal((await listing(f)).files.length, 0);
+      assert.equal((await listing(f)).textCount, 0);
+    } finally {
+      await f.close();
+    }
+  });
+
 test('shortening counts both live item types and commits only within the confirmed count at the exact boundary', async () => {
   const f = await fixture();
   try {

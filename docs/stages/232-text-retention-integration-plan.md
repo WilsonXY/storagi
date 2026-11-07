@@ -1,6 +1,6 @@
 # 232: Integrate current main and one adjustable Inbox/Text lifetime
 
-- Status: in progress
+- Status: completed implementation/integration; PR update and required CI follow
 - Date: 2026-11-07, Asia/Kuala_Lumpur
 - Coordinator: top-level adjustable-file-retention owner follow-up on PR #40; runtime Codex GPT-6.1 Sol/high
 - Starting branch/head: `feat/adjustable-file-retention`, `4a9626da8cc80c96df328b27adfb19cd2b07ed86`
@@ -39,4 +39,6 @@ The first integrated browser attempt failed because its new assertion searched f
 
 The coordinator also added the shared retention browser acceptance to CI after main's existing Text browser acceptance, reusing its pinned Playwright/Chromium installation. No new package or parallel heavy job was introduced.
 
-`npm run check` passed in one complete run on cached CI-matching Node 22.23.4: **53 server tests, 180 web tests, 11 HTTP acceptance tests and 154 deployment-script tests**, followed by both TypeScript checks and both production builds (45 web modules). Existing jsdom media pause/load diagnostics did not fail tests. Full formatting, staged secret scanning and committed-snapshot review follow before PR update. Literal command logs remain ignored rather than publishing private paths.
+`npm run check` passed in one complete run on cached CI-matching Node 22.23.4: **53 server tests, 180 web tests, 11 HTTP acceptance tests and 154 deployment-script tests**, followed by both TypeScript checks and both production builds (45 web modules). Existing jsdom media pause/load diagnostics did not fail tests. Full formatting and staged Gitleaks8.30.1 passed before implementation commit `e915b55`. Literal command logs remain ignored rather than publishing private paths.
+
+Independent [stage235](235-shared-text-retention-review.md) Opus5.5/high review passed. Actual model/effort were confirmed from its own log; root/remote and reviewer-worktree invariance and cleanup passed. The coordinator fixed a documentation typo and added isolated file-only/Text-only count-growth tests; post-review Settings/Text tests passed **19/19** on Node22.23.4. No application source changed after review, so inspected browser proof remains current. The existing PR40 is the delivery vehicle; push, current hosted proof, synthetic preview refresh and required CI are the remaining external handoff steps. No new PR, unrelated network mapping or production deployment is needed.
