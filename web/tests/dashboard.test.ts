@@ -2010,6 +2010,89 @@ test('Text navigation uses authenticated JSON mutations, search and manual refre
   expect(document.querySelector('#page-title')?.textContent).toBe('Inbox');
 });
 
+test.each([
+  ['Text', '.nav-item[data-tab="text"]'],
+  ['Settings', '#nav-settings'],
+  ['mobile Transfers', '#nav-transfers'],
+])(
+  'leaving Inbox for %s prevents stale file actions',
+  async (_name, destination) => {
+    vi.useFakeTimers();
+    vi.stubGlobal('innerWidth', 390);
+    const api = service();
+    const fetcher = vi.fn(async (url: RequestInfo | URL) =>
+      String(url) === '/api/texts'
+        ? Response.json({
+            texts: [
+              {
+                id: 'note',
+                text: 'Keep this text',
+                createdAt: new Date().toISOString(),
+                expiresAt: '2099-11-17T00:00:00Z',
+              },
+            ],
+          })
+        : api.fetcher(url),
+    );
+    await mount(fetcher);
+    click('[data-del="old-id"]');
+    const staleConfirm = document.querySelector<HTMLElement>(
+      '[data-confirm="old-id"]',
+    )!;
+    click('[data-id="new-id"] .check');
+    expect(document.querySelector('#sel-count')?.textContent).toBe('1');
+    const staleDelete = document.querySelector<HTMLElement>('#sel-delete')!;
+    const staleDownload = document.querySelector<HTMLElement>('#sel-download')!;
+    click(destination);
+    await tick();
+    staleDelete.click();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(deletes(fetcher)).toEqual([]);
+    expect(
+      document.querySelector('#select-bar')!.classList.contains('out'),
+    ).toBe(true);
+
+    staleConfirm.click();
+    // Hidden controls and a select-all shortcut must not recreate file selection.
+    click('[data-id="new-id"] .check');
+    click('#select-all');
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }),
+    );
+    const downloads = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    staleDownload.dispatchEvent(new MouseEvent('click'));
+    const downloadCount = downloads.mock.calls.length;
+    downloads.mockRestore();
+    staleDelete.click();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(deletes(fetcher)).toEqual([]);
+    expect(downloadCount).toBe(0);
+    expect(
+      document.querySelector('#select-bar')!.classList.contains('out'),
+    ).toBe(true);
+    if (destination.includes('text'))
+      expect(document.querySelector('#text-shelf')!.textContent).toContain(
+        'Keep this text',
+      );
+
+    click('.nav-item[data-tab="inbox"]');
+    expect(rows()).toHaveLength(2);
+    expect(
+      document.querySelector<HTMLInputElement>('[data-id="new-id"] .check')!
+        .checked,
+    ).toBe(false);
+    click('[data-id="new-id"] .check');
+    click('#sel-delete');
+    expect(rows()).toHaveLength(1);
+    click('#notice button');
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(rows()).toHaveLength(2);
+    expect(deletes(fetcher)).toEqual([]);
+  },
+);
+
 test('desktop Transfers navigation leaves Text so the transfer panel is visible', async () => {
   vi.stubGlobal('innerWidth', 1440);
   const api = service();
